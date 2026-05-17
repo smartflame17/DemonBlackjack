@@ -5,7 +5,7 @@ public class RunManager : MonoBehaviour
     [SerializeField] private BattleController battleController;
     [SerializeField] private bool startRunOnAwake = true;
     [SerializeField] private int debugSeed = 12345;
-    [SerializeField] private int playerMaxHp = 50;
+    [SerializeField] private int playerMaxHp = 100;
     [SerializeField] private int startingGold = 0;
     [SerializeField] private int defaultOpponentHp = 30;
 
