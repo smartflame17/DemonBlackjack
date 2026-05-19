@@ -1,24 +1,20 @@
-using System.Collections.Generic;
-
 public interface IDevilStrategy
 {
-    IReadOnlyList<Card> ChooseCards(BattleState battle, RoundState round);
+    int DrawValue { get; }
+    int ChooseCardIndex(BattleState battle, RoundState round);
 }
 
 public sealed class BasicDevilStrategy : IDevilStrategy
 {
-    public IReadOnlyList<Card> ChooseCards(BattleState battle, RoundState round)
+    public BasicDevilStrategy(int drawValue = 2)
     {
-        var cards = new List<Card>();
+        DrawValue = drawValue <= 0 ? 2 : drawValue;
+    }
 
-        for (int i = 0; i < 2; i++)
-        {
-            if (!battle.TryDrawForOpponent(out Card card))
-                break;
+    public int DrawValue { get; }
 
-            cards.Add(card);
-        }
-
-        return cards;
+    public int ChooseCardIndex(BattleState battle, RoundState round)
+    {
+        return 0;
     }
 }

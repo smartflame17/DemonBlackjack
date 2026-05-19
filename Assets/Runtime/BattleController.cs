@@ -22,15 +22,25 @@ public class BattleController : MonoBehaviour
 
     public void StartNextRound()
     {
-        if (BattleState == null || BattleState.IsBattleOver)
-            return;
+        StartNextRound(-1);
+    }
 
-        BattleState.StartRound();
+    public bool StartNextRound(int wager)
+    {
+        if (BattleState == null || BattleState.IsBattleOver)
+            return false;
+
+        return BattleState.StartRound(wager);
     }
 
     public bool TryPlayCard(int handIndex)
     {
         return BattleState != null && BattleState.TryPlayCard(handIndex);
+    }
+
+    public bool TryHit()
+    {
+        return BattleState != null && BattleState.TryHit();
     }
 
     public RoundResolution EndPlayerPhase()

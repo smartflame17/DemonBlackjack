@@ -6,6 +6,8 @@ public sealed class BattleState
     private readonly Deck _deck;
     private readonly List<Modifier> _activeModifiers = new();
     private readonly List<RoundResolution> _combatHistory = new();
+    private readonly List<Card> _playerHandCarryover = new();
+    private readonly List<Card> _opponentHandCarryover = new();
 
     public BattleState(RunState runState, BattleConfig config)
     {
@@ -20,6 +22,7 @@ public sealed class BattleState
         BattleSeed = runState.CreateBattleSeed();
         _deck = new Deck(runState.Deck, BattleSeed);
         _activeModifiers.AddRange(config.InitialModifiers);
+        PlayerDrawValue = config.StartingHandSize;
     }
 
     public RunState RunState { get; }
@@ -32,6 +35,7 @@ public sealed class BattleState
     public int OpponentHp { get; private set; }
     public int OpponentMaxHp { get; }
     public int RoundNumber { get; private set; }
+    public int PlayerDrawValue { get; }
     public int ReshuffleCount { get; private set; }
     public int BattleSeed { get; }
     public bool IsBattleOver => PlayerHp <= 0 || OpponentHp <= 0 || Phase == BattlePhase.BattleEnd;
@@ -47,19 +51,32 @@ public sealed class BattleState
         SetPhase(BattlePhase.PreRound);
     }
 
-    public void StartRound()
+    public bool StartRound(int wager = -1)
     {
         if (IsBattleOver)
-            return;
+            return false;
 
+        if (!TryResolveWager(wager, out int roundWager))
+            return false;
+
+        if (roundWager > 0)
+            RunState.AddGold(-roundWager);
+
+        bool playerActsFirst = RoundNumber % 2 == 0;
         SetPhase(BattlePhase.PreRound);
         RoundNumber++;
-        CurrentRound = new RoundState(RoundNumber, Config.TargetScore, Config.BurstThreshold, Config.BaseWager);
+        CurrentRound = new RoundState(RoundNumber, Config.TargetScore, Config.BurstThreshold, roundWager, playerActsFirst);
+        RestoreCarryoverHands();
         EventBus.Publish(new RoundStartedEvent(RoundNumber));
         CommandQueue.Enqueue(new VisualCommand(VisualCommandType.RoundStarted, RoundNumber.ToString()));
-        DrawPlayerHand(Config.StartingHandSize);
-        DrawSharedCards(1);
+        RefillPlayerHandIfEmpty();
+        RefillOpponentHandIfEmpty();
+
+        if (!playerActsFirst)
+            PlayOpponentTurn();
+
         SetPhase(BattlePhase.PlayerPhase);
+        return true;
     }
 
     public bool TryPlayCard(int handIndex)
@@ -75,6 +92,23 @@ public sealed class BattleState
         return true;
     }
 
+    public bool TryHit()
+    {
+        if (Phase != BattlePhase.PlayerPhase || CurrentRound == null || CurrentRound.PlayerHasPlayed)
+            return false;
+
+        if (!TryDrawCard(out Card card))
+            return false;
+
+        if (!CurrentRound.TryPlayHitCard(card))
+            return false;
+
+        EventBus.Publish(new CardDrawnEvent(Combatant.Player, card, _deck.RemainingCards));
+        EventBus.Publish(new CardPlayedEvent(Combatant.Player, card));
+        CommandQueue.Enqueue(new VisualCommand(VisualCommandType.CardsPlayed, card.ToString()));
+        return true;
+    }
+
     public RoundResolution EndPlayerPhase()
     {
         if (Phase != BattlePhase.PlayerPhase || CurrentRound == null)
@@ -83,11 +117,8 @@ public sealed class BattleState
         EventBus.Publish(new RoundEndedEvent(RoundNumber));
         SetPhase(BattlePhase.PostRound);
 
-        IReadOnlyList<Card> opponentCards = Config.DevilStrategy.ChooseCards(this, CurrentRound);
-        CurrentRound.SetOpponentCards(opponentCards);
-
-        foreach (Card card in opponentCards)
-            EventBus.Publish(new CardDrawnEvent(Combatant.Opponent, card, _deck.RemainingCards));
+        if (CurrentRound.PlayerActsFirst)
+            PlayOpponentTurn();
 
         ScoreResult playerScore = ScoreResolver.Resolve(CurrentRound.PlayerPlayedCards, CurrentRound.ScoringModifiers, CurrentRound.TargetScore, CurrentRound.BurstThreshold);
         ScoreResult opponentScore = ScoreResolver.Resolve(CurrentRound.OpponentVisibleCards, CurrentRound.ScoringModifiers, CurrentRound.TargetScore, CurrentRound.BurstThreshold);
@@ -98,6 +129,7 @@ public sealed class BattleState
         CommandQueue.Enqueue(new VisualCommand(VisualCommandType.ScoresResolved, $"{playerScore.FinalScore}:{opponentScore.FinalScore}"));
 
         RoundResolution resolution = HealthResolver.ResolveRound(this, CurrentRound);
+        ResolveRoundBet(resolution);
         _combatHistory.Add(resolution);
         CommandQueue.Enqueue(new VisualCommand(VisualCommandType.RoundEnded, RoundNumber.ToString()));
 
@@ -114,6 +146,7 @@ public sealed class BattleState
         if (CurrentRound == null)
             return;
 
+        CurrentRound.MoveHandsTo(_playerHandCarryover, _opponentHandCarryover);
         _deck.DiscardRange(CurrentRound.TakeCardsForCleanup());
         CurrentRound = null;
 
@@ -174,6 +207,46 @@ public sealed class BattleState
         return TryDrawCard(out card);
     }
 
+    private bool TryResolveWager(int requestedWager, out int wager)
+    {
+        if (requestedWager < 0)
+        {
+            wager = Math.Min(Config.BaseWager, RunState.Gold);
+            return true;
+        }
+
+        wager = Math.Max(0, requestedWager);
+        return wager <= RunState.Gold;
+    }
+
+    private void RestoreCarryoverHands()
+    {
+        for (int i = 0; i < _playerHandCarryover.Count; i++)
+            CurrentRound.AddToHand(_playerHandCarryover[i]);
+
+        for (int i = 0; i < _opponentHandCarryover.Count; i++)
+            CurrentRound.AddToOpponentHand(_opponentHandCarryover[i]);
+
+        _playerHandCarryover.Clear();
+        _opponentHandCarryover.Clear();
+    }
+
+    private void RefillPlayerHandIfEmpty()
+    {
+        if (CurrentRound.PlayerHand.Count > 0)
+            return;
+
+        DrawPlayerHand(PlayerDrawValue);
+    }
+
+    private void RefillOpponentHandIfEmpty()
+    {
+        if (CurrentRound.OpponentHand.Count > 0)
+            return;
+
+        DrawOpponentHand(Config.DevilStrategy.DrawValue);
+    }
+
     private void DrawPlayerHand(int count)
     {
         for (int i = 0; i < count; i++)
@@ -189,16 +262,46 @@ public sealed class BattleState
         CommandQueue.Enqueue(new VisualCommand(VisualCommandType.CardsDrawn, CurrentRound.PlayerHand.Count.ToString()));
     }
 
-    private void DrawSharedCards(int count)
+    private void DrawOpponentHand(int count)
     {
         for (int i = 0; i < count; i++)
         {
             if (!TryDrawCard(out Card card))
                 break;
 
-            CurrentRound.AddSharedVisibleCard(card);
+            CurrentRound.AddToOpponentHand(card);
             EventBus.Publish(new CardDrawnEvent(Combatant.Opponent, card, _deck.RemainingCards));
         }
+    }
+
+    private bool PlayOpponentTurn()
+    {
+        if (CurrentRound == null || CurrentRound.OpponentHasPlayed)
+            return false;
+
+        RefillOpponentHandIfEmpty();
+
+        int handIndex = Config.DevilStrategy.ChooseCardIndex(this, CurrentRound);
+        if (!CurrentRound.TryPlayOpponentCard(handIndex, out Card card))
+        {
+            if (handIndex == 0 || !CurrentRound.TryPlayOpponentCard(0, out card))
+                return false;
+        }
+
+        EventBus.Publish(new CardPlayedEvent(Combatant.Opponent, card));
+        CommandQueue.Enqueue(new VisualCommand(VisualCommandType.CardsPlayed, card.ToString()));
+        return true;
+    }
+
+    private void ResolveRoundBet(RoundResolution resolution)
+    {
+        if (CurrentRound.Wager <= 0)
+            return;
+
+        if (resolution.Winner == Combatant.Player)
+            RunState.AddGold(CurrentRound.Reward);
+        else if (resolution.Winner == null)
+            RunState.AddGold(CurrentRound.Wager);
     }
 
     private bool TryDrawCard(out Card card)

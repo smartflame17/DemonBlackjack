@@ -73,6 +73,7 @@ public sealed class Deck
         }
     }
 
+// TODO: Based on gameplay designer's request, this method may be altered to generate a custom starting deck
     public static List<Card> CreateStandardDeck()
     {
         var cards = new List<Card>(52);

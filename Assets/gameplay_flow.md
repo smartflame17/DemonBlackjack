@@ -110,6 +110,7 @@ Responsible classes:
 - opponent combat HP
 - battle phase
 - round number
+- player and opponent hand carryover between rounds
 - reshuffle count
 - deterministic battle seed
 - current round
@@ -148,16 +149,21 @@ Responsible classes:
 `BattleState.StartRound`:
 
 1. Stops if the battle is already over.
-2. Sets the battle phase to `PreRound`.
-3. Increments `RoundNumber`.
-4. Creates a new `RoundState`.
-5. Publishes `RoundStartedEvent`.
-6. Enqueues a `RoundStarted` visual command.
-7. Draws the player's starting hand.
-8. Draws shared visible cards.
-9. Sets the battle phase to `PlayerPhase`.
+2. Resolves the round wager. An explicit wager must be affordable; the default wager is clamped to the player's current gold.
+3. Removes the wager from `RunState.Gold`.
+4. Determines initiative. The player acts first on odd rounds, starting with round 1; the opponent acts first on even rounds.
+5. Sets the battle phase to `PreRound`.
+6. Increments `RoundNumber`.
+7. Creates a new `RoundState` with the target, burst threshold, wager, and initiative flag.
+8. Publishes `RoundStartedEvent`.
+9. Restores any unplayed hand cards carried over from the previous round.
+10. Enqueues a `RoundStarted` visual command.
+11. Refills the player's hand if empty using `BattleState.PlayerDrawValue`.
+12. Refills the opponent's hand if empty using `IDevilStrategy.DrawValue`.
+13. If the opponent has initiative, applies the configured `IDevilStrategy` immediately so the opponent plays before the player.
+14. Sets the battle phase to `PlayerPhase`.
 
-## 9. Player Hand Draw
+## 9. Hand Refill
 
 Responsible classes:
 
@@ -166,8 +172,9 @@ Responsible classes:
 - `RoundState`
 - `ScopedEventBus`
 - `CommandQueue`
+- `IDevilStrategy`
 
-`BattleState.DrawPlayerHand` draws cards from the per-battle `Deck`.
+Unplayed hand cards carry across round cleanup. `BattleState.RefillPlayerHandIfEmpty` draws cards from the per-battle `Deck` using `BattleState.PlayerDrawValue` only when the carried/current player hand is empty.
 
 For each card drawn:
 
@@ -177,6 +184,8 @@ For each card drawn:
 4. `CardDrawnEvent` is published for the player.
 
 After drawing, `HandRefilledEvent` is published and a `CardsDrawn` visual command is enqueued.
+
+`BattleState.RefillOpponentHandIfEmpty` uses `IDevilStrategy.DrawValue` only when the opponent hand is empty, adds cards to `RoundState.OpponentHand`, and publishes `CardDrawnEvent` for the opponent.
 
 ## 10. Player Phase
 
@@ -194,10 +203,16 @@ UI or other input code should call `BattleController.TryPlayCard(handIndex)`.
 
 `BattleState.TryPlayCard` only succeeds during `PlayerPhase`. It asks `RoundState` to move the selected card from `PlayerHand` to `PlayerPlayedCards`.
 
+Each round, the player may play only one card. `RoundState.PlayerHasPlayed` prevents additional hand plays.
+
 When a card is played:
 
 1. `CardPlayedEvent` is published.
 2. A `CardsPlayed` visual command is enqueued.
+
+The player can alternatively call `BattleController.TryHit`.
+
+`TryHit` immediately draws the first card from the draw pile and plays it into `RoundState.PlayerPlayedCards`. This also counts as the player's one card for the round, publishes both `CardDrawnEvent` and `CardPlayedEvent`, and enqueues a `CardsPlayed` visual command.
 
 ## 11. Ending Player Phase
 
@@ -213,6 +228,8 @@ UI or other input code should call `BattleController.EndPlayerPhase`.
 
 `BattleState.EndPlayerPhase` only runs from `PlayerPhase`. It publishes `RoundEndedEvent` and moves the battle phase to `PostRound`.
 
+If the player had initiative this round, `BattleState` applies the configured `IDevilStrategy` here so the opponent plays after the player. If the opponent had initiative, the opponent already played during round start.
+
 ## 12. Devil Strategy
 
 Responsible classes:
@@ -222,13 +239,20 @@ Responsible classes:
 - `BasicDevilStrategy`
 - `RoundState`
 
-After the player phase ends, `BattleState` asks the configured `IDevilStrategy` to choose opponent cards.
+`IDevilStrategy` now controls two opponent-turn details:
 
-The current default implementation is `BasicDevilStrategy`, which draws up to two cards from the battle deck by calling `BattleState.TryDrawForOpponent`.
+- `DrawValue`: how many cards the opponent refills when its hand is empty
+- `ChooseCardIndex`: which one card to play from `RoundState.OpponentHand`
 
-The chosen cards are stored in `RoundState.OpponentVisibleCards`.
+The current default implementation is `BasicDevilStrategy`, which refills two cards and plays hand index `0`.
 
-`CardDrawnEvent` is published for each opponent card.
+When the opponent plays:
+
+1. `RoundState.TryPlayOpponentCard` moves one card from `OpponentHand` to `OpponentVisibleCards`.
+2. `CardPlayedEvent` is published for the opponent.
+3. A `CardsPlayed` visual command is enqueued.
+
+Opponent strategy is applied either during round start or during post-player phase depending on the round's initiative order.
 
 ## 13. Score Resolution
 
@@ -298,7 +322,13 @@ Responsible classes:
 
 `HealthResolver.ResolveRound` returns a `RoundResolution`.
 
-`BattleState` stores that result in its combat history and enqueues a `RoundEnded` visual command.
+`BattleState` then resolves the wager:
+
+- player win: pays `RoundState.Reward`, currently `wager * 2`, back into `RunState.Gold`
+- draw: refunds the wager
+- opponent win: the wager remains lost
+
+`BattleState` stores the result in its combat history and enqueues a `RoundEnded` visual command.
 
 If either combatant has zero HP, the battle ends immediately.
 
@@ -317,10 +347,11 @@ After `BattleState.EndPlayerPhase`, `BattleController.EndPlayerPhase` automatica
 
 `BattleState.CleanupRound`:
 
-1. Takes all cleanup cards from `RoundState`.
-2. Moves those cards to the battle deck discard pile.
-3. Clears `CurrentRound`.
-4. Moves the battle phase back to `PreRound`.
+1. Moves unplayed player and opponent hand cards into battle-level carryover lists.
+2. Takes all cleanup cards from `RoundState`.
+3. Moves played player cards, opponent visible cards, and shared cards to the battle deck discard pile.
+4. Clears `CurrentRound`.
+5. Moves the battle phase back to `PreRound`.
 
 The next round can then be started with `BattleController.StartNextRound`.
 
