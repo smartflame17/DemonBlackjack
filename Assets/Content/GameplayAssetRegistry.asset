@@ -171,5 +171,7 @@ MonoBehaviour:
   - suit: 3
     rank: 13
     sprite: {fileID: -471437433, guid: 15488cc87250a6b4895c1df61918dd2a, type: 3}
-  defaultDevilSprite: {fileID: 0}
-  devilSprites: []
+  defaultDevilSprite: {fileID: 21300000, guid: 93a1ff9a68a08cb42a69e76b56da86fc, type: 3}
+  devilSprites:
+  - devilId: testDevil
+    sprite: {fileID: 21300000, guid: 93a1ff9a68a08cb42a69e76b56da86fc, type: 3}
