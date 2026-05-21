@@ -52,6 +52,8 @@ public static class HealthResolver
         return player.FinalScore > opponent.FinalScore ? Combatant.Player : Combatant.Opponent;
     }
 
+    // TODO: damage calculation needs to account for burst and blackjack conditions, as well as potential future modifiers
+    // Burst deals half of current hp damage
     private static int CalculateDamage(ScoreResult score, int wager)
     {
         int blackjackBonus = score.IsBlackjack ? 2 : 0;
