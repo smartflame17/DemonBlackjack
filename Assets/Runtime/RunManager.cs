@@ -5,9 +5,9 @@ public class RunManager : MonoBehaviour
     [SerializeField] private BattleController battleController;
     [SerializeField] private bool startRunOnAwake = true;
     [SerializeField] private int debugSeed = 12345;
-    [SerializeField] private int playerMaxHp = 100;
-    [SerializeField] private int startingGold = 10;
-    [SerializeField] private int defaultOpponentHp = 30;
+    [SerializeField] private int playerMaxHp = 100;     // deprecated
+    [SerializeField] private int startingGold = 100;
+    [SerializeField] private int defaultOpponentHp = 100;   // deprecated
 
     public RunState RunState { get; private set; }
 
@@ -35,7 +35,9 @@ public class RunManager : MonoBehaviour
 
     public void StartRun(int seed)
     {
-        RunState = new RunState(seed, playerMaxHp, startingGold);
+        int runStartingMoney = startingGold <= 0 ? 100 : startingGold;
+        RunState = new RunState(seed, playerMaxHp, runStartingMoney);
+        Debug.Log("Run started with seed: " + seed);
         SetPhase(RunPhase.Init);
         SetPhase(RunPhase.Map);
     }
@@ -51,10 +53,12 @@ public class RunManager : MonoBehaviour
             return;
         }
 
-        SetPhase(RunPhase.Battle);
-        BattleConfig battleConfig = config ?? new BattleConfig($"encounter_{RunState.EncounterIndex + 1}", defaultOpponentHp);
-        EventBus.Publish(new BattleStartedEvent(battleConfig.EncounterId, RunState.CreateBattleSeed(), RunState.PlayerHp, battleConfig.OpponentMaxHp));
+        int opponentStartingMoney = defaultOpponentHp <= 0 ? 100 : defaultOpponentHp;
+        BattleConfig battleConfig = config ?? new BattleConfig($"encounter_{RunState.EncounterIndex + 1}", opponentStartingMoney);
         battleController.InitializeBattle(RunState, battleConfig);
+        SetPhase(RunPhase.Battle);
+        EventBus.Publish(new BattleStartedEvent(battleConfig.EncounterId, RunState.CreateBattleSeed(), RunState.PlayerHp, battleConfig.OpponentMaxHp));
+        Debug.Log("Battle started against " + battleConfig.EncounterId + ", event published");
     }
 
     public void AdvanceAfterEncounter()
@@ -63,6 +67,15 @@ public class RunManager : MonoBehaviour
             return;
 
         SetPhase(RunPhase.Rewards);
+    }
+
+    public void ReturnToMap()
+    {
+        if (RunState == null)
+            return;
+
+        SetPhase(RunPhase.Map);
+        Debug.Log($"Returning to map. Gold: {RunState.Gold}, Encounter Index: {RunState.EncounterIndex}");
     }
 
     private void OnBattleEnded(BattleEndedEvent eventData)

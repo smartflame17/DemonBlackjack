@@ -2,8 +2,8 @@ using UnityEngine;
 
 public class BattleController : MonoBehaviour
 {
-    [SerializeField] private bool startFirstRoundOnInitialize = true;
-    [SerializeField] private bool autoStartNextRoundAfterVisuals = true;
+    [SerializeField] private bool startFirstRoundOnInitialize;
+    [SerializeField] private bool autoStartNextRoundAfterVisuals;
 
     public BattleState BattleState { get; private set; }
     public CommandQueue CommandQueue => BattleState?.CommandQueue;
@@ -31,10 +31,15 @@ public class BattleController : MonoBehaviour
 
     public bool StartNextRound(int wager)
     {
+        return StartNextRound(wager, true);
+    }
+
+    public bool StartNextRound(int wager, bool playerAcceptsOpponentWager)
+    {
         if (BattleState == null || BattleState.IsBattleOver || IsWaitingForVisuals)
             return false;
 
-        return BattleState.StartRound(wager);
+        return BattleState.StartRound(wager, playerAcceptsOpponentWager);
     }
 
     public bool TryPlayCard(int handIndex)
@@ -44,7 +49,24 @@ public class BattleController : MonoBehaviour
 
     public bool TryHit()
     {
-        return !IsWaitingForVisuals && BattleState != null && BattleState.TryHit();
+        if (IsWaitingForVisuals || BattleState == null)
+            return false;
+
+        BattleState activeBattle = BattleState;
+        bool result = activeBattle.TryHit();
+        MarkWaitingForCompletedRound(activeBattle);
+        return result;
+    }
+
+    public bool TryStand()
+    {
+        if (IsWaitingForVisuals || BattleState == null)
+            return false;
+
+        BattleState activeBattle = BattleState;
+        bool result = activeBattle.TryStand();
+        MarkWaitingForCompletedRound(activeBattle);
+        return result;
     }
 
     public RoundResolution EndPlayerPhase()
@@ -117,6 +139,12 @@ public class BattleController : MonoBehaviour
     {
         _pendingBattleEndedEvent = eventData;
         IsWaitingForVisuals = true;
+    }
+
+    private void MarkWaitingForCompletedRound(BattleState activeBattle)
+    {
+        if (BattleState == activeBattle && (activeBattle.Phase == BattlePhase.Cleanup || activeBattle.Phase == BattlePhase.BattleEnd))
+            IsWaitingForVisuals = true;
     }
 
     private void PublishPendingBattleEndedEvent()
