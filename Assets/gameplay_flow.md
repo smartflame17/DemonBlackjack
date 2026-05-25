@@ -1,58 +1,22 @@
 # Gameplay Flow
 
-This document describes the gameplay flow implemented in the current codebase. It focuses on the core pure C# layer under `Assets/Core/Gameplay` and the thin MonoBehaviour owners under `Assets/Runtime`.
+This document describes the intended MVP gameplay flow for the pure C# layer under `Assets/Core/Gameplay` and the thin MonoBehaviour owners under `Assets/Runtime`.
 
-## 1. Global Event Bus Setup
+## 1. Run Resource Model
 
-Responsible classes:
+`RunState` stores one persistent survival resource: money. Health and money are no longer separate systems.
 
-- `EventBus`
-- `ScopedEventBus`
-- `IEventBus`
+The player starts a run with 100 money. The player loses the run when money reaches 0. Legacy HP-facing API may remain temporarily as a presentation compatibility shim, but gameplay logic should read and write money.
 
-`EventBus` is the global static event facade. It internally owns one `ScopedEventBus` instance and exposes static `Subscribe`, `Unsubscribe`, and `Publish` methods.
-
-`ScopedEventBus` is the reusable event bus implementation. `BattleState` creates its own scoped bus per battle, so battle-only events can be discarded when the battle ends.
-
-## 2. Persistence Manager Initialization
-
-Responsible class:
-
-- `PersistenceManager`
-
-`PersistenceManager` is a `DontDestroyOnLoad` singleton. At the moment it only guarantees that one persistent instance exists. Save/load data is not implemented yet.
-
-## 3. Run Manager Initialization
-
-Responsible class:
-
-- `RunManager`
-
-`RunManager.Awake` finds a `BattleController` in the scene if one was not assigned in the inspector.
-
-`RunManager.OnEnable` subscribes to the global `BattleEndedEvent`.
-
-`RunManager.Start` optionally starts a debug run by calling `StartRun(debugSeed)`.
-
-## 4. Run Creation
-
-Responsible classes:
-
-- `RunManager`
-- `RunState`
-- `Deck`
-
-`RunManager.StartRun` creates a new `RunState`.
-
-`RunState` stores persistent run data:
+`RunState` also stores persistent run data:
 
 - run seed
 - current run phase
-- player HP and max HP
-- gold
+- player money
 - encounter index
 - difficulty level
 - devil progression
+- per-devil affinity values
 - run deck
 - relic ids
 - global modifier ids
@@ -60,209 +24,81 @@ Responsible classes:
 
 During construction, `RunState` creates a standard 52-card deck through `Deck.CreateStandardDeck`.
 
-After creating the state, `RunManager` moves the run phase from `Init` to `Map` and publishes `RunPhaseChangedEvent` through the global `EventBus`.
+## 2. Battle Start
 
-## 5. Battle Start Request
-
-Responsible classes:
-
-- `RunManager`
-- `BattleConfig`
-- `BattleController`
-- `EventBus`
-
-`RunManager.StartBattle` starts a battle from the current run.
-
-If no `BattleConfig` is provided, `RunManager` creates a default one with:
+`RunManager.StartBattle` starts a battle from the current run. If no `BattleConfig` is provided, it creates a default config with:
 
 - encounter id based on the current encounter index
-- default opponent HP
+- opponent starting money, currently 100
 - default `BasicDevilStrategy`
-- default hand size, target score, burst threshold, and wager
+- default hand size, target score, burst threshold, and wager bounds
 
-`RunManager` then:
+`BattleController.InitializeBattle` creates a `BattleState`, subscribes to that battle state's `BattleEndedEvent`, and calls `BattleState.Initialize`.
 
-1. Sets the run phase to `Battle`.
-2. Publishes a global `BattleStartedEvent`.
-3. Calls `BattleController.InitializeBattle`.
-
-## 6. Battle State Creation
-
-Responsible classes:
-
-- `BattleController`
-- `BattleState`
-- `RunState`
-- `BattleConfig`
-- `Deck`
-- `ScopedEventBus`
-- `CommandQueue`
-
-`BattleController.InitializeBattle` clears any existing battle reference, creates a new `BattleState`, subscribes to that battle state's `BattleEndedEvent`, and calls `BattleState.Initialize`.
-
-`BattleState` stores per-battle data:
+`BattleState` owns per-battle state:
 
 - reference to `RunState`
 - active `BattleConfig`
-- per-battle `ScopedEventBus`
-- per-battle `CommandQueue`
-- player combat HP
-- opponent combat HP
+- scoped battle event bus
+- command queue
+- opponent money
+- player battle deck
+- opponent battle deck
 - battle phase
 - round number
-- player and opponent hand carryover between rounds
-- reshuffle count
+- player and opponent hand carryover
 - deterministic battle seed
 - current round
 - active modifiers
 - combat history
 
-The battle seed is created from `RunState.CreateBattleSeed`.
+The player's money is stored on `RunState`; the opponent's money is stored on `BattleState`.
 
-The per-battle deck is created from the run deck using that battle seed.
+The player and devil do not share a battle deck. The player battle deck is created from `RunState.Deck`. The devil battle deck is created through `IDevilStrategy.CreateStartingDeck`. The default devil strategy returns a standard 52-card deck equivalent to the player default, but character-specific strategies can provide different starting decks later.
 
-## 7. Battle Initialization
+## 3. Round Start And Wager
 
-Responsible classes:
+A battle consists of rounds. At the start of each round, the combatant with initiative proposes the wager.
 
-- `BattleState`
-- `ScopedEventBus`
-- `CommandQueue`
+Valid wager options are 10, 20, 30, ..., 100. A proposed wager can exceed one side's current money, but the final stake is capped by each combatant's money. If either side has less money than the final proposed wager, that side is forced all in for its remaining money. If the wager-deciding side has less than the minimum wager value, that side has no choice but to propose an all-in wager.
 
-`BattleState.Initialize` moves the battle phase to `Init`, publishes a battle-scoped `BattleStartedEvent`, enqueues a `BattleStarted` visual command, then moves the battle phase to `PreRound`.
+Initiative alternates by round. The player acts first on odd rounds, starting with round 1; the opponent acts first on even rounds.
 
-If `BattleController.startFirstRoundOnInitialize` is enabled, `BattleController` immediately calls `StartNextRound`.
+When the player proposes a wager, the devil strategy chooses whether to accept it or decline by reducing it. Higher affinity biases random decisions toward outcomes beneficial to the player. For wager decisions this means accepting player-proposed wagers and accepting player requests to lower a devil-proposed wager.
 
-## 8. Round Start
+When the devil has initiative, `IDevilStrategy` chooses the proposed wager. Until player-side wager UI exists, gameplay code may default the player response to accepting the proposed wager.
 
-Responsible classes:
+After a wager is negotiated, both combatants stake their final committed amounts. Player money decreases through `RunState`; opponent money decreases through `BattleState`. The pot is the sum of both committed amounts.
 
-- `BattleController`
-- `BattleState`
-- `RoundState`
-- `Deck`
-- `ScopedEventBus`
-- `CommandQueue`
+## 4. Hand Refill
 
-`BattleController.StartNextRound` calls `BattleState.StartRound`.
+Unplayed hand cards carry across round cleanup.
 
-`BattleState.StartRound`:
+`BattleState.RefillPlayerHandIfEmpty` draws from the player battle deck using `BattleState.PlayerDrawValue` whenever the current player hand is empty.
 
-1. Stops if the battle is already over.
-2. Resolves the round wager. An explicit wager must be affordable; the default wager is clamped to the player's current gold.
-3. Removes the wager from `RunState.Gold`.
-4. Determines initiative. The player acts first on odd rounds, starting with round 1; the opponent acts first on even rounds.
-5. Sets the battle phase to `PreRound`.
-6. Increments `RoundNumber`.
-7. Creates a new `RoundState` with the target, burst threshold, wager, and initiative flag.
-8. Publishes `RoundStartedEvent`.
-9. Restores any unplayed hand cards carried over from the previous round.
-10. Enqueues a `RoundStarted` visual command.
-11. Refills the player's hand if empty using `BattleState.PlayerDrawValue`.
-12. Refills the opponent's hand if empty using `IDevilStrategy.DrawValue`.
-13. If the opponent has initiative, applies the configured `IDevilStrategy` immediately so the opponent plays before the player.
-14. Sets the battle phase to `PlayerPhase`.
+`BattleState.RefillOpponentHandIfEmpty` draws from the devil battle deck using `IDevilStrategy.DrawValue` whenever the opponent hand is empty.
 
-## 9. Hand Refill
+At round start, refill order follows initiative. The combatant who goes first draws first, so the first opening draws for the round come from that combatant's own deck.
 
-Responsible classes:
+Refill checks must happen any time a hand becomes empty during battle. In particular, `CardPlayedEvent` and `CardDiscardedEvent` flows should trigger refill behavior.
 
-- `BattleState`
-- `Deck`
-- `RoundState`
-- `ScopedEventBus`
-- `CommandQueue`
-- `IDevilStrategy`
+## 5. Turn Flow
 
-Unplayed hand cards carry across round cleanup. `BattleState.RefillPlayerHandIfEmpty` draws cards from the per-battle `Deck` using `BattleState.PlayerDrawValue` only when the carried/current player hand is empty.
+A single round consists of alternating turns until the round resolves.
 
-For each card drawn:
+On a player turn, gameplay input can choose:
 
-1. `BattleState.TryDrawCard` checks whether the deck needs to reshuffle.
-2. If needed, discard cards are moved back into the draw pile and `DeckShuffledEvent` is published.
-3. The card is added to `RoundState.PlayerHand`.
-4. `CardDrawnEvent` is published for the player.
+- `stand`: do nothing and pass the turn
+- `hit`: immediately draw the first card from the draw pile, play it, and end the turn
+- `play`: play one or more cards from the player's hand, then end the turn
 
-After drawing, `HandRefilledEvent` is published and a `CardsDrawn` visual command is enqueued.
+`stand` and `hit` end the turn immediately. Playing a hand card does not automatically end the turn, because a combatant can play as many hand cards as desired during a play turn. The presentation layer should keep its play/confirm control disabled until at least one card has been played in that turn, but UI implementation is intentionally deferred.
 
-`BattleState.RefillOpponentHandIfEmpty` uses `IDevilStrategy.DrawValue` only when the opponent hand is empty, adds cards to `RoundState.OpponentHand`, and publishes `CardDrawnEvent` for the opponent.
+On an opponent turn, `IDevilStrategy` chooses whether to stand, hit, or play cards from hand. The default strategy uses shared blackjack-oriented logic to avoid bursting when possible.
 
-## 10. Player Phase
+## 6. Score And Burst Checks
 
-Responsible classes:
-
-- `BattleController`
-- `BattleState`
-- `RoundState`
-- `ScopedEventBus`
-- `CommandQueue`
-
-UI or other input code should call `BattleController.TryPlayCard(handIndex)`.
-
-`BattleController` forwards the request to `BattleState.TryPlayCard`.
-
-`BattleState.TryPlayCard` only succeeds during `PlayerPhase`. It asks `RoundState` to move the selected card from `PlayerHand` to `PlayerPlayedCards`.
-
-Each round, the player may play only one card. `RoundState.PlayerHasPlayed` prevents additional hand plays.
-
-When a card is played:
-
-1. `CardPlayedEvent` is published.
-2. A `CardsPlayed` visual command is enqueued.
-
-The player can alternatively call `BattleController.TryHit`.
-
-`TryHit` immediately draws the first card from the draw pile and plays it into `RoundState.PlayerPlayedCards`. This also counts as the player's one card for the round, publishes both `CardDrawnEvent` and `CardPlayedEvent`, and enqueues a `CardsPlayed` visual command.
-
-## 11. Ending Player Phase
-
-Responsible classes:
-
-- `BattleController`
-- `BattleState`
-- `RoundState`
-
-UI or other input code should call `BattleController.EndPlayerPhase`.
-
-`BattleController` forwards to `BattleState.EndPlayerPhase`.
-
-`BattleState.EndPlayerPhase` only runs from `PlayerPhase`. It publishes `RoundEndedEvent` and moves the battle phase to `PostRound`.
-
-If the player had initiative this round, `BattleState` applies the configured `IDevilStrategy` here so the opponent plays after the player. If the opponent had initiative, the opponent already played during round start.
-
-## 12. Devil Strategy
-
-Responsible classes:
-
-- `BattleState`
-- `IDevilStrategy`
-- `BasicDevilStrategy`
-- `RoundState`
-
-`IDevilStrategy` now controls two opponent-turn details:
-
-- `DrawValue`: how many cards the opponent refills when its hand is empty
-- `ChooseCardIndex`: which one card to play from `RoundState.OpponentHand`
-
-The current default implementation is `BasicDevilStrategy`, which refills two cards and plays hand index `0`.
-
-When the opponent plays:
-
-1. `RoundState.TryPlayOpponentCard` moves one card from `OpponentHand` to `OpponentVisibleCards`.
-2. `CardPlayedEvent` is published for the opponent.
-3. A `CardsPlayed` visual command is enqueued.
-
-Opponent strategy is applied either during round start or during post-player phase depending on the round's initiative order.
-
-## 13. Score Resolution
-
-Responsible classes:
-
-- `BattleState`
-- `ScoreResolver`
-- `RoundState`
-
-`BattleState.EndPlayerPhase` calls `ScoreResolver.Resolve` for both combatants.
+After each turn, `BattleState` resolves current scores with `ScoreResolver`.
 
 `ScoreResolver` calculates:
 
@@ -276,97 +112,35 @@ Responsible classes:
 8. burst state
 9. blackjack state
 
-The results are stored in `RoundState` through `RoundState.SetScores`.
+If either combatant bursts, the round resolves immediately. A burst means immediate loss of the round. If both combatants burst in the same turn, the round is a draw.
 
-`BattleState` then publishes score events:
+Burst also makes the bursting combatant lose half of their current money. This penalty is applied to money, not HP. If a combatant has only 1 money, the penalty removes that last money so battle end can be reached.
 
-- `ScoreCalculatedEvent`
-- `BurstAttemptedEvent`
-- `BurstOccurredEvent`
-- `BlackjackAchievedEvent`
+## 7. Round Resolution
 
-A `ScoresResolved` visual command is also enqueued.
+When a round resolves without an immediate burst result, winner rules are:
 
-## 14. Health Resolution
+1. blackjack beats non-blackjack
+2. equal final score means draw
+3. higher final score wins
 
-Responsible classes:
+Wager resolution:
 
-- `BattleState`
-- `HealthResolver`
-- `RoundState`
+- player win: player receives the full pot
+- opponent win: opponent receives the full pot
+- draw: each combatant receives their own committed stake back
 
-`BattleState.EndPlayerPhase` calls `HealthResolver.ResolveRound`.
+If player money reaches 0, the battle ends as a loss. If opponent money reaches 0 while the player still has money, the battle ends as a win.
 
-`HealthResolver` determines the round winner using these rules:
+`BattleState` stores a `RoundResolution` in combat history and enqueues a `RoundEnded` visual command.
 
-1. both burst means no winner
-2. one burst means the other combatant wins
-3. blackjack beats non-blackjack
-4. equal final score means no winner
-5. higher final score wins
+## 8. Between Rounds
 
-If the player wins, `BattleState.DamageOpponent` is called.
+After round cleanup, the battle moves back to `PreRound`.
 
-If the opponent wins, `BattleState.DamagePlayer` is called.
+Longer-term design calls for dialogue events or shops between rounds where the player can refine their deck or buy upgrades. These features are undecided. For now, gameplay only exposes continuing to the next round and skips between-round logic.
 
-Damage methods update HP, publish `DamageTakenEvent`, and enqueue `HealthChanged` visual commands.
-
-Player damage can also publish `DeathPreventedEvent` with `WasPrevented` set to `false` when player HP reaches zero. Actual death-prevention modifier logic is not implemented yet.
-
-## 15. Round Result Storage
-
-Responsible classes:
-
-- `BattleState`
-- `RoundResolution`
-
-`HealthResolver.ResolveRound` returns a `RoundResolution`.
-
-`BattleState` then resolves the wager:
-
-- player win: pays `RoundState.Reward`, currently `wager * 2`, back into `RunState.Gold`
-- draw: refunds the wager
-- opponent win: the wager remains lost
-
-`BattleState` stores the result in its combat history and enqueues a `RoundEnded` visual command.
-
-If either combatant has zero HP, the battle ends immediately.
-
-If both combatants are still alive, the battle phase moves to `Cleanup`.
-
-## 16. Round Cleanup
-
-Responsible classes:
-
-- `BattleController`
-- `BattleState`
-- `RoundState`
-- `Deck`
-
-After `BattleState.EndPlayerPhase`, `BattleController.EndPlayerPhase` automatically calls `BattleState.CleanupRound` if the battle phase is `Cleanup`.
-
-`BattleState.CleanupRound`:
-
-1. Moves unplayed player and opponent hand cards into battle-level carryover lists.
-2. Takes all cleanup cards from `RoundState`.
-3. Moves played player cards, opponent visible cards, and shared cards to the battle deck discard pile.
-4. Clears `CurrentRound`.
-5. Moves the battle phase back to `PreRound`.
-
-The next round can then be started with `BattleController.StartNextRound`.
-
-## 17. Battle End
-
-Responsible classes:
-
-- `BattleState`
-- `BattleResult`
-- `ScopedEventBus`
-- `CommandQueue`
-- `BattleController`
-- `EventBus`
-
-When battle HP reaches an end condition, `BattleState.EndBattle` runs.
+## 9. Battle End And Run Update
 
 `BattleState.EndBattle`:
 
@@ -376,55 +150,32 @@ When battle HP reaches an end condition, `BattleState.EndBattle` runs.
 4. Enqueues a `BattleEnded` visual command.
 5. Clears the battle-scoped event bus.
 
-`BattleController` receives the battle-scoped `BattleEndedEvent` and republishes it through the global `EventBus`.
+`BattleController` republishes the battle-scoped `BattleEndedEvent` through the global `EventBus`.
 
-## 18. Run State Update After Battle
+`RunManager` receives the global `BattleEndedEvent`, calls `RunState.ApplyBattleResult`, stores history, increments encounter progress, increments devil progression if the player won, cleans up the battle reference, and moves the run phase to `Rewards`.
 
-Responsible classes:
+## 10. Devil Strategy Contract
 
-- `RunManager`
-- `RunState`
-- `BattleController`
+`IDevilStrategy` is responsible for:
 
-`RunManager` receives the global `BattleEndedEvent`.
+- choosing to stand, hit, or play during an opponent turn
+- choosing which hand cards to play
+- choosing the wager when the devil has initiative
+- choosing whether to accept or reduce the player's wager
+- choosing whether to accept or reject the player's request to reduce a devil-proposed wager
+- creating the devil's starting deck
+- registering and unregistering affinity hooks on the global event bus, battle event bus, or both
+- exposing character-specific global modifiers
+- sharing common blackjack-oriented logic that can play optimally across devil types
 
-It then:
+Affinity increases are event-driven, not necessarily battle-result-driven. A devil implementation can subscribe to events such as cards being played, suits being played, scores being reached, or any future gameplay signal. For now, affinity is read from `RunState` and biases random choices toward outcomes beneficial to the player.
 
-1. Calls `RunState.ApplyBattleResult`.
-2. Stores the battle result in run history.
-3. Updates persistent player HP.
-4. Increments encounter progress.
-5. Increments devil progression if the player won.
-6. Asks `BattleController` to clean up its battle reference.
-7. Moves the run phase to `Rewards`.
-
-## 19. Visual Command Consumption
-
-Responsible classes:
-
-- `BattleController`
-- `CommandQueue`
-- `VisualCommand`
+## 11. Visual Command Consumption
 
 The gameplay core does not directly control UI, animation, VFX, or audio.
 
-Instead, `BattleState` enqueues `VisualCommand` entries into its `CommandQueue`.
-
-Presentation-layer code can call `BattleController.TryDequeueVisualCommand` to consume commands.
+`BattleState` enqueues `VisualCommand` entries into its `CommandQueue`. Presentation-layer code can call `BattleController.TryDequeueVisualCommand` to consume commands.
 
 When visuals are complete, presentation-layer code can call `BattleController.NotifyVisualsResolved`, which publishes `VisualsResolvedEvent` on the battle event bus.
 
-No state transition currently waits on `VisualsResolvedEvent`; the event exists as the integration point for later animation-gated flow.
-
-## 20. Current Extension Points
-
-The current implementation is intentionally loose-coupled. The main extension points are:
-
-- `IDevilStrategy` for opponent behavior
-- `Modifier` and modifier events for scoring and future effects
-- battle-scoped `ScopedEventBus` for cards, relics, devils, and temporary effects
-- global `EventBus` for run-level systems
-- `CommandQueue` for presentation synchronization
-- `ScoreResolver` for blackjack, poker, and score modifier logic
-- `HealthResolver` for damage, healing, and win/loss rules
-
+No UI changes are part of this gameplay-layer update.
