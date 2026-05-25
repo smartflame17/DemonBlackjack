@@ -6,29 +6,73 @@ using UnityEngine.UI;
 public sealed class BattleUiPresenter : MonoBehaviour
 {
     [SerializeField] private BattleController battleController;
+    [SerializeField] private RunManager runManager;
     [SerializeField] private GameplayAssetRegistry assetRegistry;
+
+    [Header("Main")]
     [SerializeField] private Image devilImage;
-    [SerializeField] private TMP_Text scoreText;
-    [SerializeField] private TMP_Text statusText;
-    [SerializeField] private TMP_Text playerHpText;
-    [SerializeField] private TMP_Text opponentHpText;
-    [SerializeField] private Image playerHpFill;
-    [SerializeField] private Image opponentHpFill;
-    [SerializeField] private Button endTurnButton;
+    [SerializeField] private TMP_Text playerScoreText;
+    [SerializeField] private TMP_Text devilScoreText;
+    [SerializeField] private TMP_Text roundWagerText;
+    [SerializeField] private TMP_Text playerMoneyText;
+    [SerializeField] private TMP_Text devilMoneyText;
     [SerializeField] private RectTransform playerHandRoot;
     [SerializeField] private RectTransform opponentHandRoot;
     [SerializeField] private RectTransform playPileRoot;
+    [SerializeField] private Button playButton;
+    [SerializeField] private Button standButton;
+    [SerializeField] private Button hitButton;
+
+    [Header("Wager")]
+    [SerializeField] private GameObject wagerPanel;
+    [SerializeField] private GameObject playerProposalRoot;
+    [SerializeField] private GameObject devilOfferRoot;
+    [SerializeField] private Button incrementWagerButton;
+    [SerializeField] private Button decrementWagerButton;
+    [SerializeField] private Button proposalButton;
+    [SerializeField] private Button acceptOfferButton;
+    [SerializeField] private Button declineOfferButton;
+    [SerializeField] private TMP_Text proposalAmountText;
+    [SerializeField] private TMP_Text devilOfferAmountText;
+
+    [Header("Deck View")]
+    [SerializeField] private Button viewFullDeckButton;
+    [SerializeField] private Button viewDrawPileButton;
+    [SerializeField] private Button viewPlayedPileButton;
+    [SerializeField] private GameObject deckViewPanel;
+    [SerializeField] private RectTransform cardGridViewRoot;
+    [SerializeField] private Button closeDeckViewButton;
+
+    [Header("Results")]
+    [SerializeField] private GameObject roundResultPanel;
+    [SerializeField] private TMP_Text roundResultText;
+    [SerializeField] private Button nextRoundButton;
+    [SerializeField] private GameObject battleResultPanel;
+    [SerializeField] private RectTransform rewardViewRoot;
+    [SerializeField] private Button backToMapButton;
 
     private readonly List<BattleUiCardView> _playerCards = new();
     private readonly List<BattleUiCardView> _opponentCards = new();
     private readonly List<BattleUiCardView> _playPileCards = new();
+    private readonly List<BattleUiCardView> _deckCards = new();
+    private readonly HashSet<int> _selectedHandIndices = new();
+
+    private int _pendingWager = 10;
+    private bool _wagerOpen;
 
     private void Awake()
     {
         if (battleController == null)
             battleController = FindFirstObjectByType<BattleController>();
 
-        BuildIfNeeded();
+        if (runManager == null)
+            runManager = FindFirstObjectByType<RunManager>();
+
+        AutoBindLayout();
+        ConfigureCardLayout(playerHandRoot);
+        ConfigureCardLayout(opponentHandRoot);
+        ConfigureCardLayout(playPileRoot);
+        ConfigureCardLayout(cardGridViewRoot);
     }
 
     private void OnEnable()
@@ -37,81 +81,370 @@ public sealed class BattleUiPresenter : MonoBehaviour
         EventBus.Subscribe<BattleStartedEvent>(OnBattleStarted);
         EventBus.Subscribe<BattleEndedEvent>(OnBattleEnded);
 
-        if (endTurnButton != null)
-            endTurnButton.onClick.AddListener(EndTurn);
-
+        AddListeners();
         Refresh();
     }
 
     private void OnDisable()
     {
+        ClearGeneratedBattleCards();
         EventBus.Unsubscribe<RunPhaseChangedEvent>(OnRunPhaseChanged);
         EventBus.Unsubscribe<BattleStartedEvent>(OnBattleStarted);
         EventBus.Unsubscribe<BattleEndedEvent>(OnBattleEnded);
 
-        if (endTurnButton != null)
-            endTurnButton.onClick.RemoveListener(EndTurn);
+        RemoveListeners();
     }
 
     public void Refresh()
     {
-        BuildIfNeeded();
+        AutoBindLayout();
 
         BattleState battle = battleController != null ? battleController.BattleState : null;
-        RoundState round = battle != null ? battle.CurrentRound : null;
+        RoundState round = battle?.CurrentRound;
 
         if (battle == null)
         {
-            SetText(statusText, "No battle");
-            SetText(scoreText, "Round Score\n-");
-            SetHp(playerHpFill, playerHpText, 0, 1, "Player");
-            SetHp(opponentHpFill, opponentHpText, 0, 1, "Devil");
-            RenderCards(_playerCards, playerHandRoot, 0, null, false, false, false);
-            RenderCards(_opponentCards, opponentHandRoot, 0, null, false, false, true);
-            RenderCards(_playPileCards, playPileRoot, 0, null, false, false, false);
-            SetEndTurnInteractable(false);
+            ClearBattleCardViews();
+            SetText(playerScoreText, "-");
+            SetText(devilScoreText, "-");
+            SetText(roundWagerText, "0");
+            SetText(playerMoneyText, "Player $0");
+            SetText(devilMoneyText, "Devil $0");
+            SetPanels(false, false, false);
+            SetTurnButtons(false, false);
             return;
         }
 
         if (devilImage != null && assetRegistry != null)
-            devilImage.sprite = assetRegistry.GetDevilSprite(battle.Config.EncounterId);
+            devilImage.sprite = assetRegistry.GetDevilSprite(battle.Config.DevilId);
 
-        SetText(statusText, $"Round {battle.RoundNumber} - {battle.Phase}");
-        SetHp(playerHpFill, playerHpText, battle.PlayerHp, battle.PlayerMaxHp, "Player");
-        SetHp(opponentHpFill, opponentHpText, battle.OpponentHp, battle.OpponentMaxHp, "Devil");
+        if (battle.Phase == BattlePhase.PreRound && battle.CurrentRound == null && battle.CombatHistory.Count == 0 && !_wagerOpen)
+            OpenWagerPanel();
+
+        SetText(playerMoneyText, $"Player ${battle.PlayerMoney}");
+        SetText(devilMoneyText, $"Devil ${battle.OpponentMoney}");
         SetScoreText(round);
+        SetText(roundWagerText, round != null ? round.Pot.ToString() : "0");
 
-        RenderCards(_playerCards, playerHandRoot, round?.PlayerHand.Count ?? 0, round?.PlayerHand, true, CanPlayCards(battle), false);
+        RenderCards(_playerCards, playerHandRoot, round?.PlayerHand.Count ?? 0, round?.PlayerHand, true, CanSelectCards(battle), false);
         RenderCards(_opponentCards, opponentHandRoot, round?.OpponentHand.Count ?? 0, round?.OpponentHand, false, false, true);
-        RenderPlayPile(round, battle);
-        SetEndTurnInteractable(battle.Phase == BattlePhase.PlayerPhase && !battleController.IsWaitingForVisuals);
+        RenderPlayPile(round);
+
+        bool roundFinished = battle.Phase == BattlePhase.Cleanup;
+        bool battleFinished = battle.Phase == BattlePhase.BattleEnd;
+        bool showWager = _wagerOpen && battle.Phase == BattlePhase.PreRound && !battleFinished;
+        SetPanels(showWager, roundFinished, battleFinished);
+        RefreshWagerPanel(battle);
+        RefreshRoundResult(battle);
+        RefreshBattleResult(battle);
+        SetTurnButtons(battle.Phase == BattlePhase.PlayerPhase && !battleController.IsWaitingForVisuals, _selectedHandIndices.Count > 0);
     }
 
-    private void EndTurn()
+    public void ClearGeneratedBattleCards()
     {
-        if (battleController == null)
+        ClearBattleCardViews();
+    }
+
+    private void AddListeners()
+    {
+        if (playButton != null)
+            playButton.onClick.AddListener(PlaySelectedCards);
+        if (standButton != null)
+            standButton.onClick.AddListener(Stand);
+        if (hitButton != null)
+            hitButton.onClick.AddListener(Hit);
+        if (incrementWagerButton != null)
+            incrementWagerButton.onClick.AddListener(IncrementWager);
+        if (decrementWagerButton != null)
+            decrementWagerButton.onClick.AddListener(DecrementWager);
+        if (proposalButton != null)
+            proposalButton.onClick.AddListener(ProposeWager);
+        if (acceptOfferButton != null)
+            acceptOfferButton.onClick.AddListener(AcceptDevilOffer);
+        if (declineOfferButton != null)
+            declineOfferButton.onClick.AddListener(DeclineDevilOffer);
+        if (viewFullDeckButton != null)
+            viewFullDeckButton.onClick.AddListener(ShowFullDeck);
+        if (viewDrawPileButton != null)
+            viewDrawPileButton.onClick.AddListener(ShowDrawPile);
+        if (viewPlayedPileButton != null)
+            viewPlayedPileButton.onClick.AddListener(ShowPlayedPile);
+        if (closeDeckViewButton != null)
+            closeDeckViewButton.onClick.AddListener(CloseDeckView);
+        if (nextRoundButton != null)
+            nextRoundButton.onClick.AddListener(ContinueToNextRound);
+        if (backToMapButton != null)
+            backToMapButton.onClick.AddListener(ReturnToMap);
+    }
+
+    private void RemoveListeners()
+    {
+        Remove(playButton, PlaySelectedCards);
+        Remove(standButton, Stand);
+        Remove(hitButton, Hit);
+        Remove(incrementWagerButton, IncrementWager);
+        Remove(decrementWagerButton, DecrementWager);
+        Remove(proposalButton, ProposeWager);
+        Remove(acceptOfferButton, AcceptDevilOffer);
+        Remove(declineOfferButton, DeclineDevilOffer);
+        Remove(viewFullDeckButton, ShowFullDeck);
+        Remove(viewDrawPileButton, ShowDrawPile);
+        Remove(viewPlayedPileButton, ShowPlayedPile);
+        Remove(closeDeckViewButton, CloseDeckView);
+        Remove(nextRoundButton, ContinueToNextRound);
+        Remove(backToMapButton, ReturnToMap);
+    }
+
+    private static void Remove(Button button, UnityEngine.Events.UnityAction action)
+    {
+        if (button != null)
+            button.onClick.RemoveListener(action);
+    }
+
+    private void ToggleCardSelection(int handIndex)
+    {
+        if (!_selectedHandIndices.Add(handIndex))
+            _selectedHandIndices.Remove(handIndex);
+
+        Refresh();
+    }
+
+    private void PlaySelectedCards()
+    {
+        if (battleController == null || _selectedHandIndices.Count == 0)
             return;
 
+        var selected = new List<int>(_selectedHandIndices);
+        selected.Sort();
+
+        int playedCount = 0;
+        for (int i = 0; i < selected.Count; i++)
+        {
+            int adjustedIndex = selected[i] - playedCount;
+            if (battleController.TryPlayCard(adjustedIndex))
+                playedCount++;
+        }
+
+        _selectedHandIndices.Clear();
         battleController.EndPlayerPhase();
         Refresh();
     }
 
+    private void Stand()
+    {
+        _selectedHandIndices.Clear();
+        battleController?.TryStand();
+        Refresh();
+    }
+
+    private void Hit()
+    {
+        _selectedHandIndices.Clear();
+        battleController?.TryHit();
+        Refresh();
+    }
+
+    private void IncrementWager()
+    {
+        BattleState battle = battleController?.BattleState;
+        if (battle == null)
+            return;
+
+        _pendingWager = Mathf.Min(GetMaxProposal(battle), _pendingWager + battle.Config.WagerStep);
+        Refresh();
+    }
+
+    private void DecrementWager()
+    {
+        BattleState battle = battleController?.BattleState;
+        if (battle == null)
+            return;
+
+        int minimum = battle.PlayerMoney < battle.Config.MinWager ? battle.PlayerMoney : battle.Config.MinWager;
+        _pendingWager = Mathf.Max(minimum, _pendingWager - battle.Config.WagerStep);
+        Refresh();
+    }
+
+    private void ProposeWager()
+    {
+        StartRound(_pendingWager, true);
+    }
+
+    private void AcceptDevilOffer()
+    {
+        StartRound(-1, true);
+    }
+
+    private void DeclineDevilOffer()
+    {
+        StartRound(-1, false);
+    }
+
+    private void StartRound(int wager, bool acceptDevilOffer)
+    {
+        if (battleController == null)
+            return;
+
+        _selectedHandIndices.Clear();
+        _wagerOpen = false;
+        battleController.StartNextRound(wager, acceptDevilOffer);
+        Refresh();
+    }
+
+    private void ContinueToNextRound()
+    {
+        battleController?.CompletePendingVisualTransition();
+        OpenWagerPanel();
+        Refresh();
+    }
+
+    private void ReturnToMap()
+    {
+        ClearBattleCardViews();
+        battleController?.CompletePendingVisualTransition();
+        runManager?.ReturnToMap();
+        Refresh();
+    }
+
+    private void ShowFullDeck()
+    {
+        BattleState battle = battleController?.BattleState;
+        if (battle == null)
+            return;
+
+        var cards = new List<Card>(battle.RunState.Deck);
+        ShowDeckView(cards);
+    }
+
+    private void ShowDrawPile()
+    {
+        BattleState battle = battleController?.BattleState;
+        if (battle == null)
+            return;
+
+        ShowDeckView(battle.PlayerDrawPile);
+    }
+
+    private void ShowPlayedPile()
+    {
+        BattleState battle = battleController?.BattleState;
+        if (battle == null)
+            return;
+
+        var cards = new List<Card>();
+        cards.AddRange(battle.PlayerDiscardPile);
+        if (battle.CurrentRound != null)
+            cards.AddRange(battle.CurrentRound.PlayerPlayedCards);
+
+        ShowDeckView(cards);
+    }
+
+    private void ShowDeckView(IReadOnlyList<Card> cards)
+    {
+        if (deckViewPanel != null)
+            deckViewPanel.SetActive(true);
+
+        RenderCards(_deckCards, cardGridViewRoot, cards?.Count ?? 0, cards, true, false, false);
+    }
+
+    private void CloseDeckView()
+    {
+        if (deckViewPanel != null)
+            deckViewPanel.SetActive(false);
+    }
+
     private void OnRunPhaseChanged(RunPhaseChangedEvent eventData)
     {
+        if (eventData.Phase != RunPhase.Battle)
+            ClearBattleCardViews();
+
         Refresh();
     }
 
     private void OnBattleStarted(BattleStartedEvent eventData)
     {
+        OpenWagerPanel();
         Refresh();
     }
 
     private void OnBattleEnded(BattleEndedEvent eventData)
     {
+        ClearBattleCardViews();
         Refresh();
     }
 
-    private void RenderPlayPile(RoundState round, BattleState battle)
+    private void OpenWagerPanel()
+    {
+        BattleState battle = battleController?.BattleState;
+        if (battle == null || battle.IsBattleOver)
+            return;
+
+        _wagerOpen = true;
+        _pendingWager = Mathf.Clamp(battle.Config.BaseWager, battle.Config.MinWager, GetMaxProposal(battle));
+    }
+
+    private void RefreshWagerPanel(BattleState battle)
+    {
+        if (wagerPanel == null || !wagerPanel.activeSelf || battle == null)
+            return;
+
+        bool playerActsFirst = battle.RoundNumber % 2 == 0;
+        SetActive(playerProposalRoot, playerActsFirst);
+        SetActive(devilOfferRoot, !playerActsFirst);
+
+        int maxProposal = GetMaxProposal(battle);
+        int minProposal = battle.PlayerMoney < battle.Config.MinWager ? battle.PlayerMoney : battle.Config.MinWager;
+        _pendingWager = Mathf.Clamp(_pendingWager, minProposal, maxProposal);
+        SetText(proposalAmountText, _pendingWager.ToString());
+        SetText(devilOfferAmountText, "Devil offer");
+
+        if (incrementWagerButton != null)
+            incrementWagerButton.interactable = _pendingWager < maxProposal;
+        if (decrementWagerButton != null)
+            decrementWagerButton.interactable = _pendingWager > minProposal;
+    }
+
+    private void RefreshRoundResult(BattleState battle)
+    {
+        if (roundResultText == null || battle == null || battle.CombatHistory.Count == 0)
+            return;
+
+        RoundResolution resolution = battle.CombatHistory[battle.CombatHistory.Count - 1];
+        string result = resolution.Winner == Combatant.Player ? "Round Won" : resolution.Winner == Combatant.Opponent ? "Round Lost" : "Round Draw";
+        SetText(roundResultText, result);
+    }
+
+    private void RefreshBattleResult(BattleState battle)
+    {
+        if (battle == null || battle.Phase != BattlePhase.BattleEnd)
+            return;
+
+        ClearChildren(rewardViewRoot);
+    }
+
+    private int GetMaxProposal(BattleState battle)
+    {
+        return Mathf.Max(1, battle.Config.MaxWager);
+    }
+
+    private void SetPanels(bool showWager, bool showRoundResult, bool showBattleResult)
+    {
+        SetActive(wagerPanel, showWager);
+        SetActive(roundResultPanel, showRoundResult);
+        SetActive(battleResultPanel, showBattleResult);
+    }
+
+    private void SetTurnButtons(bool playerTurn, bool hasSelectedCard)
+    {
+        if (playButton != null)
+            playButton.interactable = playerTurn && hasSelectedCard;
+        if (standButton != null)
+            standButton.interactable = playerTurn;
+        if (hitButton != null)
+            hitButton.interactable = playerTurn;
+    }
+
+    private void RenderPlayPile(RoundState round)
     {
         int count = (round?.PlayerPlayedCards.Count ?? 0) + (round?.OpponentVisibleCards.Count ?? 0) + (round?.SharedVisibleCards.Count ?? 0);
         EnsureCardViews(_playPileCards, playPileRoot, count, false);
@@ -120,13 +453,22 @@ public sealed class BattleUiPresenter : MonoBehaviour
         if (round != null)
         {
             for (int i = 0; i < round.PlayerPlayedCards.Count; i++)
+            {
+                _playPileCards[viewIndex].gameObject.SetActive(true);
                 BindCard(_playPileCards[viewIndex++], round.PlayerPlayedCards[i], true, false, -1);
+            }
 
             for (int i = 0; i < round.OpponentVisibleCards.Count; i++)
+            {
+                _playPileCards[viewIndex].gameObject.SetActive(true);
                 BindCard(_playPileCards[viewIndex++], round.OpponentVisibleCards[i], true, false, -1);
+            }
 
             for (int i = 0; i < round.SharedVisibleCards.Count; i++)
+            {
+                _playPileCards[viewIndex].gameObject.SetActive(true);
                 BindCard(_playPileCards[viewIndex++], round.SharedVisibleCards[i], true, false, -1);
+            }
         }
 
         for (int i = viewIndex; i < _playPileCards.Count; i++)
@@ -146,14 +488,18 @@ public sealed class BattleUiPresenter : MonoBehaviour
                 continue;
 
             if (backOnly)
-            {
                 views[i].BindBack(assetRegistry != null ? assetRegistry.CardBack : null);
-            }
             else if (cards != null && i < cards.Count)
-            {
                 BindCard(views[i], cards[i], faceUp, interactable, i);
-            }
+
+            views[i].SetSelected(interactable && _selectedHandIndices.Contains(i));
         }
+
+        if (root != null)
+            LayoutRebuilder.ForceRebuildLayoutImmediate(root);
+
+        for (int i = 0; i < views.Count && i < count; i++)
+            views[i].SetSelected(interactable && _selectedHandIndices.Contains(i));
     }
 
     private void BindCard(BattleUiCardView view, Card card, bool faceUp, bool interactable, int handIndex)
@@ -165,15 +511,10 @@ public sealed class BattleUiPresenter : MonoBehaviour
             return;
 
         view.Button.onClick.RemoveAllListeners();
-
         if (interactable && handIndex >= 0)
         {
             int capturedIndex = handIndex;
-            view.Button.onClick.AddListener(() =>
-            {
-                if (battleController != null && battleController.TryPlayCard(capturedIndex))
-                    Refresh();
-            });
+            view.Button.onClick.AddListener(() => ToggleCardSelection(capturedIndex));
         }
     }
 
@@ -182,26 +523,43 @@ public sealed class BattleUiPresenter : MonoBehaviour
         if (root == null)
             return;
 
+        int previousCount = views.Count;
         while (views.Count < count)
             views.Add(CreateCardView(root, withButton));
+
+        if (views.Count != previousCount)
+            LayoutRebuilder.ForceRebuildLayoutImmediate(root);
     }
 
     private BattleUiCardView CreateCardView(RectTransform parent, bool withButton)
     {
-        GameObject card = new GameObject("Card", typeof(RectTransform), typeof(Image));
+        GameObject card = new("Card", typeof(RectTransform), typeof(LayoutElement));
         card.transform.SetParent(parent, false);
         RectTransform rect = card.GetComponent<RectTransform>();
         rect.sizeDelta = new Vector2(90f, 126f);
 
-        Image image = card.GetComponent<Image>();
-        image.color = new Color(0.92f, 0.86f, 0.74f, 1f);
+        LayoutElement layout = card.GetComponent<LayoutElement>();
+        layout.minWidth = 90f;
+        layout.minHeight = 126f;
+        layout.preferredWidth = 90f;
+        layout.preferredHeight = 126f;
+        layout.flexibleWidth = 0f;
+        layout.flexibleHeight = 0f;
+
+        GameObject visual = new("Visual", typeof(RectTransform), typeof(Image));
+        visual.transform.SetParent(card.transform, false);
+        RectTransform visualRect = visual.GetComponent<RectTransform>();
+        visualRect.anchorMin = Vector2.zero;
+        visualRect.anchorMax = Vector2.one;
+        visualRect.offsetMin = Vector2.zero;
+        visualRect.offsetMax = Vector2.zero;
+
+        Image image = visual.GetComponent<Image>();
+        image.color = Color.white;
         image.preserveAspect = true;
 
-        Button button = null;
-        if (withButton)
-            button = card.AddComponent<Button>();
-
-        TMP_Text label = CreateText(card.transform, "Label", 18, TextAlignmentOptions.Center);
+        Button button = withButton ? visual.AddComponent<Button>() : null;
+        TMP_Text label = CreateText(visual.transform, "Label", 18, TextAlignmentOptions.Center);
         RectTransform labelRect = label.rectTransform;
         labelRect.anchorMin = Vector2.zero;
         labelRect.anchorMax = Vector2.one;
@@ -214,38 +572,122 @@ public sealed class BattleUiPresenter : MonoBehaviour
         return view;
     }
 
-    private bool CanPlayCards(BattleState battle)
+    private bool CanSelectCards(BattleState battle)
     {
-        return battle.Phase == BattlePhase.PlayerPhase && !battleController.IsWaitingForVisuals && battle.CurrentRound != null && !battle.CurrentRound.PlayerHasPlayed;
+        return battle.Phase == BattlePhase.PlayerPhase && !battleController.IsWaitingForVisuals && battle.CurrentRound != null;
     }
 
     private void SetScoreText(RoundState round)
     {
-        if (round == null || (!round.PlayerHasPlayed && !round.OpponentHasPlayed))
+        SetText(playerScoreText, round != null && round.PlayerHasPlayed ? round.PlayerScore.BlackjackScore.ToString() : "-");
+        SetText(devilScoreText, round != null && round.OpponentHasPlayed ? round.OpponentScore.BlackjackScore.ToString() : "-");
+    }
+
+    private void AutoBindLayout()
+    {
+        devilImage ??= FindDescendantComponent<Image>("DevilImage");
+        playerScoreText ??= FindDescendantComponent<TMP_Text>("PlayerScore");
+        devilScoreText ??= FindDescendantComponent<TMP_Text>("DevilScore");
+        roundWagerText ??= FindDescendantComponent<TMP_Text>("RoundWagerAmount");
+        playerMoneyText ??= FindDescendantComponent<TMP_Text>("PlayerMoney");
+        devilMoneyText ??= FindDescendantComponent<TMP_Text>("DevilMoney");
+        playerHandRoot ??= FindDescendantRect("PlayerHand");
+        opponentHandRoot ??= FindDescendantRect("DevilHand");
+        playPileRoot ??= FindDescendantRect("PlayPile");
+        playButton ??= FindDescendantComponent<Button>("PlayButton");
+        standButton ??= FindDescendantComponent<Button>("StandButton");
+        hitButton ??= FindDescendantComponent<Button>("HitButton");
+        wagerPanel ??= FindDescendant("WagerPanel");
+        playerProposalRoot ??= FindDescendant("PlayerProposal");
+        devilOfferRoot ??= FindDescendant("DevilOffer");
+        incrementWagerButton ??= FindDescendantComponent<Button>("IncrementButton");
+        decrementWagerButton ??= FindDescendantComponent<Button>("DecrementButton");
+        proposalButton ??= FindDescendantComponent<Button>("ProposalButton");
+        acceptOfferButton ??= FindDescendantComponent<Button>("AcceptButton");
+        declineOfferButton ??= FindDescendantComponent<Button>("DeclineButton");
+        proposalAmountText ??= FindFirstTextUnder(playerProposalRoot, "RoundWagerAmount");
+        devilOfferAmountText ??= FindFirstTextUnder(devilOfferRoot, "RoundWagerAmount");
+        viewFullDeckButton ??= FindDescendantComponent<Button>("ViewFullDeckButton");
+        viewDrawPileButton ??= FindDescendantComponent<Button>("ViewDrawPileButton");
+        viewPlayedPileButton ??= FindDescendantComponent<Button>("ViewPlayedPileButton");
+        deckViewPanel ??= FindDescendant("DeckViewPanel");
+        cardGridViewRoot ??= FindDescendantRect("CardGridViewRoot");
+        closeDeckViewButton ??= FindDescendantComponent<Button>("CloseButton");
+        roundResultPanel ??= FindDescendant("RoundResultPanel");
+        roundResultText ??= FindDescendantComponent<TMP_Text>("RoundResultText");
+        nextRoundButton ??= FindDescendantComponent<Button>("NextRoundButton");
+        battleResultPanel ??= FindDescendant("BattleResultPanel");
+        rewardViewRoot ??= FindDescendantRect("RewardViewRoot");
+        backToMapButton ??= FindDescendantComponent<Button>("BackToMapButton");
+    }
+
+    private GameObject FindDescendant(string objectName)
+    {
+        Transform[] children = GetComponentsInChildren<Transform>(true);
+        for (int i = 0; i < children.Length; i++)
         {
-            SetText(scoreText, "Round Score\n-");
-            return;
+            if (children[i].name == objectName)
+                return children[i].gameObject;
         }
 
-        if (round.PlayerScore.FinalScore == 0 && round.OpponentScore.FinalScore == 0)
-            SetText(scoreText, "Round Score\nWaiting");
-        else
-            SetText(scoreText, $"Round Score\nPlayer {round.PlayerScore.BlackjackScore} / Devil {round.OpponentScore.BlackjackScore}");
+        return null;
     }
 
-    private void SetHp(Image fill, TMP_Text label, int current, int max, string name)
+    private RectTransform FindDescendantRect(string objectName)
     {
-        int safeMax = Mathf.Max(1, max);
-        if (fill != null)
-            fill.fillAmount = Mathf.Clamp01((float)current / safeMax);
-
-        SetText(label, $"{name} HP {current}/{safeMax}");
+        return FindDescendant(objectName)?.GetComponent<RectTransform>();
     }
 
-    private void SetEndTurnInteractable(bool interactable)
+    private T FindDescendantComponent<T>(string objectName) where T : Component
     {
-        if (endTurnButton != null)
-            endTurnButton.interactable = interactable;
+        return FindDescendant(objectName)?.GetComponent<T>();
+    }
+
+    private static TMP_Text FindFirstTextUnder(GameObject root, string preferredName)
+    {
+        if (root == null)
+            return null;
+
+        TMP_Text[] texts = root.GetComponentsInChildren<TMP_Text>(true);
+        for (int i = 0; i < texts.Length; i++)
+        {
+            if (texts[i].name == preferredName)
+                return texts[i];
+        }
+
+        return texts.Length > 0 ? texts[0] : null;
+    }
+
+    private static TMP_Text CreateText(Transform parent, string name, int fontSize, TextAlignmentOptions alignment)
+    {
+        GameObject go = new(name, typeof(RectTransform), typeof(TextMeshProUGUI));
+        go.transform.SetParent(parent, false);
+        TMP_Text text = go.GetComponent<TMP_Text>();
+        text.fontSize = fontSize;
+        text.alignment = alignment;
+        text.textWrappingMode = TextWrappingModes.NoWrap;
+        return text;
+    }
+
+    private static void ConfigureCardLayout(RectTransform root)
+    {
+        if (root == null)
+            return;
+
+        HorizontalLayoutGroup horizontal = root.GetComponent<HorizontalLayoutGroup>();
+        if (horizontal != null)
+        {
+            horizontal.childControlWidth = true;
+            horizontal.childControlHeight = true;
+            horizontal.childForceExpandWidth = false;
+            horizontal.childForceExpandHeight = false;
+            horizontal.childScaleWidth = false;
+            horizontal.childScaleHeight = false;
+        }
+
+        GridLayoutGroup grid = root.GetComponent<GridLayoutGroup>();
+        if (grid != null)
+            grid.cellSize = new Vector2(90f, 126f);
     }
 
     private static void SetText(TMP_Text text, string value)
@@ -254,135 +696,48 @@ public sealed class BattleUiPresenter : MonoBehaviour
             text.text = value;
     }
 
-    private void BuildIfNeeded()
+    private static void SetActive(GameObject target, bool active)
     {
-        if (playerHandRoot != null)
-            return;
+        if (target != null && target.activeSelf != active)
+            target.SetActive(active);
+    }
 
-        RectTransform root = transform as RectTransform;
+    private static void ClearChildren(RectTransform root)
+    {
         if (root == null)
             return;
 
-        Image background = gameObject.GetComponent<Image>();
-        if (background == null)
-            background = gameObject.AddComponent<Image>();
-        background.color = new Color(0.06f, 0.05f, 0.07f, 0.92f);
-
-        statusText = CreateAnchoredText(root, "Status", new Vector2(0.5f, 1f), new Vector2(0.5f, 1f), new Vector2(0f, -30f), new Vector2(420f, 42f), 22, TextAlignmentOptions.Center);
-        CreateHpBar(root, "PlayerHp", new Vector2(0.04f, 0.94f), new Vector2(0.43f, 0.99f), out playerHpFill, out playerHpText, "Player HP");
-        CreateHpBar(root, "OpponentHp", new Vector2(0.57f, 0.94f), new Vector2(0.96f, 0.99f), out opponentHpFill, out opponentHpText, "Devil HP");
-
-        devilImage = CreateImage(root, "Devil", new Vector2(0.5f, 0.53f), new Vector2(0.5f, 0.53f), new Vector2(0f, 0f), new Vector2(240f, 240f));
-        devilImage.color = Color.white;
-        devilImage.preserveAspect = true;
-
-        Image scorePanel = CreateImage(root, "ScorePanel", new Vector2(0.67f, 0.49f), new Vector2(0.93f, 0.66f), Vector2.zero, Vector2.zero);
-        scorePanel.color = new Color(0.12f, 0.11f, 0.13f, 0.86f);
-        scoreText = CreateText(scorePanel.transform, "Text", 26, TextAlignmentOptions.Center);
-        RectTransform scoreRect = scoreText.rectTransform;
-        scoreRect.anchorMin = Vector2.zero;
-        scoreRect.anchorMax = Vector2.one;
-        scoreRect.offsetMin = new Vector2(8f, 4f);
-        scoreRect.offsetMax = new Vector2(-8f, -4f);
-        scoreText.color = Color.white;
-
-        opponentHandRoot = CreateRow(root, "OpponentHand", new Vector2(0.5f, 0.78f), new Vector2(0.5f, 0.78f), new Vector2(0f, 0f), new Vector2(520f, 140f));
-        playPileRoot = CreateRow(root, "PlayPile", new Vector2(0.5f, 0.32f), new Vector2(0.5f, 0.32f), new Vector2(0f, 0f), new Vector2(640f, 150f));
-        playerHandRoot = CreateRow(root, "PlayerHand", new Vector2(0.5f, 0.08f), new Vector2(0.5f, 0.08f), new Vector2(0f, 0f), new Vector2(800f, 150f));
-
-        endTurnButton = CreateButton(root, "EndTurnButton", "End Turn", new Vector2(0.84f, 0.1f), new Vector2(0.84f, 0.1f), new Vector2(0f, 0f), new Vector2(180f, 58f));
+        for (int i = root.childCount - 1; i >= 0; i--)
+            DestroyGeneratedObject(root.GetChild(i).gameObject);
     }
 
-    private static void CreateHpBar(RectTransform root, string name, Vector2 anchorMin, Vector2 anchorMax, out Image fill, out TMP_Text label, string labelText)
+    private void ClearBattleCardViews()
     {
-        Image frame = CreateImage(root, name, anchorMin, anchorMax, Vector2.zero, Vector2.zero);
-        frame.color = new Color(0.12f, 0.12f, 0.13f, 0.96f);
-
-        Image fillImage = CreateImage(frame.rectTransform, "Fill", Vector2.zero, Vector2.one, Vector2.zero, Vector2.zero);
-        fillImage.color = new Color(0.74f, 0.12f, 0.18f, 1f);
-        fillImage.type = Image.Type.Filled;
-        fillImage.fillMethod = Image.FillMethod.Horizontal;
-
-        label = CreateText(frame.transform, "Label", 20, TextAlignmentOptions.Center);
-        label.text = labelText;
-        label.color = Color.white;
-        RectTransform labelRect = label.rectTransform;
-        labelRect.anchorMin = Vector2.zero;
-        labelRect.anchorMax = Vector2.one;
-        labelRect.offsetMin = Vector2.zero;
-        labelRect.offsetMax = Vector2.zero;
-
-        fill = fillImage;
+        DestroyCardViews(_playerCards);
+        DestroyCardViews(_opponentCards);
+        DestroyCardViews(_playPileCards);
+        ClearChildren(playerHandRoot);
+        ClearChildren(opponentHandRoot);
+        ClearChildren(playPileRoot);
+        _selectedHandIndices.Clear();
     }
 
-    private static RectTransform CreateRow(RectTransform parent, string name, Vector2 anchorMin, Vector2 anchorMax, Vector2 position, Vector2 size)
+    private static void DestroyCardViews(List<BattleUiCardView> views)
     {
-        GameObject row = new GameObject(name, typeof(RectTransform), typeof(HorizontalLayoutGroup), typeof(ContentSizeFitter));
-        row.transform.SetParent(parent, false);
-        RectTransform rect = row.GetComponent<RectTransform>();
-        rect.anchorMin = anchorMin;
-        rect.anchorMax = anchorMax;
-        rect.anchoredPosition = position;
-        rect.sizeDelta = size;
+        for (int i = views.Count - 1; i >= 0; i--)
+        {
+            if (views[i] != null)
+                DestroyGeneratedObject(views[i].gameObject);
+        }
 
-        HorizontalLayoutGroup layout = row.GetComponent<HorizontalLayoutGroup>();
-        layout.childAlignment = TextAnchor.MiddleCenter;
-        layout.spacing = 12f;
-        layout.childForceExpandWidth = false;
-        layout.childForceExpandHeight = false;
-
-        return rect;
+        views.Clear();
     }
 
-    private static Button CreateButton(RectTransform parent, string name, string label, Vector2 anchorMin, Vector2 anchorMax, Vector2 position, Vector2 size)
+    private static void DestroyGeneratedObject(GameObject target)
     {
-        Image image = CreateImage(parent, name, anchorMin, anchorMax, position, size);
-        image.color = new Color(0.78f, 0.14f, 0.19f, 1f);
-        Button button = image.gameObject.AddComponent<Button>();
-        TMP_Text text = CreateText(image.transform, "Label", 24, TextAlignmentOptions.Center);
-        text.text = label;
-        text.color = Color.white;
-        RectTransform textRect = text.rectTransform;
-        textRect.anchorMin = Vector2.zero;
-        textRect.anchorMax = Vector2.one;
-        textRect.offsetMin = Vector2.zero;
-        textRect.offsetMax = Vector2.zero;
-        return button;
-    }
+        if (target == null)
+            return;
 
-    private static TMP_Text CreateAnchoredText(RectTransform parent, string name, Vector2 anchorMin, Vector2 anchorMax, Vector2 position, Vector2 size, int fontSize, TextAlignmentOptions alignment)
-    {
-        Image image = CreateImage(parent, name, anchorMin, anchorMax, position, size);
-        image.color = new Color(0f, 0f, 0f, 0f);
-        TMP_Text text = CreateText(image.transform, "Text", fontSize, alignment);
-        RectTransform rect = text.rectTransform;
-        rect.anchorMin = Vector2.zero;
-        rect.anchorMax = Vector2.one;
-        rect.offsetMin = new Vector2(8f, 4f);
-        rect.offsetMax = new Vector2(-8f, -4f);
-        return text;
-    }
-
-    private static Image CreateImage(RectTransform parent, string name, Vector2 anchorMin, Vector2 anchorMax, Vector2 position, Vector2 size)
-    {
-        GameObject go = new GameObject(name, typeof(RectTransform), typeof(Image));
-        go.transform.SetParent(parent, false);
-        RectTransform rect = go.GetComponent<RectTransform>();
-        rect.anchorMin = anchorMin;
-        rect.anchorMax = anchorMax;
-        rect.anchoredPosition = position;
-        rect.sizeDelta = size;
-        return go.GetComponent<Image>();
-    }
-
-    private static TMP_Text CreateText(Transform parent, string name, int fontSize, TextAlignmentOptions alignment)
-    {
-        GameObject go = new GameObject(name, typeof(RectTransform), typeof(TextMeshProUGUI));
-        go.transform.SetParent(parent, false);
-        TMP_Text text = go.GetComponent<TMP_Text>();
-        text.fontSize = fontSize;
-        text.alignment = alignment;
-        text.enableWordWrapping = false;
-        return text;
+        DestroyImmediate(target);
     }
 }

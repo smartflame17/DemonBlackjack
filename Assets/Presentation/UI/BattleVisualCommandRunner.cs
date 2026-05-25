@@ -45,7 +45,6 @@ public sealed class BattleVisualCommandRunner : MonoBehaviour
             battleUiPresenter?.Refresh();
         }
 
-        battleController?.CompletePendingVisualTransition();
         battleUiPresenter?.Refresh();
         _drainRoutine = null;
     }
@@ -62,13 +61,13 @@ public sealed class BattleVisualCommandRunner : MonoBehaviour
 
     private void OnBattleStarted(BattleStartedEvent eventData)
     {
-        if (_drainRoutine == null)
+        if (isActiveAndEnabled && _drainRoutine == null)
             _drainRoutine = StartCoroutine(DrainCommands());
     }
 
     private void OnBattleEnded(BattleEndedEvent eventData)
     {
-        if (_drainRoutine == null)
+        if (isActiveAndEnabled && _drainRoutine == null)
             _drainRoutine = StartCoroutine(DrainCommands());
     }
 }

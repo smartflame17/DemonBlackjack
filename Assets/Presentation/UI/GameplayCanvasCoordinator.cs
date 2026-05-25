@@ -55,6 +55,14 @@ public sealed class GameplayCanvasCoordinator : MonoBehaviour
 
     private void ApplyPhase(RunPhase phase)
     {
+        if (phase != RunPhase.Battle && battleCanvas != null)
+        {
+            battleCanvas.GetComponent<BattleUiPresenter>()?.ClearGeneratedBattleCards();
+            ClearGeneratedCardsUnder(battleCanvas.transform, "PlayerHand");
+            ClearGeneratedCardsUnder(battleCanvas.transform, "DevilHand");
+            ClearGeneratedCardsUnder(battleCanvas.transform, "PlayPile");
+        }
+
         SetCanvasActive(battleCanvas, phase == RunPhase.Battle);
         SetCanvasActive(mapCanvas, phase == RunPhase.Map || phase == RunPhase.Encounter || phase == RunPhase.Rewards);
         SetCanvasActive(shopCanvas, phase == RunPhase.Shop);
@@ -74,6 +82,34 @@ public sealed class GameplayCanvasCoordinator : MonoBehaviour
         {
             if (canvases[i].gameObject.name == name)
                 return canvases[i];
+        }
+
+        return null;
+    }
+
+    private static void ClearGeneratedCardsUnder(Transform root, string containerName)
+    {
+        if (root == null)
+            return;
+
+        Transform container = FindChildRecursive(root, containerName);
+        if (container == null)
+            return;
+
+        for (int i = container.childCount - 1; i >= 0; i--)
+            DestroyImmediate(container.GetChild(i).gameObject);
+    }
+
+    private static Transform FindChildRecursive(Transform root, string childName)
+    {
+        if (root.name == childName)
+            return root;
+
+        for (int i = 0; i < root.childCount; i++)
+        {
+            Transform result = FindChildRecursive(root.GetChild(i), childName);
+            if (result != null)
+                return result;
         }
 
         return null;

@@ -4,9 +4,15 @@ using UnityEngine.UI;
 
 public sealed class BattleUiCardView : MonoBehaviour
 {
+    private static readonly Vector2 SelectedOffset = new(0f, 18f);
+
     [SerializeField] private Image image;
     [SerializeField] private TMP_Text label;
     [SerializeField] private Button button;
+    [SerializeField] private RectTransform visualRoot;
+
+    private Vector2 _baseAnchoredPosition;
+    private bool _hasBasePosition;
 
     public Button Button => button;
 
@@ -15,11 +21,15 @@ public sealed class BattleUiCardView : MonoBehaviour
         image = cardImage;
         label = cardLabel;
         button = cardButton;
+        visualRoot = cardImage != null ? cardImage.rectTransform : transform as RectTransform;
+        CacheBasePosition();
+        Debug.Log("BattleUiCard initialized with image: " + (cardImage != null) + ", label: " + (cardLabel != null) + ", button: " + (cardButton != null));
     }
 
     public void Bind(Card card, Sprite sprite, bool faceUp, bool interactable)
     {
         EnsureReferences();
+        SetSelected(false);
 
         if (image != null)
             image.sprite = sprite;
@@ -34,6 +44,7 @@ public sealed class BattleUiCardView : MonoBehaviour
     public void BindBack(Sprite sprite)
     {
         EnsureReferences();
+        SetSelected(false);
 
         if (image != null)
             image.sprite = sprite;
@@ -43,6 +54,19 @@ public sealed class BattleUiCardView : MonoBehaviour
 
         if (button != null)
             button.interactable = false;
+    }
+
+    public void SetSelected(bool selected)
+    {
+        EnsureReferences();
+
+        if (visualRoot == null)
+            return;
+
+        if (!_hasBasePosition)
+            CacheBasePosition();
+
+        visualRoot.anchoredPosition = _baseAnchoredPosition + (selected ? SelectedOffset : Vector2.zero);
     }
 
     private void EnsureReferences()
@@ -55,6 +79,21 @@ public sealed class BattleUiCardView : MonoBehaviour
 
         if (label == null)
             label = GetComponentInChildren<TMP_Text>();
+
+        if (visualRoot == null)
+            visualRoot = image != null ? image.rectTransform : transform as RectTransform;
+
+        if (!_hasBasePosition)
+            CacheBasePosition();
+    }
+
+    private void CacheBasePosition()
+    {
+        if (visualRoot == null)
+            return;
+
+        _baseAnchoredPosition = visualRoot.anchoredPosition;
+        _hasBasePosition = true;
     }
 
     private static string FormatCard(Card card)
