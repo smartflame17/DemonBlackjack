@@ -1,6 +1,6 @@
 using System;
 
-public static class HealthResolver
+public static class MoneyResolver
 {
     public static RoundResolution ResolveRound(BattleState battle, RoundState round)
     {
@@ -10,26 +10,34 @@ public static class HealthResolver
         if (round == null)
             throw new ArgumentNullException(nameof(round));
 
-        Combatant? winner = DetermineWinner(round.PlayerScore, round.OpponentScore);
-
-        if (winner == Combatant.Player)
-        {
-            int damage = CalculateDamage(round.PlayerScore, round.Wager);
-            battle.DamageOpponent(damage);
-            return new RoundResolution(winner, damage, 0);
-        }
-
-        if (winner == Combatant.Opponent)
-        {
-            int damage = CalculateDamage(round.OpponentScore, round.Wager);
-            battle.DamagePlayer(damage);
-            return new RoundResolution(winner, 0, damage);
-        }
-
-        return new RoundResolution(null, 0, 0);
+        return ResolveRound(battle, round, true);
     }
 
-    private static Combatant? DetermineWinner(ScoreResult player, ScoreResult opponent)
+    public static RoundResolution ResolveRound(BattleState battle, RoundState round, bool applyBurstPenalty)
+    {
+        if (battle == null)
+            throw new ArgumentNullException(nameof(battle));
+
+        if (round == null)
+            throw new ArgumentNullException(nameof(round));
+
+        Combatant? winner = DetermineWinner(round.PlayerScore, round.OpponentScore);
+        int opponentMoneyLost = 0;
+        int playerMoneyLost = 0;
+
+        if (applyBurstPenalty)
+        {
+            if (round.PlayerScore.IsBurst)
+                playerMoneyLost = battle.LosePlayerMoney(CalculateHalfMoneyLoss(battle.PlayerMoney));
+
+            if (round.OpponentScore.IsBurst)
+                opponentMoneyLost = battle.LoseOpponentMoney(CalculateHalfMoneyLoss(battle.OpponentMoney));
+        }
+
+        return new RoundResolution(winner, opponentMoneyLost, playerMoneyLost);
+    }
+
+    public static Combatant? DetermineWinner(ScoreResult player, ScoreResult opponent)
     {
         if (player.IsBurst && opponent.IsBurst)
             return null;
@@ -52,12 +60,20 @@ public static class HealthResolver
         return player.FinalScore > opponent.FinalScore ? Combatant.Player : Combatant.Opponent;
     }
 
-    // TODO: damage calculation needs to account for burst and blackjack conditions, as well as potential future modifiers
-    // Burst deals half of current hp damage
-    private static int CalculateDamage(ScoreResult score, int wager)
+    private static int CalculateHalfMoneyLoss(int currentMoney)
     {
-        int blackjackBonus = score.IsBlackjack ? 2 : 0;
-        return Math.Max(1, wager + score.PokerMultiplier + blackjackBonus);
+        if (currentMoney <= 0)
+            return 0;
+
+        return Math.Max(1, currentMoney / 2);
+    }
+}
+
+public static class HealthResolver
+{
+    public static RoundResolution ResolveRound(BattleState battle, RoundState round)
+    {
+        return MoneyResolver.ResolveRound(battle, round);
     }
 }
 
@@ -68,9 +84,13 @@ public readonly struct RoundResolution
         Winner = winner;
         OpponentDamage = opponentDamage;
         PlayerDamage = playerDamage;
+        OpponentMoneyLost = opponentDamage;
+        PlayerMoneyLost = playerDamage;
     }
 
     public Combatant? Winner { get; }
     public int OpponentDamage { get; }
     public int PlayerDamage { get; }
+    public int OpponentMoneyLost { get; }
+    public int PlayerMoneyLost { get; }
 }

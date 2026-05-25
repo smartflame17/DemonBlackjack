@@ -17,6 +17,7 @@ public enum BattlePhase
     Init,
     PreRound,
     PlayerPhase,
+    OpponentPhase,
     PostRound,
     Cleanup,
     BattleEnd
@@ -75,6 +76,20 @@ public enum VisualCommandType
     CardsPlayed,
     ScoresResolved,
     HealthChanged,
+    MoneyChanged,
     RoundEnded,
     BattleEnded
+}
+
+public enum DevilTurnChoice
+{
+    Stand,
+    Hit,
+    Play
+}
+
+public enum WagerResponse
+{
+    Accept,
+    Reduce
 }

@@ -1,3 +1,4 @@
+using System;
 using System.Collections.Generic;
 
 public sealed class RoundState
@@ -12,23 +13,31 @@ public sealed class RoundState
     private readonly List<string> _pendingEffectIds = new();
     private readonly List<Modifier> _scoringModifiers = new();
 
-    public RoundState(int roundNumber, int targetScore, int burstThreshold, int wager, bool playerActsFirst)
+    public RoundState(int roundNumber, int targetScore, int burstThreshold, int playerStake, int opponentStake, bool playerActsFirst)
     {
         RoundNumber = roundNumber;
         TargetScore = targetScore;
         BurstThreshold = burstThreshold;
-        Wager = wager;
+        PlayerStake = playerStake;
+        OpponentStake = opponentStake;
         PlayerActsFirst = playerActsFirst;
     }
 
     public int RoundNumber { get; }
     public int TargetScore { get; }
     public int BurstThreshold { get; }
-    public int Wager { get; }
+    public int Wager => Math.Min(PlayerStake, OpponentStake);
+    public int PlayerStake { get; }
+    public int OpponentStake { get; }
     public bool PlayerActsFirst { get; }
-    public int Reward => Wager * 2;
-    public bool PlayerHasPlayed { get; private set; }
-    public bool OpponentHasPlayed { get; private set; }
+    public int Pot => PlayerStake + OpponentStake;
+    public int Reward => Pot;
+    public bool PlayerHasPlayed => _playerPlayedCards.Count > 0;
+    public bool OpponentHasPlayed => _opponentVisibleCards.Count > 0;
+    public bool PlayerStood { get; private set; }
+    public bool OpponentStood { get; private set; }
+    public bool PlayerPlayedThisTurn { get; private set; }
+    public bool OpponentPlayedThisTurn { get; private set; }
     public ScoreResult PlayerScore { get; private set; }
     public ScoreResult OpponentScore { get; private set; }
     public IReadOnlyList<Card> PlayerHand => _playerHand;
@@ -58,7 +67,7 @@ public sealed class RoundState
 
     public bool TryPlayCard(int handIndex, out Card card)
     {
-        if (PlayerHasPlayed || handIndex < 0 || handIndex >= _playerHand.Count)
+        if (handIndex < 0 || handIndex >= _playerHand.Count)
         {
             card = default;
             return false;
@@ -66,13 +75,15 @@ public sealed class RoundState
 
         card = _playerHand[handIndex];
         _playerHand.RemoveAt(handIndex);
-        PlayDrawnCard(card);
+        _playerPlayedCards.Add(card);
+        PlayerPlayedThisTurn = true;
+        PlayerStood = false;
         return true;
     }
 
     public bool TryPlayOpponentCard(int handIndex, out Card card)
     {
-        if (OpponentHasPlayed || handIndex < 0 || handIndex >= _opponentHand.Count)
+        if (handIndex < 0 || handIndex >= _opponentHand.Count)
         {
             card = default;
             return false;
@@ -81,23 +92,44 @@ public sealed class RoundState
         card = _opponentHand[handIndex];
         _opponentHand.RemoveAt(handIndex);
         _opponentVisibleCards.Add(card);
-        OpponentHasPlayed = true;
+        OpponentPlayedThisTurn = true;
+        OpponentStood = false;
         return true;
     }
 
     public bool TryPlayHitCard(Card card)
     {
-        if (PlayerHasPlayed)
-            return false;
-
-        PlayDrawnCard(card);
+        _playerPlayedCards.Add(card);
+        PlayerPlayedThisTurn = true;
+        PlayerStood = false;
         return true;
     }
 
-    private void PlayDrawnCard(Card card)
+    public void PlayOpponentHitCard(Card card)
     {
-        _playerPlayedCards.Add(card);
-        PlayerHasPlayed = true;
+        _opponentVisibleCards.Add(card);
+        OpponentPlayedThisTurn = true;
+        OpponentStood = false;
+    }
+
+    public void BeginPlayerTurn()
+    {
+        PlayerPlayedThisTurn = false;
+    }
+
+    public void BeginOpponentTurn()
+    {
+        OpponentPlayedThisTurn = false;
+    }
+
+    public void MarkPlayerStood()
+    {
+        PlayerStood = true;
+    }
+
+    public void MarkOpponentStood()
+    {
+        OpponentStood = true;
     }
 
     public void AddScoringModifier(Modifier modifier)
@@ -145,5 +177,31 @@ public sealed class RoundState
         _scoringModifiers.Clear();
 
         return cards;
+    }
+
+    public IReadOnlyList<Card> TakePlayerCardsForCleanup()
+    {
+        var cards = new List<Card>();
+        cards.AddRange(_playerPlayedCards);
+        cards.AddRange(_sharedVisibleCards);
+        _playerPlayedCards.Clear();
+        _sharedVisibleCards.Clear();
+        return cards;
+    }
+
+    public IReadOnlyList<Card> TakeOpponentCardsForCleanup()
+    {
+        var cards = new List<Card>();
+        cards.AddRange(_opponentVisibleCards);
+        _opponentVisibleCards.Clear();
+        return cards;
+    }
+
+    public void ClearRoundOnlyState()
+    {
+        _lockedCards.Clear();
+        _revealedFutureCards.Clear();
+        _pendingEffectIds.Clear();
+        _scoringModifiers.Clear();
     }
 }

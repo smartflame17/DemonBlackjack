@@ -36,6 +36,20 @@ public readonly struct GoldChangedEvent
     public int Delta { get; }
 }
 
+public readonly struct MoneyChangedEvent
+{
+    public MoneyChangedEvent(Combatant owner, int currentMoney, int delta)
+    {
+        Owner = owner;
+        CurrentMoney = currentMoney;
+        Delta = delta;
+    }
+
+    public Combatant Owner { get; }
+    public int CurrentMoney { get; }
+    public int Delta { get; }
+}
+
 public readonly struct ItemUsedEvent
 {
     public ItemUsedEvent(string itemId)

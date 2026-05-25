@@ -7,21 +7,22 @@ public sealed class RunState
     private readonly List<string> _relicIds = new();
     private readonly List<string> _globalModifierIds = new();
     private readonly List<BattleResult> _battleHistory = new();
+    private readonly Dictionary<string, int> _devilAffinities = new();
 
-    public RunState(int seed, int maxPlayerHp = 50, int startingGold = 0)
+    public RunState(int seed, int maxPlayerHp = 100, int startingGold = 100)
     {
         Seed = seed;
+        Money = Math.Max(0, startingGold);
         MaxPlayerHp = Math.Max(1, maxPlayerHp);
-        PlayerHp = MaxPlayerHp;
-        Gold = Math.Max(0, startingGold);
         _deck.AddRange(global::Deck.CreateStandardDeck());
     }
 
     public int Seed { get; }
     public RunPhase Phase { get; private set; } = RunPhase.Inactive;
-    public int PlayerHp { get; private set; }
+    public int PlayerHp => Money;
     public int MaxPlayerHp { get; private set; }
-    public int Gold { get; private set; }
+    public int Money { get; private set; }
+    public int Gold => Money;
     public int EncounterIndex { get; private set; }
     public int DifficultyLevel { get; private set; } = 1;
     public int DevilProgression { get; private set; }
@@ -29,6 +30,7 @@ public sealed class RunState
     public IReadOnlyList<string> RelicIds => _relicIds;
     public IReadOnlyList<string> GlobalModifierIds => _globalModifierIds;
     public IReadOnlyList<BattleResult> BattleHistory => _battleHistory;
+    public IReadOnlyDictionary<string, int> DevilAffinities => _devilAffinities;
 
     public void SetPhase(RunPhase phase)
     {
@@ -37,13 +39,44 @@ public sealed class RunState
 
     public void AddGold(int amount)
     {
-        Gold = Math.Max(0, Gold + amount);
-        EventBus.Publish(new GoldChangedEvent(Gold, amount));
+        AddMoney(amount);
+    }
+
+    public void AddMoney(int amount)
+    {
+        Money = Math.Max(0, Money + amount);
+        EventBus.Publish(new MoneyChangedEvent(Combatant.Player, Money, amount));
+        EventBus.Publish(new GoldChangedEvent(Money, amount));
     }
 
     public void SetPlayerHp(int hp)
     {
-        PlayerHp = Math.Clamp(hp, 0, MaxPlayerHp);
+        SetMoney(hp);
+    }
+
+    public void SetMoney(int money)
+    {
+        int previous = Money;
+        Money = Math.Max(0, money);
+        int delta = Money - previous;
+        EventBus.Publish(new MoneyChangedEvent(Combatant.Player, Money, delta));
+        EventBus.Publish(new GoldChangedEvent(Money, delta));
+    }
+
+    public int GetDevilAffinity(string devilId)
+    {
+        if (string.IsNullOrWhiteSpace(devilId))
+            return 0;
+
+        return _devilAffinities.TryGetValue(devilId, out int affinity) ? affinity : 0;
+    }
+
+    public void AddDevilAffinity(string devilId, int amount)
+    {
+        if (string.IsNullOrWhiteSpace(devilId) || amount == 0)
+            return;
+
+        _devilAffinities[devilId] = GetDevilAffinity(devilId) + amount;
     }
 
     public void AddRelic(string relicId)
@@ -69,7 +102,7 @@ public sealed class RunState
     public void ApplyBattleResult(BattleResult result)
     {
         _battleHistory.Add(result);
-        SetPlayerHp(result.PlayerHpAfterBattle);
+        SetMoney(result.PlayerMoneyAfterBattle);
         EncounterIndex++;
 
         if (result.PlayerWon)
@@ -80,15 +113,24 @@ public sealed class RunState
 public readonly struct BattleResult
 {
     public BattleResult(bool playerWon, int roundCount, int playerHpAfterBattle, int opponentHpAfterBattle)
+        : this(playerWon, roundCount, playerHpAfterBattle, opponentHpAfterBattle, playerHpAfterBattle, opponentHpAfterBattle)
+    {
+    }
+
+    public BattleResult(bool playerWon, int roundCount, int playerMoneyAfterBattle, int opponentMoneyAfterBattle, int playerHpAfterBattle, int opponentHpAfterBattle)
     {
         PlayerWon = playerWon;
         RoundCount = roundCount;
+        PlayerMoneyAfterBattle = playerMoneyAfterBattle;
+        OpponentMoneyAfterBattle = opponentMoneyAfterBattle;
         PlayerHpAfterBattle = playerHpAfterBattle;
         OpponentHpAfterBattle = opponentHpAfterBattle;
     }
 
     public bool PlayerWon { get; }
     public int RoundCount { get; }
+    public int PlayerMoneyAfterBattle { get; }
+    public int OpponentMoneyAfterBattle { get; }
     public int PlayerHpAfterBattle { get; }
     public int OpponentHpAfterBattle { get; }
 }
