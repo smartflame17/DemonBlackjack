@@ -49,6 +49,7 @@ public sealed class BattleVisualCommandRunner : MonoBehaviour
         _drainRoutine = null;
     }
 
+    // Plays the visual command with an optional delay for better pacing. This is where you would trigger animations, sound effects, etc. based on the command type and data.
     private IEnumerator PlayCommand(VisualCommand command)
     {
         battleUiPresenter?.Refresh();
