@@ -3,6 +3,7 @@ using TMPro;
 using UnityEngine;
 using UnityEngine.UI;
 
+// This component is responsible for battle UI presentation - Runtime monobehaviour binding.
 public sealed class BattleUiPresenter : MonoBehaviour
 {
     [SerializeField] private BattleController battleController;
@@ -18,6 +19,9 @@ public sealed class BattleUiPresenter : MonoBehaviour
     [SerializeField] private TMP_Text devilMoneyText;
     [SerializeField] private RectTransform playerHandRoot;
     [SerializeField] private RectTransform opponentHandRoot;
+    [SerializeField] private RectTransform devilPlayPileRoot;
+    [SerializeField] private RectTransform sharedPlayPileRoot;
+    [SerializeField] private RectTransform playerPlayPileRoot;
     [SerializeField] private RectTransform playPileRoot;
     [SerializeField] private Button playButton;
     [SerializeField] private Button standButton;
@@ -53,7 +57,9 @@ public sealed class BattleUiPresenter : MonoBehaviour
 
     private readonly List<BattleUiCardView> _playerCards = new();
     private readonly List<BattleUiCardView> _opponentCards = new();
-    private readonly List<BattleUiCardView> _playPileCards = new();
+    private readonly List<BattleUiCardView> _devilPlayPileCards = new();
+    private readonly List<BattleUiCardView> _sharedPlayPileCards = new();
+    private readonly List<BattleUiCardView> _playerPlayPileCards = new();
     private readonly List<BattleUiCardView> _deckCards = new();
     private readonly HashSet<int> _selectedHandIndices = new();
 
@@ -71,7 +77,9 @@ public sealed class BattleUiPresenter : MonoBehaviour
         AutoBindLayout();
         ConfigureCardLayout(playerHandRoot);
         ConfigureCardLayout(opponentHandRoot);
-        ConfigureCardLayout(playPileRoot);
+        ConfigureCardLayout(devilPlayPileRoot);
+        ConfigureCardLayout(sharedPlayPileRoot);
+        ConfigureCardLayout(playerPlayPileRoot);
         ConfigureCardLayout(cardGridViewRoot);
     }
 
@@ -446,33 +454,27 @@ public sealed class BattleUiPresenter : MonoBehaviour
 
     private void RenderPlayPile(RoundState round)
     {
-        int count = (round?.PlayerPlayedCards.Count ?? 0) + (round?.OpponentVisibleCards.Count ?? 0) + (round?.SharedVisibleCards.Count ?? 0);
-        EnsureCardViews(_playPileCards, playPileRoot, count, false);
+        RenderStaticPile(_devilPlayPileCards, devilPlayPileRoot, round?.OpponentVisibleCards);
+        RenderStaticPile(_sharedPlayPileCards, sharedPlayPileRoot, round?.SharedVisibleCards);
+        RenderStaticPile(_playerPlayPileCards, playerPlayPileRoot, round?.PlayerPlayedCards);
+    }
 
-        int viewIndex = 0;
-        if (round != null)
+    private void RenderStaticPile(List<BattleUiCardView> views, RectTransform root, IReadOnlyList<Card> cards)
+    {
+        int count = cards?.Count ?? 0;
+        EnsureCardViews(views, root, count, false);
+
+        for (int i = 0; i < views.Count; i++)
         {
-            for (int i = 0; i < round.PlayerPlayedCards.Count; i++)
-            {
-                _playPileCards[viewIndex].gameObject.SetActive(true);
-                BindCard(_playPileCards[viewIndex++], round.PlayerPlayedCards[i], true, false, -1);
-            }
+            bool active = i < count;
+            views[i].gameObject.SetActive(active);
 
-            for (int i = 0; i < round.OpponentVisibleCards.Count; i++)
-            {
-                _playPileCards[viewIndex].gameObject.SetActive(true);
-                BindCard(_playPileCards[viewIndex++], round.OpponentVisibleCards[i], true, false, -1);
-            }
-
-            for (int i = 0; i < round.SharedVisibleCards.Count; i++)
-            {
-                _playPileCards[viewIndex].gameObject.SetActive(true);
-                BindCard(_playPileCards[viewIndex++], round.SharedVisibleCards[i], true, false, -1);
-            }
+            if (active)
+                BindCard(views[i], cards[i], true, false, -1);
         }
 
-        for (int i = viewIndex; i < _playPileCards.Count; i++)
-            _playPileCards[i].gameObject.SetActive(false);
+        if (root != null)
+            LayoutRebuilder.ForceRebuildLayoutImmediate(root);
     }
 
     private void RenderCards(List<BattleUiCardView> views, RectTransform root, int count, IReadOnlyList<Card> cards, bool faceUp, bool interactable, bool backOnly)
@@ -593,7 +595,13 @@ public sealed class BattleUiPresenter : MonoBehaviour
         devilMoneyText ??= FindDescendantComponent<TMP_Text>("DevilMoney");
         playerHandRoot ??= FindDescendantRect("PlayerHand");
         opponentHandRoot ??= FindDescendantRect("DevilHand");
+        devilPlayPileRoot ??= FindDescendantRect("DevilPlayPile");
+        sharedPlayPileRoot ??= FindDescendantRect("SharedPlayPile");
+        playerPlayPileRoot ??= FindDescendantRect("PlayerPlayPile");
         playPileRoot ??= FindDescendantRect("PlayPile");
+        devilPlayPileRoot ??= playPileRoot;
+        sharedPlayPileRoot ??= playPileRoot;
+        playerPlayPileRoot ??= playPileRoot;
         playButton ??= FindDescendantComponent<Button>("PlayButton");
         standButton ??= FindDescendantComponent<Button>("StandButton");
         hitButton ??= FindDescendantComponent<Button>("HitButton");
@@ -715,10 +723,14 @@ public sealed class BattleUiPresenter : MonoBehaviour
     {
         DestroyCardViews(_playerCards);
         DestroyCardViews(_opponentCards);
-        DestroyCardViews(_playPileCards);
+        DestroyCardViews(_devilPlayPileCards);
+        DestroyCardViews(_sharedPlayPileCards);
+        DestroyCardViews(_playerPlayPileCards);
         ClearChildren(playerHandRoot);
         ClearChildren(opponentHandRoot);
-        ClearChildren(playPileRoot);
+        ClearChildren(devilPlayPileRoot);
+        ClearChildren(sharedPlayPileRoot);
+        ClearChildren(playerPlayPileRoot);
         _selectedHandIndices.Clear();
     }
 
