@@ -599,7 +599,9 @@ public sealed class BattleUiPresenter : MonoBehaviour
         sharedPlayPileRoot ??= FindDescendantRect("SharedPlayPile");
         playerPlayPileRoot ??= FindDescendantRect("PlayerPlayPile");
         playPileRoot ??= FindDescendantRect("PlayPile");
+        devilPlayPileRoot ??= playPileRoot;
         sharedPlayPileRoot ??= playPileRoot;
+        playerPlayPileRoot ??= playPileRoot;
         playButton ??= FindDescendantComponent<Button>("PlayButton");
         standButton ??= FindDescendantComponent<Button>("StandButton");
         hitButton ??= FindDescendantComponent<Button>("HitButton");
