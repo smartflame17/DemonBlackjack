@@ -404,7 +404,9 @@ public sealed class BattleUiPresenter : MonoBehaviour
         int minProposal = battle.PlayerMoney < battle.Config.MinWager ? battle.PlayerMoney : battle.Config.MinWager;
         _pendingWager = Mathf.Clamp(_pendingWager, minProposal, maxProposal);
         SetText(proposalAmountText, _pendingWager.ToString());
-        SetText(devilOfferAmountText, "Devil offer");
+        //SetText(devilOfferAmountText, "Devil offer");
+        if (!playerActsFirst)
+            SetText(devilOfferAmountText, battle.GetOpponentWagerOffer().ToString());
 
         if (incrementWagerButton != null)
             incrementWagerButton.interactable = _pendingWager < maxProposal;

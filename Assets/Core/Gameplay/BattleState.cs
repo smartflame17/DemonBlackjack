@@ -10,6 +10,7 @@ public sealed class BattleState
     private readonly List<RoundResolution> _combatHistory = new();
     private readonly List<Card> _playerHandCarryover = new();
     private readonly List<Card> _opponentHandCarryover = new();
+    private int? _pendingOpponentWagerOffer;
 
     public BattleState(RunState runState, BattleConfig config)
     {
@@ -65,6 +66,15 @@ public sealed class BattleState
     public bool StartRound(int wager = -1)
     {
         return StartRound(wager, true);
+    }
+
+    public int GetOpponentWagerOffer()
+    {
+        if (IsBattleOver || CurrentRound != null || RoundNumber % 2 == 0)
+            return 0;
+
+        _pendingOpponentWagerOffer ??= GenerateOpponentWagerOffer();
+        return _pendingOpponentWagerOffer.Value;
     }
 
     public bool StartRound(int wager, bool playerAcceptsOpponentWager)
@@ -262,6 +272,7 @@ public sealed class BattleState
 
         if (playerActsFirst)
         {
+            _pendingOpponentWagerOffer = null;
             proposedWager = PlayerMoney < Config.MinWager
                 ? PlayerMoney
                 : NormalizeWager(requestedWager < 0 ? Config.BaseWager : requestedWager);
@@ -272,11 +283,8 @@ public sealed class BattleState
         }
         else
         {
-            proposedWager = OpponentMoney < Config.MinWager
-                ? OpponentMoney
-                : Config.DevilStrategy.ChooseWager(this, Config.MinWager, Config.MaxWager, Config.WagerStep);
-
-            proposedWager = ClampProposedWager(proposedWager, OpponentMoney);
+            proposedWager = _pendingOpponentWagerOffer ?? GenerateOpponentWagerOffer();
+            _pendingOpponentWagerOffer = null;
             if (!playerAcceptsOpponentWager && Config.DevilStrategy.ChoosePlayerReductionResponse(this, null, proposedWager) == WagerResponse.Accept)
                 proposedWager = ClampProposedWager(proposedWager - Config.WagerStep, OpponentMoney);
         }
@@ -285,6 +293,15 @@ public sealed class BattleState
         opponentStake = Math.Min(OpponentMoney, proposedWager);
 
         return proposedWager > 0 && playerStake > 0 && opponentStake > 0;
+    }
+
+    private int GenerateOpponentWagerOffer()
+    {
+        int proposedWager = OpponentMoney < Config.MinWager
+            ? OpponentMoney
+            : Config.DevilStrategy.ChooseWager(this, Config.MinWager, Config.MaxWager, Config.WagerStep);
+
+        return ClampProposedWager(proposedWager, OpponentMoney);
     }
 
     private int ClampProposedWager(int wager, int deciderMoney)
