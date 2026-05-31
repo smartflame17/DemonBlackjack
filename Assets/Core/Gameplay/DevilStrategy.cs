@@ -10,7 +10,7 @@ public interface IDevilStrategy
     DevilTurnChoice ChooseTurnAction(BattleState battle, RoundState round);
     int ChooseCardIndex(BattleState battle, RoundState round);
     IEnumerable<Card> CreateStartingDeck(RunState runState, BattleConfig config);
-    void RegisterAffinityHooks(BattleState battle);
+    void RegisterAffinityHooks(BattleState battle);     // TODO: Attach to wager events to adjust affinity based on player choices. For example, accepting a wager could increase affinity, while reducing could decrease it. This would allow the strategy to adapt over time based on the player's behavior.
     void UnregisterAffinityHooks(BattleState battle);
     IEnumerable<Modifier> GetGlobalModifiers(RunState runState);
 }
@@ -27,6 +27,7 @@ public sealed class BasicDevilStrategy : IDevilStrategy
 
     public int DrawValue { get; }
 
+    // TODO: Change this to consider current hand and affinity to make more strategic wager choices. For now, it just chooses the maximum allowed wager.
     public int ChooseWager(BattleState battle, int minimum, int maximum, int step)
     {
         if (battle == null)
