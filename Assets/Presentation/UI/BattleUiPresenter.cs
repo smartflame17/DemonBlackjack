@@ -622,8 +622,17 @@ public sealed class BattleUiPresenter : MonoBehaviour
     {
         var sorted = new List<Card>(_deckViewCards);
         sorted.Sort(comparison);
-        //SetActive(cardGridViewRoot != null ? cardGridViewRoot.gameObject : null, true);
-        RenderCards(_deckCards, suitGridViewRoot, sorted.Count, sorted, true, false, false);
+
+        RectTransform fallbackRoot = _deckViewSortMode == DeckViewSortMode.Rank ? rankGridViewRoot : suitGridViewRoot;
+        fallbackRoot ??= rankGridViewRoot != null ? rankGridViewRoot : suitGridViewRoot;
+        if (fallbackRoot == null)
+            return;
+
+        // Ensure the root we are rendering into is visible.
+        SetActive(rankGridViewRoot != null ? rankGridViewRoot.gameObject : null, fallbackRoot == rankGridViewRoot);
+        SetActive(suitGridViewRoot != null ? suitGridViewRoot.gameObject : null, fallbackRoot == suitGridViewRoot);
+
+        RenderCards(_deckCards, fallbackRoot, sorted.Count, sorted, true, false, false);
     }
 
     private RectTransform GetRankGroup(Rank rank)
