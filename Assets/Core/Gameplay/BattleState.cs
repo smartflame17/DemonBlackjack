@@ -63,39 +63,48 @@ public sealed class BattleState
         SetPhase(BattlePhase.PreRound);
     }
 
-    public bool StartRound(int wager = -1)
-    {
-        return StartRound(wager, true);
-    }
-
     public int GetOpponentWagerOffer()
     {
-        if (IsBattleOver || CurrentRound != null || RoundNumber % 2 == 0)
+        if (IsBattleOver || CurrentRound == null || CurrentRound.WagerCommitted || CurrentRound.PlayerActsFirst)
             return 0;
 
-        _pendingOpponentWagerOffer ??= GenerateOpponentWagerOffer();
+        _pendingOpponentWagerOffer ??= Config.DevilStrategy.ChooseWager(this, CurrentRound, GetDefaultWager());
         return _pendingOpponentWagerOffer.Value;
     }
 
-    public bool StartRound(int wager, bool playerAcceptsOpponentWager)
+    // creates a new round with the next round number, but does not begin it or commit the wager yet
+    public bool StartRound()
     {
         if (IsBattleOver || CurrentRound != null)
             return false;
 
         bool playerActsFirst = RoundNumber % 2 == 0;
+
+        SetPhase(BattlePhase.PreRound);
+        RoundNumber++;
+        CurrentRound = new RoundState(RoundNumber, Config.TargetScore, Config.BurstThreshold, 0, 0, playerActsFirst);
+        RestoreCarryoverHands();
+        RefillHandsForRoundStart(playerActsFirst);
+        return true;
+    }
+
+    public bool CommitWagerAndBeginRound(int wager, bool playerAcceptsOpponentWager)
+    {
+        if (IsBattleOver || CurrentRound == null || CurrentRound.WagerCommitted)
+            return false;
+
+        bool playerActsFirst = CurrentRound.PlayerActsFirst;
         if (!TryNegotiateWager(wager, playerActsFirst, playerAcceptsOpponentWager, out int proposedWager, out int playerStake, out int opponentStake))
+            return false;
+
+        if (!CurrentRound.TryCommitWager(playerStake, opponentStake))
             return false;
 
         RunState.AddMoney(-playerStake);
         AddOpponentMoney(-opponentStake);
 
-        SetPhase(BattlePhase.PreRound);
-        RoundNumber++;
-        CurrentRound = new RoundState(RoundNumber, Config.TargetScore, Config.BurstThreshold, playerStake, opponentStake, playerActsFirst);
-        RestoreCarryoverHands();
         EventBus.Publish(new RoundStartedEvent(RoundNumber));
         CommandQueue.Enqueue(new VisualCommand(VisualCommandType.RoundStarted, $"{RoundNumber}:{proposedWager}"));
-        RefillHandsForRoundStart(playerActsFirst);
 
         if (playerActsFirst)
         {
@@ -273,20 +282,18 @@ public sealed class BattleState
         if (playerActsFirst)
         {
             _pendingOpponentWagerOffer = null;
-            proposedWager = PlayerMoney < Config.MinWager
-                ? PlayerMoney
-                : NormalizeWager(requestedWager < 0 ? Config.BaseWager : requestedWager);
-
-            proposedWager = ClampProposedWager(proposedWager, PlayerMoney);
-            if (Config.DevilStrategy.ChoosePlayerWagerResponse(this, null, proposedWager) == WagerResponse.Reduce)
-                proposedWager = ClampProposedWager(proposedWager - Config.WagerStep, PlayerMoney);
+            proposedWager = NormalizeWager(requestedWager < 0 ? GetDefaultWager() : requestedWager);
+            WagerResponse response = Config.DevilStrategy.ChoosePlayerWagerResponse(this, CurrentRound, proposedWager);
+            UnityEngine.Debug.Log($"Opponent {FormatWagerResponseForLog(response)} player wager offer: {proposedWager}");
+            if (response == WagerResponse.Decline)
+                proposedWager = GetDefaultWager();
         }
         else
         {
-            proposedWager = _pendingOpponentWagerOffer ?? GenerateOpponentWagerOffer();
+            proposedWager = _pendingOpponentWagerOffer ?? Config.DevilStrategy.ChooseWager(this, CurrentRound, GetDefaultWager());
             _pendingOpponentWagerOffer = null;
-            if (!playerAcceptsOpponentWager && Config.DevilStrategy.ChoosePlayerReductionResponse(this, null, proposedWager) == WagerResponse.Accept)
-                proposedWager = ClampProposedWager(proposedWager - Config.WagerStep, OpponentMoney);
+            if (!playerAcceptsOpponentWager)
+                proposedWager = GetDefaultWager();
         }
 
         playerStake = Math.Min(PlayerMoney, proposedWager);
@@ -295,30 +302,25 @@ public sealed class BattleState
         return proposedWager > 0 && playerStake > 0 && opponentStake > 0;
     }
 
-    private int GenerateOpponentWagerOffer()
-    {
-        int proposedWager = OpponentMoney < Config.MinWager
-            ? OpponentMoney
-            : Config.DevilStrategy.ChooseWager(this, Config.MinWager, Config.MaxWager, Config.WagerStep);
-
-        return ClampProposedWager(proposedWager, OpponentMoney);
-    }
-
-    private int ClampProposedWager(int wager, int deciderMoney)
-    {
-        if (deciderMoney < Config.MinWager)
-            return Math.Max(1, deciderMoney);
-
-        int normalized = NormalizeWager(wager);
-        return Math.Clamp(normalized, Config.MinWager, Config.MaxWager);
-    }
-
     private int NormalizeWager(int wager)
     {
         if (wager <= 0)
             return 0;
 
-        return wager - (wager % Config.WagerStep);
+        return wager;
+    }
+
+    public int GetDefaultWager()
+    {
+        if (PlayerMoney <= 0)
+            return 0;
+
+        return Math.Max(1, PlayerMoney / 10);
+    }
+
+    private static string FormatWagerResponseForLog(WagerResponse response)
+    {
+        return response == WagerResponse.Accept ? "accepted" : "declined";
     }
 
     private void RestoreCarryoverHands()

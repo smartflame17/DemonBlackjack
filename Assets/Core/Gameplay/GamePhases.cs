@@ -91,5 +91,15 @@ public enum DevilTurnChoice
 public enum WagerResponse
 {
     Accept,
-    Reduce
+    Decline
+}
+
+
+public enum DevilHandLevel
+{
+    VeryLow = 1,        // hand 10 or below
+    Low = 2,            // hand between 11 and 14
+    Medium = 3,         // hand between 15 and 17
+    High = 4,           // hand between 18 and 19
+    VeryHigh = 5        // hand 20 or above
 }

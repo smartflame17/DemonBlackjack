@@ -26,20 +26,28 @@ public class BattleController : MonoBehaviour
 
     public void StartNextRound()
     {
-        StartNextRound(-1);
+        if (BattleState == null || BattleState.IsBattleOver || IsWaitingForVisuals)
+            return;
+
+        BattleState.StartRound();
     }
 
     public bool StartNextRound(int wager)
     {
-        return StartNextRound(wager, true);
+        return DecideRoundWager(wager, true);
     }
 
     public bool StartNextRound(int wager, bool playerAcceptsOpponentWager)
     {
+        return DecideRoundWager(wager, playerAcceptsOpponentWager);
+    }
+
+    public bool DecideRoundWager(int wager, bool playerAcceptsOpponentWager)
+    {
         if (BattleState == null || BattleState.IsBattleOver || IsWaitingForVisuals)
             return false;
-
-        return BattleState.StartRound(wager, playerAcceptsOpponentWager);
+        Debug.Log($"<color=blue>[Round]</color> Player wager: {wager}, Player phase started");
+        return BattleState.CommitWagerAndBeginRound(wager, playerAcceptsOpponentWager);
     }
 
     public bool TryPlayCard(int handIndex)

@@ -44,7 +44,6 @@ public sealed class BattleUiPresenter : MonoBehaviour
     [SerializeField] private Button viewDrawPileButton;
     [SerializeField] private Button viewPlayedPileButton;
     [SerializeField] private GameObject deckViewPanel;
-    //[SerializeField] private RectTransform cardGridViewRoot;
     [SerializeField] private RectTransform rankGridViewRoot;
     [SerializeField] private RectTransform suitGridViewRoot;
     [SerializeField] private Button viewByRankButton;
@@ -140,8 +139,11 @@ public sealed class BattleUiPresenter : MonoBehaviour
         if (devilImage != null && assetRegistry != null)
             devilImage.sprite = assetRegistry.GetDevilSprite(battle.Config.DevilId);
 
-        if (battle.Phase == BattlePhase.PreRound && battle.CurrentRound == null && battle.CombatHistory.Count == 0 && !_wagerOpen)
+        if (battle.Phase == BattlePhase.PreRound && (battle.CurrentRound == null || !battle.CurrentRound.WagerCommitted) && !_wagerOpen)
+        {
             OpenWagerPanel();
+            round = battle.CurrentRound;
+        }
 
         SetText(playerMoneyText, $"Player ${battle.PlayerMoney}");
         SetText(devilMoneyText, $"Devil ${battle.OpponentMoney}");
@@ -154,7 +156,7 @@ public sealed class BattleUiPresenter : MonoBehaviour
 
         bool roundFinished = battle.Phase == BattlePhase.Cleanup;
         bool battleFinished = battle.Phase == BattlePhase.BattleEnd;
-        bool showWager = _wagerOpen && battle.Phase == BattlePhase.PreRound && !battleFinished;
+        bool showWager = _wagerOpen && battle.Phase == BattlePhase.PreRound && round != null && !round.WagerCommitted && !battleFinished;
         SetPanels(showWager, roundFinished, battleFinished);
         RefreshWagerPanel(battle);
         RefreshRoundResult(battle);
@@ -278,7 +280,7 @@ public sealed class BattleUiPresenter : MonoBehaviour
         if (battle == null)
             return;
 
-        _pendingWager = Mathf.Min(GetMaxProposal(battle), _pendingWager + battle.Config.WagerStep);
+        _pendingWager = Mathf.Min(GetMaxProposal(battle), _pendingWager + GetWagerStep(battle));
         Refresh();
     }
 
@@ -288,8 +290,8 @@ public sealed class BattleUiPresenter : MonoBehaviour
         if (battle == null)
             return;
 
-        int minimum = battle.PlayerMoney < battle.Config.MinWager ? battle.PlayerMoney : battle.Config.MinWager;
-        _pendingWager = Mathf.Max(minimum, _pendingWager - battle.Config.WagerStep);
+        int minimum = GetMinProposal(battle);
+        _pendingWager = Mathf.Max(minimum, _pendingWager - GetWagerStep(battle));
         Refresh();
     }
 
@@ -315,7 +317,7 @@ public sealed class BattleUiPresenter : MonoBehaviour
 
         _selectedHandIndices.Clear();
         _wagerOpen = false;
-        battleController.StartNextRound(wager, acceptDevilOffer);
+        battleController.DecideRoundWager(wager, acceptDevilOffer);
         Refresh();
     }
 
@@ -426,8 +428,15 @@ public sealed class BattleUiPresenter : MonoBehaviour
         if (battle == null || battle.IsBattleOver)
             return;
 
+        if (battle.CurrentRound == null)
+            battleController.StartNextRound();
+
+        battle = battleController?.BattleState;
+        if (battle == null || battle.CurrentRound == null || battle.CurrentRound.WagerCommitted)
+            return;
+
         _wagerOpen = true;
-        _pendingWager = Mathf.Clamp(battle.Config.BaseWager, battle.Config.MinWager, GetMaxProposal(battle));
+        _pendingWager = Mathf.Clamp(battle.GetDefaultWager(), GetMinProposal(battle), GetMaxProposal(battle));
     }
 
     private void RefreshWagerPanel(BattleState battle)
@@ -435,12 +444,12 @@ public sealed class BattleUiPresenter : MonoBehaviour
         if (wagerPanel == null || !wagerPanel.activeSelf || battle == null)
             return;
 
-        bool playerActsFirst = battle.RoundNumber % 2 == 0;
+        bool playerActsFirst = battle.CurrentRound == null || battle.CurrentRound.PlayerActsFirst;
         SetActive(playerProposalRoot, playerActsFirst);
         SetActive(devilOfferRoot, !playerActsFirst);
 
         int maxProposal = GetMaxProposal(battle);
-        int minProposal = battle.PlayerMoney < battle.Config.MinWager ? battle.PlayerMoney : battle.Config.MinWager;
+        int minProposal = GetMinProposal(battle);
         _pendingWager = Mathf.Clamp(_pendingWager, minProposal, maxProposal);
         SetText(proposalAmountText, _pendingWager.ToString());
         //SetText(devilOfferAmountText, "Devil offer");
@@ -473,7 +482,18 @@ public sealed class BattleUiPresenter : MonoBehaviour
 
     private int GetMaxProposal(BattleState battle)
     {
-        return Mathf.Max(1, battle.Config.MaxWager);
+        //return Mathf.Max(GetMinProposal(battle), battle.GetDefaultWager() * (int)DevilHandLevel.VeryHigh);
+        return Mathf.Max(GetMinProposal(battle), battle.PlayerMoney);
+    }
+
+    private int GetMinProposal(BattleState battle)
+    {
+        return Mathf.Max(1, battle.GetDefaultWager());
+    }
+
+    private int GetWagerStep(BattleState battle)
+    {
+        return Mathf.Max(1, battle.GetDefaultWager());
     }
 
     private void SetPanels(bool showWager, bool showRoundResult, bool showBattleResult)
@@ -704,6 +724,12 @@ public sealed class BattleUiPresenter : MonoBehaviour
         int previousCount = views.Count;
         while (views.Count < count)
             views.Add(CreateCardView(root, withButton));
+
+        if (withButton)
+        {
+            for (int i = 0; i < count && i < views.Count; i++)
+                views[i].EnsureButton();
+        }
 
         if (views.Count != previousCount)
             LayoutRebuilder.ForceRebuildLayoutImmediate(root);
