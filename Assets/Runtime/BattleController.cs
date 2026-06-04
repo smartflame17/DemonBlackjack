@@ -69,6 +69,11 @@ public class BattleController : MonoBehaviour
         return result;
     }
 
+    public bool TryUseActiveItem(string itemId)
+    {
+        return !IsWaitingForVisuals && BattleState != null && BattleState.TryUseActiveItem(itemId);
+    }
+
     public RoundResolution EndPlayerPhase()
     {
         if (BattleState == null || IsWaitingForVisuals)

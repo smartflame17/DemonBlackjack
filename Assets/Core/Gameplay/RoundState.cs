@@ -137,6 +137,26 @@ public sealed class RoundState
         _scoringModifiers.Add(modifier);
     }
 
+    public IReadOnlyList<Card> TakeFieldCards(Combatant owner)
+    {
+        var cards = new List<Card>();
+
+        if (owner == Combatant.Player)
+        {
+            cards.AddRange(_playerPlayedCards);
+            cards.AddRange(_sharedVisibleCards);
+            _playerPlayedCards.Clear();
+            _sharedVisibleCards.Clear();
+        }
+        else
+        {
+            cards.AddRange(_opponentVisibleCards);
+            _opponentVisibleCards.Clear();
+        }
+
+        return cards;
+    }
+
     public void SetScores(ScoreResult playerScore, ScoreResult opponentScore)
     {
         PlayerScore = playerScore;

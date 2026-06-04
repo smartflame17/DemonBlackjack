@@ -200,7 +200,7 @@ public sealed class RunState
         {
             RunCard runCard = _runDeck[i];
             _rankModifierIds.TryGetValue(runCard.Rank, out string modifierId);
-            _deck.Add(runCard.ToBattleCard(modifierId));
+            _deck.Add(CardModifierResolver.Apply(runCard, modifierId));
         }
     }
 
