@@ -22,7 +22,7 @@ public sealed class BattleState
         CommandQueue = new CommandQueue();
         OpponentMoney = config.OpponentStartingMoney;
         BattleSeed = runState.CreateBattleSeed();
-        _playerDeck = new Deck(runState.Deck, BattleSeed);
+        _playerDeck = new Deck(runState.CreateBattleDeck(), BattleSeed);
         _opponentDeck = new Deck(config.DevilStrategy.CreateStartingDeck(runState, config), BattleSeed + 17);
         _random = new Random(BattleSeed);
         _activeModifiers.AddRange(config.InitialModifiers);
