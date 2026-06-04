@@ -76,7 +76,7 @@ public sealed class RunState
         if (string.IsNullOrWhiteSpace(devilId) || amount == 0)
             return;
 
-        _devilAffinities[devilId] = GetDevilAffinity(devilId) + amount;
+        _devilAffinities[devilId] = Math.Clamp(GetDevilAffinity(devilId) + amount, 0, 100);
     }
 
     public void AddRelic(string relicId)

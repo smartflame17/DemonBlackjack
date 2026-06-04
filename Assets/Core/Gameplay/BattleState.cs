@@ -293,7 +293,13 @@ public sealed class BattleState
             proposedWager = _pendingOpponentWagerOffer ?? Config.DevilStrategy.ChooseWager(this, CurrentRound, GetDefaultWager());
             _pendingOpponentWagerOffer = null;
             if (!playerAcceptsOpponentWager)
+            {
                 proposedWager = GetDefaultWager();
+            }
+            else
+            {
+                RunState.AddDevilAffinity(Config.DevilId, 5);
+            }
         }
 
         playerStake = Math.Min(PlayerMoney, proposedWager);
