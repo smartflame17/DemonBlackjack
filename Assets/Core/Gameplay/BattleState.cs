@@ -285,6 +285,7 @@ public sealed class BattleState
             proposedWager = NormalizeWager(requestedWager < 0 ? GetDefaultWager() : requestedWager);
             WagerResponse response = Config.DevilStrategy.ChoosePlayerWagerResponse(this, CurrentRound, proposedWager);
             UnityEngine.Debug.Log($"Opponent {FormatWagerResponseForLog(response)} player wager offer: {proposedWager}");
+            EventBus.Publish(new WagerCommittedEvent(proposedWager, playerActsFirst, response));
             if (response == WagerResponse.Decline)
                 proposedWager = GetDefaultWager();
         }
@@ -300,8 +301,9 @@ public sealed class BattleState
             {
                 RunState.AddDevilAffinity(Config.DevilId, 5);
             }
+            EventBus.Publish(new WagerCommittedEvent(proposedWager, playerActsFirst, playerAcceptsOpponentWager ? WagerResponse.Accept : WagerResponse.Decline));
         }
-
+        
         playerStake = Math.Min(PlayerMoney, proposedWager);
         opponentStake = Math.Min(OpponentMoney, proposedWager);
 
@@ -488,7 +490,7 @@ public sealed class BattleState
             return true;
         }
 
-        if (CurrentRound.PlayerStood && CurrentRound.OpponentStood)
+        if (CurrentRound.PlayerStood && CurrentRound.OpponentStood) // if both players stand, resolve the round immediately
         {
             Combatant? winner = MoneyResolver.DetermineWinner(CurrentRound.PlayerScore, CurrentRound.OpponentScore);
             ResolveRound(new RoundResolution(winner, 0, 0), false);
