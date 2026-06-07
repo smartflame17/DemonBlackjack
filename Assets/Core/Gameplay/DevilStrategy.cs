@@ -4,13 +4,12 @@ using System.Collections.Generic;
 public interface IDevilStrategy
 {
     int DrawValue { get; }
-    int ChooseWager(BattleState battle, int minimum, int maximum, int step);
+    int ChooseWager(BattleState battle, RoundState pendingRound, int defaultWager);
     WagerResponse ChoosePlayerWagerResponse(BattleState battle, RoundState pendingRound, int proposedWager);
-    WagerResponse ChoosePlayerReductionResponse(BattleState battle, RoundState pendingRound, int proposedWager);
     DevilTurnChoice ChooseTurnAction(BattleState battle, RoundState round);
     int ChooseCardIndex(BattleState battle, RoundState round);
     IEnumerable<Card> CreateStartingDeck(RunState runState, BattleConfig config);
-    void RegisterAffinityHooks(BattleState battle);     // TODO: Attach to wager events to adjust affinity based on player choices. For example, accepting a wager could increase affinity, while reducing could decrease it. This would allow the strategy to adapt over time based on the player's behavior.
+    void RegisterAffinityHooks(BattleState battle);     // TODO: Attach to wager events to adjust affinity based on player choices. For example, accepting a wager could increase affinity, while declining could decrease it. This would allow the strategy to adapt over time based on the player's behavior.
     void UnregisterAffinityHooks(BattleState battle);
     IEnumerable<Modifier> GetGlobalModifiers(RunState runState);
 }
@@ -20,32 +19,24 @@ public interface IDevilStrategy
 // Expand upon here to create complex AI strategies that consider the current battle and round state to make informed decisions on which card to play and how much to draw.
 public sealed class BasicDevilStrategy : IDevilStrategy
 {
-    public BasicDevilStrategy(int drawValue = 2)
+    public BasicDevilStrategy(int drawValue = 3)
     {
-        DrawValue = drawValue <= 0 ? 2 : drawValue;
+        DrawValue = drawValue <= 0 ? 3 : drawValue;
     }
 
     public int DrawValue { get; }
 
-    // TODO: Change this to consider current hand and affinity to make more strategic wager choices. For now, it just chooses the maximum allowed wager.
-    public int ChooseWager(BattleState battle, int minimum, int maximum, int step)
+    public int ChooseWager(BattleState battle, RoundState pendingRound, int defaultWager)
     {
-        if (battle == null)
-            return minimum;
+        if (battle == null || pendingRound == null || defaultWager <= 0)
+            return Math.Max(0, defaultWager);
 
-        int affinity = battle.RunState.GetDevilAffinity(battle.Config.DevilId);
-        int biasedMaximum = Math.Max(minimum, maximum - (Math.Max(0, affinity) * step));
-        return ClampToStep(battle.NextRandomInclusive(minimum, biasedMaximum), minimum, biasedMaximum, step);
+        return defaultWager * (int)EvaluateHandLevel(pendingRound.OpponentHand);
     }
 
     public WagerResponse ChoosePlayerWagerResponse(BattleState battle, RoundState pendingRound, int proposedWager)
     {
-        return RollPlayerBeneficialDecision(battle) ? WagerResponse.Accept : WagerResponse.Reduce;
-    }
-
-    public WagerResponse ChoosePlayerReductionResponse(BattleState battle, RoundState pendingRound, int proposedWager)
-    {
-        return RollPlayerBeneficialDecision(battle) ? WagerResponse.Accept : WagerResponse.Reduce;
+        return RollPlayerBeneficialDecision(battle) ? WagerResponse.Accept : WagerResponse.Decline;
     }
 
     public DevilTurnChoice ChooseTurnAction(BattleState battle, RoundState round)
@@ -118,11 +109,25 @@ public sealed class BasicDevilStrategy : IDevilStrategy
         return currentScore < 17;
     }
 
-    private static int ClampToStep(int value, int minimum, int maximum, int step)
+    private static DevilHandLevel EvaluateHandLevel(IReadOnlyList<Card> hand)
     {
-        int clamped = Math.Clamp(value, minimum, maximum);
-        int offset = clamped - minimum;
-        return minimum + ((offset / step) * step);
+        int rankTotal = 0;
+        if (hand != null)
+        {
+            for (int i = 0; i < hand.Count; i++)
+                rankTotal += (int)hand[i].Rank;
+        }
+
+        if (rankTotal >= 20)
+            return DevilHandLevel.VeryHigh;
+        if (rankTotal >= 18)
+            return DevilHandLevel.High;
+        if (rankTotal >= 15)
+            return DevilHandLevel.Medium;
+        if (rankTotal >= 11)
+            return DevilHandLevel.Low;
+
+        return DevilHandLevel.VeryLow;
     }
 
     private static bool RollPlayerBeneficialDecision(BattleState battle)

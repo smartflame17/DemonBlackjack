@@ -22,8 +22,23 @@ public sealed class BattleUiCardView : MonoBehaviour
         label = cardLabel;
         button = cardButton;
         visualRoot = cardImage != null ? cardImage.rectTransform : transform as RectTransform;
+        if (button != null && button.targetGraphic == null)
+            button.targetGraphic = image;
+
         CacheBasePosition();
-        Debug.Log("BattleUiCard initialized with image: " + (cardImage != null) + ", label: " + (cardLabel != null) + ", button: " + (cardButton != null));
+    }
+
+    public Button EnsureButton()
+    {
+        EnsureReferences();
+
+        if (button == null && image != null)
+            button = image.gameObject.AddComponent<Button>();
+
+        if (button != null && button.targetGraphic == null)
+            button.targetGraphic = image;
+
+        return button;
     }
 
     public void Bind(Card card, Sprite sprite, bool faceUp, bool interactable)
@@ -75,7 +90,7 @@ public sealed class BattleUiCardView : MonoBehaviour
             image = GetComponent<Image>();
 
         if (button == null)
-            button = GetComponent<Button>();
+            button = GetComponentInChildren<Button>(true);
 
         if (label == null)
             label = GetComponentInChildren<TMP_Text>();

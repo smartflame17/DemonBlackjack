@@ -56,19 +56,19 @@ The player's money is stored on `RunState`; the opponent's money is stored on `B
 
 The player and devil do not share a battle deck. The player battle deck is created from `RunState.Deck`. The devil battle deck is created through `IDevilStrategy.CreateStartingDeck`. The default devil strategy returns a standard 52-card deck equivalent to the player default, but character-specific strategies can provide different starting decks later.
 
-## 3. Round Start And Wager
+## 3. Round Start, Hand Refill, And Wager
 
-A battle consists of rounds. At the start of each round, the combatant with initiative proposes the wager.
+A battle consists of rounds. Starting a round creates the round state, restores any carried-over hand cards, and refills empty hands before any wager decision is made. After this preparation step, the battle remains in `PreRound` until the presentation layer commits a wager decision.
 
-Valid wager options are 10, 20, 30, ..., 100. A proposed wager can exceed one side's current money, but the final stake is capped by each combatant's money. If either side has less money than the final proposed wager, that side is forced all in for its remaining money. If the wager-deciding side has less than the minimum wager value, that side has no choice but to propose an all-in wager.
+The default wager is 10% of the player's current money, rounded down to whole money with a minimum of 1 while the player has money. Wagers are expressed as ratios of that default wager rather than fixed 10, 20, 30, ..., 100 values. A proposed wager can exceed one side's current money, but the final stake is capped by each combatant's money. If either side has less money than the final proposed wager, that side is forced all in for its remaining money.
 
 Initiative alternates by round. The player acts first on odd rounds, starting with round 1; the opponent acts first on even rounds.
 
-When the player proposes a wager, the devil strategy chooses whether to accept it or decline by reducing it. Higher affinity biases random decisions toward outcomes beneficial to the player. For wager decisions this means accepting player-proposed wagers and accepting player requests to lower a devil-proposed wager.
+When the player proposes a wager, the devil strategy chooses whether to accept or decline it. Higher affinity biases random decisions toward outcomes beneficial to the player. If the devil declines the player's proposal, the round automatically uses the default wager.
 
-When the devil has initiative, `IDevilStrategy` chooses the proposed wager. Until player-side wager UI exists, gameplay code may default the player response to accepting the proposed wager.
+When the devil has initiative, the devil evaluates its current hand by summing card ranks and mapping that sum to `DevilHandLevel`. The devil's proposed wager is `DevilHandLevel` multiplied by the default wager. If the player declines the devil's proposal, the round automatically uses the default wager.
 
-After a wager is negotiated, both combatants stake their final committed amounts. Player money decreases through `RunState`; opponent money decreases through `BattleState`. The pot is the sum of both committed amounts.
+After a wager is decided, both combatants stake their final committed amounts. Player money decreases through `RunState`; opponent money decreases through `BattleState`. The pot is the sum of both committed amounts, and only then does the round advance to the player or opponent phase.
 
 ## 4. Hand Refill
 
@@ -78,7 +78,7 @@ Unplayed hand cards carry across round cleanup.
 
 `BattleState.RefillOpponentHandIfEmpty` draws from the devil battle deck using `IDevilStrategy.DrawValue` whenever the opponent hand is empty.
 
-At round start, refill order follows initiative. The combatant who goes first draws first, so the first opening draws for the round come from that combatant's own deck.
+At round start, refill order follows initiative. The combatant who goes first draws first, so the first opening draws for the round come from that combatant's own deck. These refill checks happen before wager decisions so both combatants can evaluate their hands.
 
 Refill checks must happen any time a hand becomes empty during battle. In particular, `CardPlayedEvent` and `CardDiscardedEvent` flows should trigger refill behavior.
 
@@ -90,11 +90,11 @@ On a player turn, gameplay input can choose:
 
 - `stand`: do nothing and pass the turn
 - `hit`: immediately draw the first card from the draw pile, play it, and end the turn
-- `play`: play one or more cards from the player's hand, then end the turn
+- `play`: play one card from the player's hand, then end the turn
 
-`stand` and `hit` end the turn immediately. Playing a hand card does not automatically end the turn, because a combatant can play as many hand cards as desired during a play turn. The presentation layer should keep its play/confirm control disabled until at least one card has been played in that turn, but UI implementation is intentionally deferred.
+`stand`, `hit`, and playing one hand card end the turn. A combatant can play at most one hand card during a play turn, so the presentation layer should keep its play/confirm control disabled until exactly one card is selected.
 
-On an opponent turn, `IDevilStrategy` chooses whether to stand, hit, or play cards from hand. The default strategy uses shared blackjack-oriented logic to avoid bursting when possible.
+On an opponent turn, `IDevilStrategy` chooses whether to stand, hit, or play one card from hand. The default strategy uses shared blackjack-oriented logic to avoid bursting when possible.
 
 ## 6. Score And Burst Checks
 
@@ -161,8 +161,7 @@ Longer-term design calls for dialogue events or shops between rounds where the p
 - choosing to stand, hit, or play during an opponent turn
 - choosing which hand cards to play
 - choosing the wager when the devil has initiative
-- choosing whether to accept or reduce the player's wager
-- choosing whether to accept or reject the player's request to reduce a devil-proposed wager
+- choosing whether to accept or decline the player's wager
 - creating the devil's starting deck
 - registering and unregistering affinity hooks on the global event bus, battle event bus, or both
 - exposing character-specific global modifiers

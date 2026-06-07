@@ -27,9 +27,10 @@ public sealed class RoundState
     public int TargetScore { get; }
     public int BurstThreshold { get; }
     public int Wager => Math.Min(PlayerStake, OpponentStake);
-    public int PlayerStake { get; }
-    public int OpponentStake { get; }
+    public int PlayerStake { get; private set; }
+    public int OpponentStake { get; private set; }
     public bool PlayerActsFirst { get; }
+    public bool WagerCommitted { get; private set; }
     public int Pot => PlayerStake + OpponentStake;
     public int Reward => Pot;
     public bool PlayerHasPlayed => _playerPlayedCards.Count > 0;
@@ -58,6 +59,17 @@ public sealed class RoundState
     public void AddToOpponentHand(Card card)
     {
         _opponentHand.Add(card);
+    }
+
+    public bool TryCommitWager(int playerStake, int opponentStake)
+    {
+        if (WagerCommitted || playerStake <= 0 || opponentStake <= 0)
+            return false;
+
+        PlayerStake = playerStake;
+        OpponentStake = opponentStake;
+        WagerCommitted = true;
+        return true;
     }
 
     public void AddSharedVisibleCard(Card card)
