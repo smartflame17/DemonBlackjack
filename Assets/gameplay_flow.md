@@ -90,11 +90,11 @@ On a player turn, gameplay input can choose:
 
 - `stand`: do nothing and pass the turn
 - `hit`: immediately draw the first card from the draw pile, play it, and end the turn
-- `play`: play one or more cards from the player's hand, then end the turn
+- `play`: play one card from the player's hand, then end the turn
 
-`stand` and `hit` end the turn immediately. Playing a hand card does not automatically end the turn, because a combatant can play as many hand cards as desired during a play turn. The presentation layer should keep its play/confirm control disabled until at least one card has been played in that turn, but UI implementation is intentionally deferred.
+`stand`, `hit`, and playing one hand card end the turn. A combatant can play at most one hand card during a play turn, so the presentation layer should keep its play/confirm control disabled until exactly one card is selected.
 
-On an opponent turn, `IDevilStrategy` chooses whether to stand, hit, or play cards from hand. The default strategy uses shared blackjack-oriented logic to avoid bursting when possible.
+On an opponent turn, `IDevilStrategy` chooses whether to stand, hit, or play one card from hand. The default strategy uses shared blackjack-oriented logic to avoid bursting when possible.
 
 ## 6. Score And Burst Checks
 

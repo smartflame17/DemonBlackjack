@@ -106,16 +106,8 @@ public sealed class BattleState
         EventBus.Publish(new RoundStartedEvent(RoundNumber));
         CommandQueue.Enqueue(new VisualCommand(VisualCommandType.RoundStarted, $"{RoundNumber}:{proposedWager}"));
 
-        if (playerActsFirst)
-        {
-            CurrentRound.BeginPlayerTurn();
-            SetPhase(BattlePhase.PlayerPhase);
-        }
-        else
-        {
-            SetPhase(BattlePhase.OpponentPhase);
-            PlayOpponentTurn();
-        }
+        CurrentRound.BeginPlayerTurn();
+        SetPhase(BattlePhase.PlayerPhase);
 
         return true;
     }
@@ -123,6 +115,9 @@ public sealed class BattleState
     public bool TryPlayCard(int handIndex)
     {
         if (Phase != BattlePhase.PlayerPhase || CurrentRound == null)
+            return false;
+
+        if (CurrentRound.PlayerPlayedThisTurn)      // WARNING: If in the future items or modifiers that allow multiple plays per turn are added, this check will need to be updated to account for that
             return false;
 
         if (!CurrentRound.TryPlayCard(handIndex, out Card card))
@@ -438,26 +433,22 @@ public sealed class BattleState
 
     private void PlayOpponentHandCards()
     {
-        int guard = 0;
-        while (CurrentRound != null && guard++ < 32)
+        if (CurrentRound == null)
+            return;
+
+        RefillOpponentHandIfEmpty();
+        if (CurrentRound.OpponentHand.Count == 0)
+            return;
+
+        int handIndex = Config.DevilStrategy.ChooseCardIndex(this, CurrentRound);
+        if (!CurrentRound.TryPlayOpponentCard(handIndex, out Card card))
         {
-            RefillOpponentHandIfEmpty();
-            if (CurrentRound.OpponentHand.Count == 0)
+            if (handIndex == 0 || !CurrentRound.TryPlayOpponentCard(0, out card))
                 return;
-
-            if (Config.DevilStrategy.ChooseTurnAction(this, CurrentRound) != DevilTurnChoice.Play)
-                return;
-
-            int handIndex = Config.DevilStrategy.ChooseCardIndex(this, CurrentRound);
-            if (!CurrentRound.TryPlayOpponentCard(handIndex, out Card card))
-            {
-                if (handIndex == 0 || !CurrentRound.TryPlayOpponentCard(0, out card))
-                    return;
-            }
-
-            EventBus.Publish(new CardPlayedEvent(Combatant.Opponent, card));
-            CommandQueue.Enqueue(new VisualCommand(VisualCommandType.CardsPlayed, card.ToString()));
         }
+
+        EventBus.Publish(new CardPlayedEvent(Combatant.Opponent, card));
+        CommandQueue.Enqueue(new VisualCommand(VisualCommandType.CardsPlayed, card.ToString()));
     }
 
     private bool CompletePlayerTurn()

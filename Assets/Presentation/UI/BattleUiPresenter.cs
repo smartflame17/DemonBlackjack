@@ -234,7 +234,14 @@ public sealed class BattleUiPresenter : MonoBehaviour
     private void ToggleCardSelection(int handIndex)
     {
         if (!_selectedHandIndices.Add(handIndex))
+        {
             _selectedHandIndices.Remove(handIndex);
+        }
+        else
+        {
+            _selectedHandIndices.Clear();
+            _selectedHandIndices.Add(handIndex);
+        }
 
         Refresh();
     }
@@ -244,15 +251,18 @@ public sealed class BattleUiPresenter : MonoBehaviour
         if (battleController == null || _selectedHandIndices.Count == 0)
             return;
 
-        var selected = new List<int>(_selectedHandIndices);
-        selected.Sort();
-
-        int playedCount = 0;
-        for (int i = 0; i < selected.Count; i++)
+        int selectedIndex = -1;
+        foreach (int handIndex in _selectedHandIndices)
         {
-            int adjustedIndex = selected[i] - playedCount;
-            if (battleController.TryPlayCard(adjustedIndex))
-                playedCount++;
+            selectedIndex = handIndex;
+            break;
+        }
+
+        if (selectedIndex < 0 || !battleController.TryPlayCard(selectedIndex))
+        {
+            _selectedHandIndices.Clear();
+            Refresh();
+            return;
         }
 
         _selectedHandIndices.Clear();
