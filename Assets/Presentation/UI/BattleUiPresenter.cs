@@ -1,4 +1,6 @@
+using System.Collections;
 using System.Collections.Generic;
+using DG.Tweening;
 using TMPro;
 using UnityEngine;
 using UnityEngine.UI;
@@ -58,6 +60,17 @@ public sealed class BattleUiPresenter : MonoBehaviour
     [SerializeField] private RectTransform rewardViewRoot;
     [SerializeField] private Button backToMapButton;
 
+    [Header("Card Animation")]
+    [SerializeField] private Vector2 cardDrawStartOffset = new(1200f, 0f);
+    [SerializeField] private Vector2 cardDiscardEndOffset = new(-1200f, 0f);
+    [SerializeField] private float cardDrawDurationSeconds = 0.28f;
+    [SerializeField] private float cardDiscardDurationSeconds = 0.22f;
+    [SerializeField] private float cardPlayDurationSeconds = 0.34f;
+    [SerializeField] private float cardPlayJumpPower = 32f;
+    [SerializeField] private Ease cardDrawEase = Ease.OutCubic;
+    [SerializeField] private Ease cardDiscardEase = Ease.InCubic;
+    [SerializeField] private Ease cardPlayEase = Ease.OutQuad;
+
     private readonly List<BattleUiCardView> _playerCards = new();
     private readonly List<BattleUiCardView> _opponentCards = new();
     private readonly List<BattleUiCardView> _devilPlayPileCards = new();
@@ -66,10 +79,39 @@ public sealed class BattleUiPresenter : MonoBehaviour
     private readonly List<BattleUiCardView> _deckCards = new();
     private readonly HashSet<int> _selectedHandIndices = new();
     private readonly List<Card> _deckViewCards = new();
+    private readonly List<CardLayoutSnapshot> _previousPlayerHand = new();
+    private readonly List<CardLayoutSnapshot> _previousOpponentHand = new();
+    private readonly List<Card> _lastPlayerHandCards = new();
+    private readonly List<Card> _lastOpponentHandCards = new();
+    private readonly List<Card> _lastPlayerPileCards = new();
+    private readonly List<Card> _lastOpponentPileCards = new();
+    private readonly List<Card> _lastSharedPileCards = new();
+    private readonly List<Tween> _cardTweens = new();
 
     private int _pendingWager = 10;
     private bool _wagerOpen;
+    private bool _suppressRoundPilesUntilNextRound;
     private DeckViewSortMode _deckViewSortMode = DeckViewSortMode.Rank;
+
+    private enum CardAnimationContext
+    {
+        Normal,
+        Draw,
+        Play,
+        Discard
+    }
+
+    private readonly struct CardLayoutSnapshot
+    {
+        public CardLayoutSnapshot(Card card, Vector3 worldPosition)
+        {
+            Card = card;
+            WorldPosition = worldPosition;
+        }
+
+        public Card Card { get; }
+        public Vector3 WorldPosition { get; }
+    }
 
     private enum DeckViewSortMode
     {
@@ -118,10 +160,43 @@ public sealed class BattleUiPresenter : MonoBehaviour
 
     public void Refresh()
     {
+        Refresh(CardAnimationContext.Normal);
+    }
+
+    public void RefreshForVisualCommand(VisualCommand command)
+    {
+        Refresh(GetAnimationContext(command.Type));
+    }
+
+    public IEnumerator WaitForCardAnimations()
+    {
+        for (int i = _cardTweens.Count - 1; i >= 0; i--)
+        {
+            if (_cardTweens[i] == null || !_cardTweens[i].IsActive())
+                _cardTweens.RemoveAt(i);
+        }
+
+        while (_cardTweens.Count > 0)
+        {
+            for (int i = _cardTweens.Count - 1; i >= 0; i--)
+            {
+                Tween tween = _cardTweens[i];
+                if (tween == null || !tween.IsActive() || !tween.IsPlaying())
+                    _cardTweens.RemoveAt(i);
+            }
+
+            if (_cardTweens.Count > 0)
+                yield return null;
+        }
+    }
+
+    private void Refresh(CardAnimationContext animationContext)
+    {
         AutoBindLayout();
 
         BattleState battle = battleController != null ? battleController.BattleState : null;
         RoundState round = battle?.CurrentRound;
+        CaptureHandSnapshots();
 
         if (battle == null)
         {
@@ -133,6 +208,7 @@ public sealed class BattleUiPresenter : MonoBehaviour
             SetText(devilMoneyText, "Devil $0");
             SetPanels(false, false, false);
             SetTurnButtons(false, false);
+            RememberRenderedCards(null);
             return;
         }
 
@@ -152,7 +228,8 @@ public sealed class BattleUiPresenter : MonoBehaviour
 
         RenderCards(_playerCards, playerHandRoot, round?.PlayerHand.Count ?? 0, round?.PlayerHand, true, CanSelectCards(battle), false);
         RenderCards(_opponentCards, opponentHandRoot, round?.OpponentHand.Count ?? 0, round?.OpponentHand, false, false, true);
-        RenderPlayPile(round);
+        RenderPlayPile(round, _suppressRoundPilesUntilNextRound && battle.Phase == BattlePhase.Cleanup);
+        AnimateCardChanges(round, animationContext);
 
         bool roundFinished = battle.Phase == BattlePhase.Cleanup;
         bool battleFinished = battle.Phase == BattlePhase.BattleEnd;
@@ -162,6 +239,7 @@ public sealed class BattleUiPresenter : MonoBehaviour
         RefreshRoundResult(battle);
         RefreshBattleResult(battle);
         SetTurnButtons(battle.Phase == BattlePhase.PlayerPhase && !battleController.IsWaitingForVisuals, _selectedHandIndices.Count > 0);
+        RememberRenderedCards(round);
     }
 
     public void ClearGeneratedBattleCards()
@@ -327,6 +405,7 @@ public sealed class BattleUiPresenter : MonoBehaviour
 
         _selectedHandIndices.Clear();
         _wagerOpen = false;
+        _suppressRoundPilesUntilNextRound = false;
         battleController.DecideRoundWager(wager, acceptDevilOffer);
         Refresh();
     }
@@ -422,6 +501,7 @@ public sealed class BattleUiPresenter : MonoBehaviour
 
     private void OnBattleStarted(BattleStartedEvent eventData)
     {
+        _suppressRoundPilesUntilNextRound = false;
         OpenWagerPanel();
         Refresh();
     }
@@ -523,11 +603,198 @@ public sealed class BattleUiPresenter : MonoBehaviour
             hitButton.interactable = playerTurn;
     }
 
-    private void RenderPlayPile(RoundState round)
+    private static CardAnimationContext GetAnimationContext(VisualCommandType commandType)
     {
-        RenderStaticPile(_devilPlayPileCards, devilPlayPileRoot, round?.OpponentVisibleCards);
-        RenderStaticPile(_sharedPlayPileCards, sharedPlayPileRoot, round?.SharedVisibleCards);
-        RenderStaticPile(_playerPlayPileCards, playerPlayPileRoot, round?.PlayerPlayedCards);
+        return commandType switch
+        {
+            VisualCommandType.CardsDrawn => CardAnimationContext.Draw,
+            VisualCommandType.CardsPlayed => CardAnimationContext.Play,
+            VisualCommandType.RoundEnded => CardAnimationContext.Discard,
+            _ => CardAnimationContext.Normal
+        };
+    }
+
+    private void CaptureHandSnapshots()
+    {
+        _previousPlayerHand.Clear();
+        _previousOpponentHand.Clear();
+        CaptureHandSnapshot(_previousPlayerHand, _lastPlayerHandCards, _playerCards);
+        CaptureHandSnapshot(_previousOpponentHand, _lastOpponentHandCards, _opponentCards);
+    }
+
+    private static void CaptureHandSnapshot(List<CardLayoutSnapshot> snapshots, IReadOnlyList<Card> cards, IReadOnlyList<BattleUiCardView> views)
+    {
+        int count = Mathf.Min(cards.Count, views.Count);
+        for (int i = 0; i < count; i++)
+        {
+            BattleUiCardView view = views[i];
+            if (view == null || !view.gameObject.activeSelf || view.RectTransform == null)
+                continue;
+
+            snapshots.Add(new CardLayoutSnapshot(cards[i], view.RectTransform.position));
+        }
+    }
+
+    private void AnimateCardChanges(RoundState round, CardAnimationContext animationContext)
+    {
+        if (round == null)
+            return;
+
+        if (animationContext == CardAnimationContext.Discard)
+        {
+            AnimatePileCardsToDiscard(_devilPlayPileCards);
+            AnimatePileCardsToDiscard(_sharedPlayPileCards);
+            AnimatePileCardsToDiscard(_playerPlayPileCards);
+            _suppressRoundPilesUntilNextRound = true;
+            return;
+        }
+
+        bool animateDraws = animationContext == CardAnimationContext.Draw || animationContext == CardAnimationContext.Normal;
+        bool animatePlays = animationContext == CardAnimationContext.Play || animationContext == CardAnimationContext.Normal;
+
+        if (animateDraws)
+        {
+            AnimateDrawnCards(_playerCards, round.PlayerHand, _lastPlayerHandCards);
+            AnimateDrawnCards(_opponentCards, round.OpponentHand, _lastOpponentHandCards);
+        }
+
+        if (animatePlays)
+        {
+            AnimatePlayedCards(_playerPlayPileCards, round.PlayerPlayedCards, _lastPlayerPileCards, _previousPlayerHand);
+            AnimatePlayedCards(_devilPlayPileCards, round.OpponentVisibleCards, _lastOpponentPileCards, _previousOpponentHand);
+            AnimateDrawnCards(_sharedPlayPileCards, round.SharedVisibleCards, _lastSharedPileCards);
+        }
+    }
+
+    private void AnimateDrawnCards(IReadOnlyList<BattleUiCardView> views, IReadOnlyList<Card> currentCards, IReadOnlyList<Card> previousCards)
+    {
+        if (currentCards == null || currentCards.Count <= previousCards.Count)
+            return;
+
+        for (int i = previousCards.Count; i < currentCards.Count && i < views.Count; i++)
+            AnimateCardFromOffset(views[i], cardDrawStartOffset, cardDrawDurationSeconds, cardDrawEase);
+    }
+
+    private void AnimatePlayedCards(IReadOnlyList<BattleUiCardView> views, IReadOnlyList<Card> currentCards, IReadOnlyList<Card> previousCards, List<CardLayoutSnapshot> sourceSnapshots)
+    {
+        if (currentCards == null || currentCards.Count <= previousCards.Count)
+            return;
+
+        for (int i = previousCards.Count; i < currentCards.Count && i < views.Count; i++)
+        {
+            BattleUiCardView view = views[i];
+            if (TryTakeSourceSnapshot(sourceSnapshots, currentCards[i], out Vector3 sourceWorldPosition))
+                AnimateCardFromWorldPosition(view, sourceWorldPosition);
+            else
+                AnimateCardFromOffset(view, cardDrawStartOffset, cardPlayDurationSeconds, cardPlayEase);
+        }
+    }
+
+    private static bool TryTakeSourceSnapshot(List<CardLayoutSnapshot> snapshots, Card card, out Vector3 worldPosition)
+    {
+        for (int i = 0; i < snapshots.Count; i++)
+        {
+            if (!EqualityComparer<Card>.Default.Equals(snapshots[i].Card, card))
+                continue;
+
+            worldPosition = snapshots[i].WorldPosition;
+            snapshots.RemoveAt(i);
+            return true;
+        }
+
+        worldPosition = default;
+        return false;
+    }
+
+    private void AnimateCardFromOffset(BattleUiCardView view, Vector2 startOffset, float durationSeconds, Ease ease)
+    {
+        RectTransform rect = GetCardRect(view);
+        if (rect == null)
+            return;
+
+        Vector2 targetPosition = rect.anchoredPosition;
+        rect.DOKill();
+        rect.anchoredPosition = targetPosition + startOffset;
+        TrackTween(rect.DOAnchorPos(targetPosition, Mathf.Max(0.01f, durationSeconds)).SetEase(ease));
+    }
+
+    private void AnimateCardFromWorldPosition(BattleUiCardView view, Vector3 sourceWorldPosition)
+    {
+        RectTransform rect = GetCardRect(view);
+        RectTransform parent = rect != null ? rect.parent as RectTransform : null;
+        if (rect == null || parent == null)
+            return;
+
+        Vector2 targetPosition = rect.anchoredPosition;
+        rect.DOKill();
+        rect.anchoredPosition = WorldToAnchoredPosition(parent, sourceWorldPosition);
+        TrackTween(rect.DOJumpAnchorPos(targetPosition, cardPlayJumpPower, 1, Mathf.Max(0.01f, cardPlayDurationSeconds)).SetEase(cardPlayEase));
+    }
+
+    private void AnimatePileCardsToDiscard(IReadOnlyList<BattleUiCardView> views)
+    {
+        for (int i = 0; i < views.Count; i++)
+        {
+            RectTransform rect = GetCardRect(views[i]);
+            if (rect == null || !views[i].gameObject.activeSelf)
+                continue;
+
+            rect.DOKill();
+            TrackTween(rect.DOAnchorPos(rect.anchoredPosition + cardDiscardEndOffset, Mathf.Max(0.01f, cardDiscardDurationSeconds)).SetEase(cardDiscardEase));
+        }
+    }
+
+    private static RectTransform GetCardRect(BattleUiCardView view)
+    {
+        return view != null && view.gameObject.activeSelf ? view.RectTransform : null;
+    }
+
+    private static Vector2 WorldToAnchoredPosition(RectTransform parent, Vector3 worldPosition)
+    {
+        Camera camera = null;
+        Canvas canvas = parent.GetComponentInParent<Canvas>();
+        if (canvas != null && canvas.renderMode != RenderMode.ScreenSpaceOverlay)
+            camera = canvas.worldCamera;
+
+        Vector2 screenPoint = RectTransformUtility.WorldToScreenPoint(camera, worldPosition);
+        RectTransformUtility.ScreenPointToLocalPointInRectangle(parent, screenPoint, camera, out Vector2 localPoint);
+        return localPoint;
+    }
+
+    private void TrackTween(Tween tween)
+    {
+        if (tween == null)
+            return;
+
+        _cardTweens.Add(tween);
+        tween.OnComplete(() => _cardTweens.Remove(tween));
+        tween.OnKill(() => _cardTweens.Remove(tween));
+    }
+
+    private void RememberRenderedCards(RoundState round)
+    {
+        CopyCards(_lastPlayerHandCards, round?.PlayerHand);
+        CopyCards(_lastOpponentHandCards, round?.OpponentHand);
+        CopyCards(_lastPlayerPileCards, round?.PlayerPlayedCards);
+        CopyCards(_lastOpponentPileCards, round?.OpponentVisibleCards);
+        CopyCards(_lastSharedPileCards, round?.SharedVisibleCards);
+    }
+
+    private static void CopyCards(List<Card> target, IReadOnlyList<Card> source)
+    {
+        target.Clear();
+        if (source == null)
+            return;
+
+        for (int i = 0; i < source.Count; i++)
+            target.Add(source[i]);
+    }
+
+    private void RenderPlayPile(RoundState round, bool suppressVisibleCards)
+    {
+        RenderStaticPile(_devilPlayPileCards, devilPlayPileRoot, suppressVisibleCards ? null : round?.OpponentVisibleCards);
+        RenderStaticPile(_sharedPlayPileCards, sharedPlayPileRoot, suppressVisibleCards ? null : round?.SharedVisibleCards);
+        RenderStaticPile(_playerPlayPileCards, playerPlayPileRoot, suppressVisibleCards ? null : round?.PlayerPlayedCards);
     }
 
     private void RenderStaticPile(List<BattleUiCardView> views, RectTransform root, IReadOnlyList<Card> cards)
@@ -962,6 +1229,7 @@ public sealed class BattleUiPresenter : MonoBehaviour
 
     private void ClearBattleCardViews()
     {
+        KillCardTweens();
         DestroyCardViews(_playerCards);
         DestroyCardViews(_opponentCards);
         DestroyCardViews(_devilPlayPileCards);
@@ -974,6 +1242,8 @@ public sealed class BattleUiPresenter : MonoBehaviour
         ClearChildren(sharedPlayPileRoot);
         ClearChildren(playerPlayPileRoot);
         _selectedHandIndices.Clear();
+        _suppressRoundPilesUntilNextRound = false;
+        RememberRenderedCards(null);
     }
 
     private static void DestroyCardViews(List<BattleUiCardView> views)
@@ -992,6 +1262,18 @@ public sealed class BattleUiPresenter : MonoBehaviour
         if (target == null)
             return;
 
+        RectTransform rect = target.GetComponent<RectTransform>();
+        if (rect != null)
+            rect.DOKill();
+
         DestroyImmediate(target);
+    }
+
+    private void KillCardTweens()
+    {
+        for (int i = _cardTweens.Count - 1; i >= 0; i--)
+            _cardTweens[i]?.Kill();
+
+        _cardTweens.Clear();
     }
 }

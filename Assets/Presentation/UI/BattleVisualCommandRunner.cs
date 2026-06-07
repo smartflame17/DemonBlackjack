@@ -42,22 +42,26 @@ public sealed class BattleVisualCommandRunner : MonoBehaviour
         {
             yield return PlayCommand(command);
             battleController.NotifyVisualsResolved(command.Type);
-            battleUiPresenter?.Refresh();
         }
 
         battleUiPresenter?.Refresh();
         _drainRoutine = null;
     }
 
-    // Plays the visual command with an optional delay for better pacing. This is where you would trigger animations, sound effects, etc. based on the command type and data.
     private IEnumerator PlayCommand(VisualCommand command)
     {
-        battleUiPresenter?.Refresh();
+        if (battleUiPresenter != null)
+        {
+            battleUiPresenter.RefreshForVisualCommand(command);
+            yield return battleUiPresenter.WaitForCardAnimations();
+        }
+        else
+        {
+            yield return null;
+        }
 
         if (commandDelaySeconds > 0f)
             yield return new WaitForSeconds(commandDelaySeconds);
-        else
-            yield return null;
     }
 
     private void OnBattleStarted(BattleStartedEvent eventData)
