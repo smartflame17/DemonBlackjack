@@ -19,9 +19,9 @@ public interface IDevilStrategy
 // Expand upon here to create complex AI strategies that consider the current battle and round state to make informed decisions on which card to play and how much to draw.
 public sealed class BasicDevilStrategy : IDevilStrategy
 {
-    public BasicDevilStrategy(int drawValue = 2)
+    public BasicDevilStrategy(int drawValue = 3)
     {
-        DrawValue = drawValue <= 0 ? 2 : drawValue;
+        DrawValue = drawValue <= 0 ? 3 : drawValue;
     }
 
     public int DrawValue { get; }
