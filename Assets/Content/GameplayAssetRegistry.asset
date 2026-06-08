@@ -175,3 +175,11 @@ MonoBehaviour:
   devilSprites:
   - devilId: testDevil
     sprite: {fileID: 21300000, guid: 93a1ff9a68a08cb42a69e76b56da86fc, type: 3}
+  - devilId: devil1
+    sprite: {fileID: 21300000, guid: 7cbe4b5b67b1f194aaeb15449682a42d, type: 3}
+  - devilId: devil2
+    sprite: {fileID: 21300000, guid: 23397b6aa0f58384796e10686dfe03d0, type: 3}
+  - devilId: devil3
+    sprite: {fileID: 21300000, guid: d73cb3d9a03ddd94abc69876906c6773, type: 3}
+  - devilId: devil4
+    sprite: {fileID: 21300000, guid: 3e0c7543750b0e74b9889a7945b29fd7, type: 3}
