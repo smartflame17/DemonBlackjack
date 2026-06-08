@@ -7,17 +7,19 @@ public static class ScoreResolver
     public static ScoreResult Resolve(IReadOnlyList<Card> cards, IReadOnlyList<Modifier> modifiers, int targetScore, int burstThreshold)
     {
         int blackjackScore = ResolveBlackjackScore(cards);
+        bool isBurst = blackjackScore > burstThreshold;
+
         PokerHandRank pokerRank = ResolvePokerRank(cards);
-        int multiplier = GetPokerMultiplier(pokerRank);
+        //int multiplier = GetPokerMultiplier(pokerRank); //TODO: update poker logic later, set to 1 for now
+        int multiplier = 1;
 
         int modifiedScore = ApplyModifiers(blackjackScore, multiplier, modifiers);
-        bool isBurst = modifiedScore > burstThreshold;
-        bool isBlackjack = modifiedScore == targetScore && cards.Count == 2;
+        bool isBlackjack = modifiedScore == targetScore;    // fk you codex for adding arbitrary card.Count==2
 
         return new ScoreResult(blackjackScore, modifiedScore, pokerRank, multiplier, isBurst, isBlackjack);
     }
 
-    private static int ResolveBlackjackScore(IReadOnlyList<Card> cards)
+    private static int ResolveBlackjackScore(IReadOnlyList<Card> cards) // TODO: apply any attached modifiers before evaluating
     {
         int score = 0;
         int aces = 0;
