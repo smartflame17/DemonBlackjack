@@ -22,7 +22,7 @@ public sealed class BattleState
         CommandQueue = new CommandQueue();
         OpponentMoney = config.OpponentStartingMoney;
         BattleSeed = runState.CreateBattleSeed();
-        _playerDeck = new Deck(runState.Deck, BattleSeed);
+        _playerDeck = new Deck(runState.CreateBattleDeck(), BattleSeed);
         _opponentDeck = new Deck(config.DevilStrategy.CreateStartingDeck(runState, config), BattleSeed + 17);
         _random = new Random(BattleSeed);
         _activeModifiers.AddRange(config.InitialModifiers);
@@ -103,6 +103,12 @@ public sealed class BattleState
         RunState.AddMoney(-playerStake);
         AddOpponentMoney(-opponentStake);
 
+        SetPhase(BattlePhase.PreRound);
+        RoundNumber++;
+        int targetScore = RelicRuleResolver.ResolveTargetScore(RunState, Config.TargetScore);
+        int burstThreshold = RelicRuleResolver.ResolveBurstThreshold(RunState, Config.BurstThreshold);
+        CurrentRound = new RoundState(RoundNumber, targetScore, burstThreshold, playerStake, opponentStake, playerActsFirst);
+        RestoreCarryoverHands();
         EventBus.Publish(new RoundStartedEvent(RoundNumber));
         CommandQueue.Enqueue(new VisualCommand(VisualCommandType.RoundStarted, $"{RoundNumber}:{proposedWager}"));
 
@@ -263,6 +269,44 @@ public sealed class BattleState
     public bool TryDrawForPlayer(out Card card)
     {
         return TryDrawCard(Combatant.Player, out card);
+    }
+
+    public bool TryUseActiveItem(string itemId)
+    {
+        if (IsBattleOver || CurrentRound == null || !RunState.HasActiveItem(itemId))
+            return false;
+
+        if (!ActiveItemResolver.TryApply(itemId, this))
+            return false;
+
+        RunState.RemoveActiveItem(itemId);
+        EventBus.Publish(new ItemUsedEvent(itemId));
+        return true;
+    }
+
+    public bool ClearField(Combatant owner)
+    {
+        if (CurrentRound == null)
+            return false;
+
+        IReadOnlyList<Card> cards = CurrentRound.TakeFieldCards(owner);
+        if (cards.Count == 0)
+            return false;
+
+        Deck deck = owner == Combatant.Player ? _playerDeck : _opponentDeck;
+        deck.DiscardRange(cards);
+
+        for (int i = 0; i < cards.Count; i++)
+            EventBus.Publish(new CardDiscardedEvent(owner, cards[i]));
+
+        return true;
+    }
+
+    public bool ClearAllFields()
+    {
+        bool playerCleared = ClearField(Combatant.Player);
+        bool opponentCleared = ClearField(Combatant.Opponent);
+        return playerCleared || opponentCleared;
     }
 
     private bool TryNegotiateWager(int requestedWager, bool playerActsFirst, bool playerAcceptsOpponentWager, out int proposedWager, out int playerStake, out int opponentStake)
