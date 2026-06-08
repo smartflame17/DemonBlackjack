@@ -82,7 +82,9 @@ public sealed class BattleState
 
         SetPhase(BattlePhase.PreRound);
         RoundNumber++;
-        CurrentRound = new RoundState(RoundNumber, Config.TargetScore, Config.BurstThreshold, 0, 0, playerActsFirst);
+        int targetScore = RelicRuleResolver.ResolveTargetScore(RunState, Config.TargetScore);
+        int burstThreshold = RelicRuleResolver.ResolveBurstThreshold(RunState, Config.BurstThreshold);
+        CurrentRound = new RoundState(RoundNumber, targetScore, burstThreshold, 0, 0, playerActsFirst);
         RestoreCarryoverHands();
         RefillHandsForRoundStart(playerActsFirst);
         return true;
@@ -103,12 +105,6 @@ public sealed class BattleState
         RunState.AddMoney(-playerStake);
         AddOpponentMoney(-opponentStake);
 
-        SetPhase(BattlePhase.PreRound);
-        RoundNumber++;
-        int targetScore = RelicRuleResolver.ResolveTargetScore(RunState, Config.TargetScore);
-        int burstThreshold = RelicRuleResolver.ResolveBurstThreshold(RunState, Config.BurstThreshold);
-        CurrentRound = new RoundState(RoundNumber, targetScore, burstThreshold, playerStake, opponentStake, playerActsFirst);
-        RestoreCarryoverHands();
         EventBus.Publish(new RoundStartedEvent(RoundNumber));
         CommandQueue.Enqueue(new VisualCommand(VisualCommandType.RoundStarted, $"{RoundNumber}:{proposedWager}"));
 
