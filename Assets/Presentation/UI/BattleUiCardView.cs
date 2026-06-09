@@ -15,6 +15,7 @@ public sealed class BattleUiCardView : MonoBehaviour
     private bool _hasBasePosition;
 
     public Button Button => button;
+    public RectTransform RectTransform => transform as RectTransform;
 
     public void Initialize(Image cardImage, TMP_Text cardLabel, Button cardButton)
     {
