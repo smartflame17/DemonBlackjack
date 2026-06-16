@@ -1,6 +1,6 @@
 using UnityEngine;
 
-public class RunManager : MonoBehaviour
+public class RunManager : MonoBehaviour, IDataPersistence
 {
     [SerializeField] private BattleController battleController;
     [SerializeField] private bool startRunOnAwake = true;
@@ -30,7 +30,7 @@ public class RunManager : MonoBehaviour
     private void Start()
     {
         if (startRunOnAwake)
-            StartRun(debugSeed);
+            StartOrLoadRun(debugSeed);
     }
 
     public void StartRun(int seed)
@@ -40,6 +40,18 @@ public class RunManager : MonoBehaviour
         Debug.Log("Run started with seed: " + seed);
         SetPhase(RunPhase.Init);
         SetPhase(RunPhase.Map);
+    }
+
+    public void StartOrLoadRun(int seed)
+    {
+        if (PersistenceManager.Instance != null && PersistenceManager.Instance.TryLoadRunState(out RunState loadedRunState))
+        {
+            ApplyLoadedRunState(loadedRunState);
+            Debug.Log("Run loaded with seed: " + RunState.Seed);
+            return;
+        }
+
+        StartRun(seed);
     }
 
     public void StartBattle(BattleConfig config = null)
@@ -92,5 +104,30 @@ public class RunManager : MonoBehaviour
     {
         RunState.SetPhase(phase);
         EventBus.Publish(new RunPhaseChangedEvent(phase));
+    }
+
+    public void LoadData(GameData data)
+    {
+        RunState loadedRunState = data != null ? RunState.FromData(data.runState, playerMaxHp, startingGold) : null;
+        if (loadedRunState != null)
+            ApplyLoadedRunState(loadedRunState);
+    }
+
+    public void SaveData(GameData data)
+    {
+        if (data == null || RunState == null)
+            return;
+
+        data.runState = RunState.ToData();
+    }
+
+    private void ApplyLoadedRunState(RunState loadedRunState)
+    {
+        RunState = loadedRunState;
+
+        if (RunState.Phase == RunPhase.Inactive || RunState.Phase == RunPhase.Init || RunState.Phase == RunPhase.Battle)
+            SetPhase(RunPhase.Map);
+        else
+            EventBus.Publish(new RunPhaseChangedEvent(RunState.Phase));
     }
 }

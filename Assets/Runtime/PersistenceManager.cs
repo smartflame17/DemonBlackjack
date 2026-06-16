@@ -54,12 +54,17 @@ public class PersistenceManager : MonoBehaviour
 
   public void LoadGame()
   {
+    if (fileDataHandler == null)
+      InitializeFileDataHandler();
+
     this.gameData = fileDataHandler.Load(); // Load game data from file
     if (this.gameData == null)
     {
       Debug.Log("No game data found, starting a new game.");
       NewGame(); // If no game data exists, create a new one
     }
+
+    this.dataPersistenceObjects = FindAllDataPersistenceObjects(); // Refresh the list of IDataPersistence objects
     foreach (IDataPersistence dataPersistenceObj in this.dataPersistenceObjects)
     {
       dataPersistenceObj.LoadData(gameData); // Load data into each IDataPersistence object
@@ -68,6 +73,14 @@ public class PersistenceManager : MonoBehaviour
 
   public void SaveGame()
   {
+    if (fileDataHandler == null)
+      InitializeFileDataHandler();
+
+    if (gameData == null)
+      NewGame();
+
+    this.dataPersistenceObjects = FindAllDataPersistenceObjects();
+
     //Pass the gameData to other scripts to update it
     foreach (IDataPersistence dataPersistenceObj in this.dataPersistenceObjects)
     {
@@ -81,10 +94,40 @@ public class PersistenceManager : MonoBehaviour
     Debug.Log($"Game data saved in slot {selectedProfileId}.");
   }
 
-  private void OnApplicationQuit()
+  public bool TryLoadRunState(out RunState runState)
   {
-    SaveGame(); // Save game data when the application quits
-    // TODO: null reference exception here (potentially due to game manager being destroyed first)
+    if (gameData == null)
+    {
+      if (fileDataHandler == null)
+        InitializeFileDataHandler();
+
+      gameData = fileDataHandler.Load();
+    }
+
+    runState = gameData != null ? RunState.FromData(gameData.runState) : null;
+    return runState != null;
+  }
+
+  public void SaveRunState(RunState runState)
+  {
+    if (runState == null)
+      return;
+
+    if (gameData == null)
+      NewGame();
+
+    gameData.runState = runState.ToData();
+    SaveGame();
+  }
+
+  public void LoadCurrentProfile()
+  {
+    LoadGame();
+  }
+
+  public void SaveCurrentProfile()
+  {
+    SaveGame();
   }
 
   private List<IDataPersistence> FindAllDataPersistenceObjects()

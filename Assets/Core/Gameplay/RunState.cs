@@ -182,6 +182,150 @@ public sealed class RunState
         }
     }
 
+    public RunStateData ToData()
+    {
+        var data = new RunStateData
+        {
+            seed = Seed,
+            phase = Phase,
+            gold = Gold,
+            maxPlayerHp = MaxPlayerHp,
+            encounterIndex = EncounterIndex,
+            difficultyLevel = DifficultyLevel,
+            devilProgression = DevilProgression
+        };
+
+        for (int i = 0; i < _runDeck.Count; i++)
+        {
+            RunCard card = _runDeck[i];
+            data.deck.Add(new RunCardData
+            {
+                instanceId = card.InstanceId,
+                suit = card.Suit,
+                rank = card.Rank,
+                modifierId = card.ModifierId
+            });
+        }
+
+        data.relicIds.AddRange(_relicIds);
+        data.globalModifierIds.AddRange(_globalModifierIds);
+        data.activeItemIds.AddRange(_activeItemIds);
+
+        for (int i = 0; i < _battleHistory.Count; i++)
+        {
+            BattleResult result = _battleHistory[i];
+            data.battleHistory.Add(new BattleResultData
+            {
+                playerWon = result.PlayerWon,
+                roundCount = result.RoundCount,
+                playerMoneyAfterBattle = result.PlayerMoneyAfterBattle,
+                opponentMoneyAfterBattle = result.OpponentMoneyAfterBattle,
+                playerHpAfterBattle = result.PlayerHpAfterBattle,
+                opponentHpAfterBattle = result.OpponentHpAfterBattle
+            });
+        }
+
+        foreach (KeyValuePair<string, int> affinity in _devilAffinities)
+        {
+            data.devilAffinities.Add(new DevilAffinityData
+            {
+                devilId = affinity.Key,
+                affinity = affinity.Value
+            });
+        }
+
+        foreach (KeyValuePair<Rank, string> modifier in _rankModifierIds)
+        {
+            data.rankModifierIds.Add(new RankModifierData
+            {
+                rank = modifier.Key,
+                modifierId = modifier.Value
+            });
+        }
+
+        return data;
+    }
+
+    public static RunState FromData(RunStateData data, int fallbackMaxPlayerHp = 100, int fallbackStartingGold = 100)
+    {
+        if (data == null)
+            return null;
+
+        int maxPlayerHp = data.maxPlayerHp > 0 ? data.maxPlayerHp : fallbackMaxPlayerHp;
+        int startingGold = data.gold >= 0 ? data.gold : fallbackStartingGold;
+        var state = new RunState(data.seed, maxPlayerHp, startingGold);
+        state.Phase = data.phase;
+        state.EncounterIndex = Math.Max(0, data.encounterIndex);
+        state.DifficultyLevel = Math.Max(1, data.difficultyLevel);
+        state.DevilProgression = Math.Max(0, data.devilProgression);
+
+        state._runDeck.Clear();
+        if (data.deck != null && data.deck.Count > 0)
+        {
+            for (int i = 0; i < data.deck.Count; i++)
+            {
+                RunCardData card = data.deck[i];
+                if (card == null)
+                    continue;
+
+                state._runDeck.Add(new RunCard(card.instanceId, card.suit, card.rank, card.modifierId));
+            }
+        }
+        else
+        {
+            state._runDeck.AddRange(CreateStandardRunDeck());
+        }
+
+        AddNonBlankRange(state._relicIds, data.relicIds);
+        AddNonBlankRange(state._globalModifierIds, data.globalModifierIds);
+        AddNonBlankRange(state._activeItemIds, data.activeItemIds);
+
+        if (data.battleHistory != null)
+        {
+            for (int i = 0; i < data.battleHistory.Count; i++)
+            {
+                BattleResultData result = data.battleHistory[i];
+                if (result == null)
+                    continue;
+
+                state._battleHistory.Add(new BattleResult(
+                    result.playerWon,
+                    Math.Max(0, result.roundCount),
+                    Math.Max(0, result.playerMoneyAfterBattle),
+                    Math.Max(0, result.opponentMoneyAfterBattle),
+                    Math.Max(0, result.playerHpAfterBattle),
+                    Math.Max(0, result.opponentHpAfterBattle)));
+            }
+        }
+
+        if (data.devilAffinities != null)
+        {
+            for (int i = 0; i < data.devilAffinities.Count; i++)
+            {
+                DevilAffinityData affinity = data.devilAffinities[i];
+                if (affinity == null || string.IsNullOrWhiteSpace(affinity.devilId))
+                    continue;
+
+                state._devilAffinities[affinity.devilId] = Math.Clamp(affinity.affinity, 0, 100);
+            }
+        }
+
+        if (data.rankModifierIds != null)
+        {
+            for (int i = 0; i < data.rankModifierIds.Count; i++)
+            {
+                RankModifierData modifier = data.rankModifierIds[i];
+                if (modifier == null || string.IsNullOrWhiteSpace(modifier.modifierId) || !Enum.IsDefined(typeof(Rank), modifier.rank))
+                    continue;
+
+                state._rankModifierIds[modifier.rank] = modifier.modifierId;
+            }
+        }
+
+        state.RefreshBattleDeck();
+        return state;
+    }
+
     public void ApplyBattleResult(BattleResult result)
     {
         _battleHistory.Add(result);
@@ -201,6 +345,18 @@ public sealed class RunState
             RunCard runCard = _runDeck[i];
             _rankModifierIds.TryGetValue(runCard.Rank, out string modifierId);
             _deck.Add(CardModifierResolver.Apply(runCard, modifierId));
+        }
+    }
+
+    private static void AddNonBlankRange(List<string> target, List<string> source)
+    {
+        if (source == null)
+            return;
+
+        for (int i = 0; i < source.Count; i++)
+        {
+            if (!string.IsNullOrWhiteSpace(source[i]))
+                target.Add(source[i]);
         }
     }
 
