@@ -146,6 +146,17 @@ public class PersistenceManager : MonoBehaviour
     return this.gameData;
   }
 
+  public void LoadScene(string sceneName)
+  {
+    UnityEngine.SceneManagement.SceneManager.LoadScene(sceneName);
+  }
+
+  public void QuitGame()
+  {
+    Debug.Log("Quitting game...");
+    Application.Quit();
+  }
+
   public string GetMostRecentProfileId()
   {
     List<string> profileIds = GetAllProfileIds();
