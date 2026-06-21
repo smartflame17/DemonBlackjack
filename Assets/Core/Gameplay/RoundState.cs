@@ -79,6 +79,11 @@ public sealed class RoundState
 
     public bool TryPlayCard(int handIndex, out Card card)
     {
+        return TryPlayCard(handIndex, null, out card);
+    }
+
+    public bool TryPlayCard(int handIndex, Func<Card, Card> transform, out Card card)
+    {
         if (handIndex < 0 || handIndex >= _playerHand.Count)
         {
             card = default;
@@ -87,6 +92,8 @@ public sealed class RoundState
 
         card = _playerHand[handIndex];
         _playerHand.RemoveAt(handIndex);
+        if (transform != null)
+            card = transform(card);
         _playerPlayedCards.Add(card);
         PlayerPlayedThisTurn = true;
         PlayerStood = false;

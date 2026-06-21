@@ -12,7 +12,7 @@ public sealed class RunState
     private readonly List<string> _activeItemIds = new();
     private readonly List<BattleResult> _battleHistory = new();
     private readonly Dictionary<string, int> _devilAffinities = new();
-    private readonly Dictionary<Rank, string> _rankModifierIds = new();
+    private readonly Dictionary<Rank, OwnedRankUpgrade> _rankUpgrades = new();
 
     public RunState(int seed, int maxPlayerHp = 100, int startingGold = 100)
     {
@@ -39,7 +39,7 @@ public sealed class RunState
     public IReadOnlyList<string> ActiveItemIds => _activeItemIds;
     public IReadOnlyList<BattleResult> BattleHistory => _battleHistory;
     public IReadOnlyDictionary<string, int> DevilAffinities => _devilAffinities;
-    public IReadOnlyDictionary<Rank, string> RankModifierIds => _rankModifierIds;
+    public IReadOnlyDictionary<Rank, OwnedRankUpgrade> RankUpgrades => _rankUpgrades;
 
     public void SetPhase(RunPhase phase)
     {
@@ -94,6 +94,22 @@ public sealed class RunState
             _relicIds.Add(relicId);
     }
 
+    public ShopPurchaseResult TryPurchaseRelic(string relicId, int price)
+    {
+        price = Math.Max(0, price);
+        if (string.IsNullOrWhiteSpace(relicId))
+            return ShopPurchaseResult.Failed(ShopPurchaseFailure.InvalidOffer, price);
+        if (HasRelic(relicId))
+            return ShopPurchaseResult.Failed(ShopPurchaseFailure.AlreadyOwned, price);
+        if (Money < price)
+            return ShopPurchaseResult.Failed(ShopPurchaseFailure.InsufficientFunds, price);
+
+        AddMoney(-price);
+        _relicIds.Add(relicId);
+        EventBus.Publish(new RelicAddedEvent(relicId));
+        return ShopPurchaseResult.Success(price);
+    }
+
     public bool RemoveRelic(string relicId)
     {
         return !string.IsNullOrWhiteSpace(relicId) && _relicIds.Remove(relicId);
@@ -114,6 +130,34 @@ public sealed class RunState
     {
         if (!string.IsNullOrWhiteSpace(itemId))
             _activeItemIds.Add(itemId);
+    }
+
+    public int GetActiveItemCount(string itemId)
+    {
+        if (string.IsNullOrWhiteSpace(itemId))
+            return 0;
+
+        int count = 0;
+        for (int i = 0; i < _activeItemIds.Count; i++)
+        {
+            if (string.Equals(_activeItemIds[i], itemId, StringComparison.OrdinalIgnoreCase))
+                count++;
+        }
+        return count;
+    }
+
+    public ShopPurchaseResult TryPurchaseActiveItem(string itemId, int price)
+    {
+        price = Math.Max(0, price);
+        if (string.IsNullOrWhiteSpace(itemId))
+            return ShopPurchaseResult.Failed(ShopPurchaseFailure.InvalidOffer, price);
+        if (Money < price)
+            return ShopPurchaseResult.Failed(ShopPurchaseFailure.InsufficientFunds, price);
+
+        AddMoney(-price);
+        _activeItemIds.Add(itemId);
+        EventBus.Publish(new ActiveItemAddedEvent(itemId, GetActiveItemCount(itemId)));
+        return ShopPurchaseResult.Success(price);
     }
 
     public bool RemoveActiveItem(string itemId)
@@ -149,23 +193,46 @@ public sealed class RunState
         if (!Enum.IsDefined(typeof(Rank), rank) || string.IsNullOrWhiteSpace(modifierId))
             return false;
 
-        _rankModifierIds[rank] = modifierId;
-        RefreshBattleDeck();
+        _rankUpgrades[rank] = new OwnedRankUpgrade(rank, modifierId, 0);
         return true;
     }
 
     public bool DetachRankModifier(Rank rank)
     {
-        if (!_rankModifierIds.Remove(rank))
+        if (!_rankUpgrades.Remove(rank))
             return false;
-
-        RefreshBattleDeck();
         return true;
     }
 
     public bool TryGetRankModifier(Rank rank, out string modifierId)
     {
-        return _rankModifierIds.TryGetValue(rank, out modifierId);
+        if (_rankUpgrades.TryGetValue(rank, out OwnedRankUpgrade upgrade))
+        {
+            modifierId = upgrade.UpgradeId;
+            return true;
+        }
+        modifierId = null;
+        return false;
+    }
+
+    public bool TryGetRankUpgrade(Rank rank, out OwnedRankUpgrade upgrade) => _rankUpgrades.TryGetValue(rank, out upgrade);
+
+    public ShopPurchaseResult TryPurchaseRankUpgrade(Rank rank, string upgradeId, int price)
+    {
+        price = Math.Max(0, price);
+        if (!Enum.IsDefined(typeof(Rank), rank) || string.IsNullOrWhiteSpace(upgradeId))
+            return ShopPurchaseResult.Failed(ShopPurchaseFailure.InvalidOffer, price);
+
+        _rankUpgrades.TryGetValue(rank, out OwnedRankUpgrade previous);
+        int refund = string.IsNullOrWhiteSpace(previous.UpgradeId) ? 0 : previous.PaidPrice / 2;
+        int netCost = Math.Max(0, price - refund);
+        if (Money < netCost)
+            return ShopPurchaseResult.Failed(ShopPurchaseFailure.InsufficientFunds, price, refund);
+
+        AddMoney(-netCost);
+        _rankUpgrades[rank] = new OwnedRankUpgrade(rank, upgradeId, price);
+        EventBus.Publish(new RankUpgradeChangedEvent(rank, previous.UpgradeId, upgradeId));
+        return ShopPurchaseResult.Success(price, refund);
     }
 
     public IReadOnlyList<Card> CreateBattleDeck()
@@ -234,12 +301,13 @@ public sealed class RunState
             });
         }
 
-        foreach (KeyValuePair<Rank, string> modifier in _rankModifierIds)
+        foreach (KeyValuePair<Rank, OwnedRankUpgrade> modifier in _rankUpgrades)
         {
             data.rankModifierIds.Add(new RankModifierData
             {
                 rank = modifier.Key,
-                modifierId = modifier.Value
+                modifierId = modifier.Value.UpgradeId,
+                paidPrice = modifier.Value.PaidPrice
             });
         }
 
@@ -318,7 +386,7 @@ public sealed class RunState
                 if (modifier == null || string.IsNullOrWhiteSpace(modifier.modifierId) || !Enum.IsDefined(typeof(Rank), modifier.rank))
                     continue;
 
-                state._rankModifierIds[modifier.rank] = modifier.modifierId;
+                state._rankUpgrades[modifier.rank] = new OwnedRankUpgrade(modifier.rank, modifier.modifierId, modifier.paidPrice);
             }
         }
 
@@ -343,8 +411,7 @@ public sealed class RunState
         for (int i = 0; i < _runDeck.Count; i++)
         {
             RunCard runCard = _runDeck[i];
-            _rankModifierIds.TryGetValue(runCard.Rank, out string modifierId);
-            _deck.Add(CardModifierResolver.Apply(runCard, modifierId));
+            _deck.Add(runCard.ToBattleCard());
         }
     }
 

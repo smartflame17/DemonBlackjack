@@ -136,7 +136,10 @@ public class BattleController : MonoBehaviour
     public void CleanupBattle()
     {
         if (BattleState != null)
+        {
             BattleState.EventBus.Unsubscribe<BattleEndedEvent>(OnBattleEnded);
+            BattleState.Dispose();
+        }
 
         IsWaitingForVisuals = false;
         _pendingBattleEndedEvent = null;
