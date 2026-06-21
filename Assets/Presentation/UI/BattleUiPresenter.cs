@@ -4,6 +4,7 @@ using DG.Tweening;
 using TMPro;
 using UnityEngine;
 using UnityEngine.UI;
+using UnityEngine.Serialization;
 
 // This component is responsible for battle UI presentation - Runtime monobehaviour binding.
 public sealed class BattleUiPresenter : MonoBehaviour
@@ -55,7 +56,8 @@ public sealed class BattleUiPresenter : MonoBehaviour
     [Header("Results")]
     [SerializeField] private GameObject roundResultPanel;
     [SerializeField] private TMP_Text roundResultText;
-    [SerializeField] private Button nextRoundButton;
+    [FormerlySerializedAs("nextRoundButton")]
+    [SerializeField] private Button toShopButton;
     [SerializeField] private GameObject battleResultPanel;
     [SerializeField] private RectTransform rewardViewRoot;
     [SerializeField] private Button backToMapButton;
@@ -277,8 +279,8 @@ public sealed class BattleUiPresenter : MonoBehaviour
             viewBySuitButton.onClick.AddListener(ShowDeckViewBySuit);
         if (closeDeckViewButton != null)
             closeDeckViewButton.onClick.AddListener(CloseDeckView);
-        if (nextRoundButton != null)
-            nextRoundButton.onClick.AddListener(ContinueToNextRound);
+        if (toShopButton != null)
+            toShopButton.onClick.AddListener(OpenShop);
         if (backToMapButton != null)
             backToMapButton.onClick.AddListener(ReturnToMap);
     }
@@ -299,7 +301,7 @@ public sealed class BattleUiPresenter : MonoBehaviour
         Remove(viewByRankButton, ShowDeckViewByRank);
         Remove(viewBySuitButton, ShowDeckViewBySuit);
         Remove(closeDeckViewButton, CloseDeckView);
-        Remove(nextRoundButton, ContinueToNextRound);
+        Remove(toShopButton, OpenShop);
         Remove(backToMapButton, ReturnToMap);
     }
 
@@ -410,10 +412,9 @@ public sealed class BattleUiPresenter : MonoBehaviour
         Refresh();
     }
 
-    private void ContinueToNextRound()
+    private void OpenShop()
     {
-        battleController?.CompletePendingVisualTransition();
-        OpenWagerPanel();
+        runManager?.OpenShop();
         Refresh();
     }
 
@@ -493,7 +494,7 @@ public sealed class BattleUiPresenter : MonoBehaviour
 
     private void OnRunPhaseChanged(RunPhaseChangedEvent eventData)
     {
-        if (eventData.Phase != RunPhase.Battle)
+        if (eventData.Phase != RunPhase.Battle && eventData.Phase != RunPhase.Shop)
             ClearBattleCardViews();
 
         Refresh();
@@ -1106,7 +1107,8 @@ public sealed class BattleUiPresenter : MonoBehaviour
         closeDeckViewButton ??= FindDescendantComponent<Button>("CloseButton");
         roundResultPanel ??= FindDescendant("RoundResultPanel");
         roundResultText ??= FindDescendantComponent<TMP_Text>("RoundResultText");
-        nextRoundButton ??= FindDescendantComponent<Button>("NextRoundButton");
+        toShopButton ??= FindDescendantComponent<Button>("ToShopButton");
+        toShopButton ??= FindDescendantComponent<Button>("NextRoundButton");
         battleResultPanel ??= FindDescendant("BattleResultPanel");
         rewardViewRoot ??= FindDescendantRect("RewardViewRoot");
         backToMapButton ??= FindDescendantComponent<Button>("BackToMapButton");

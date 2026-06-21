@@ -24,6 +24,18 @@ public sealed class GameplayCanvasCoordinator : MonoBehaviour
         shopCanvas ??= FindCanvas("ShopUI");
         debugCanvas ??= FindCanvas("DebugCanvas");
 
+        if (shopCanvas != null && shopCanvas.GetComponent<ShopUi>() == null)
+            shopCanvas.gameObject.AddComponent<ShopUi>();
+
+        if (shopCanvas != null)
+        {
+            shopCanvas.overrideSorting = true;
+            shopCanvas.sortingOrder = battleCanvas != null ? battleCanvas.sortingOrder + 1 : 10;
+            CanvasGroup group = shopCanvas.GetComponent<CanvasGroup>() ?? shopCanvas.gameObject.AddComponent<CanvasGroup>();
+            group.interactable = true;
+            group.blocksRaycasts = true;
+        }
+
         if (devil1BattleButton == null)
             devil1BattleButton = GameObject.Find("Devil1BattleButton")?.GetComponent<Button>();
 
@@ -112,7 +124,7 @@ public sealed class GameplayCanvasCoordinator : MonoBehaviour
 
     private void ApplyPhase(RunPhase phase)
     {
-        if (phase != RunPhase.Battle && battleCanvas != null)
+        if (phase != RunPhase.Battle && phase != RunPhase.Shop && battleCanvas != null)
         {
             battleCanvas.GetComponent<BattleUiPresenter>()?.ClearGeneratedBattleCards();
             ClearGeneratedCardsUnder(battleCanvas.transform, "PlayerHand");
@@ -120,7 +132,7 @@ public sealed class GameplayCanvasCoordinator : MonoBehaviour
             ClearGeneratedCardsUnder(battleCanvas.transform, "PlayPile");
         }
 
-        SetCanvasActive(battleCanvas, phase == RunPhase.Battle);
+        SetCanvasActive(battleCanvas, phase == RunPhase.Battle || phase == RunPhase.Shop);
         SetCanvasActive(mapCanvas, phase == RunPhase.Map || phase == RunPhase.Encounter || phase == RunPhase.Rewards);
         SetCanvasActive(shopCanvas, phase == RunPhase.Shop);
         SetCanvasActive(debugCanvas, keepDebugCanvasVisible);
