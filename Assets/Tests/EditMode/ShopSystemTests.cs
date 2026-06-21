@@ -1,0 +1,89 @@
+#if UNITY_EDITOR && UNITY_INCLUDE_TESTS
+using System.Collections.Generic;
+using NUnit.Framework;
+
+public sealed class ShopSystemTests
+{
+    [SetUp]
+    public void SetUp() => EventBus.Clear();
+
+    [TearDown]
+    public void TearDown() => EventBus.Clear();
+
+    [Test]
+    public void OfferSelection_IsDeterministicAndWithoutReplacement()
+    {
+        var source = new List<int> { 1, 2, 3, 4, 5 };
+        List<int> first = ShopOfferGenerator.TakeRandom(source, 5, new System.Random(123));
+        List<int> second = ShopOfferGenerator.TakeRandom(source, 5, new System.Random(123));
+
+        CollectionAssert.AreEqual(first, second);
+        Assert.That(new HashSet<int>(first).Count, Is.EqualTo(first.Count));
+    }
+
+    [Test]
+    public void ActiveItems_AreCountedConsumables()
+    {
+        var run = new RunState(1, startingGold: 100);
+
+        Assert.That(run.TryPurchaseActiveItem("item", 10).Succeeded, Is.True);
+        Assert.That(run.TryPurchaseActiveItem("item", 10).Succeeded, Is.True);
+        Assert.That(run.GetActiveItemCount("item"), Is.EqualTo(2));
+        Assert.That(run.RemoveActiveItem("item"), Is.True);
+        Assert.That(run.GetActiveItemCount("item"), Is.EqualTo(1));
+    }
+
+    [Test]
+    public void Relics_AreUnique()
+    {
+        var run = new RunState(1, startingGold: 100);
+
+        Assert.That(run.TryPurchaseRelic("relic", 10).Succeeded, Is.True);
+        ShopPurchaseResult duplicate = run.TryPurchaseRelic("relic", 10);
+        Assert.That(duplicate.Succeeded, Is.False);
+        Assert.That(duplicate.Failure, Is.EqualTo(ShopPurchaseFailure.AlreadyOwned));
+    }
+
+    [Test]
+    public void RankReplacement_UsesFlooredRefundTowardNetCost()
+    {
+        var run = new RunState(1, startingGold: 30);
+        Assert.That(run.TryPurchaseRankUpgrade(Rank.Ace, "old", 21).Succeeded, Is.True);
+
+        ShopPurchaseResult replacement = run.TryPurchaseRankUpgrade(Rank.Ace, "new", 19);
+
+        Assert.That(replacement.Succeeded, Is.True);
+        Assert.That(replacement.Refund, Is.EqualTo(10));
+        Assert.That(replacement.NetCost, Is.EqualTo(9));
+        Assert.That(run.Money, Is.EqualTo(0));
+        Assert.That(run.TryGetRankUpgrade(Rank.Ace, out OwnedRankUpgrade owned), Is.True);
+        Assert.That(owned.UpgradeId, Is.EqualTo("new"));
+        Assert.That(owned.PaidPrice, Is.EqualTo(19));
+    }
+
+    [Test]
+    public void OwnedUpgrade_PersistsPaidPrice()
+    {
+        var run = new RunState(1, startingGold: 100);
+        run.TryPurchaseRankUpgrade(Rank.King, CardModifierResolver.RankToHearts, 25);
+
+        RunState loaded = RunState.FromData(run.ToData());
+
+        Assert.That(loaded.TryGetRankUpgrade(Rank.King, out OwnedRankUpgrade owned), Is.True);
+        Assert.That(owned.UpgradeId, Is.EqualTo(CardModifierResolver.RankToHearts));
+        Assert.That(owned.PaidPrice, Is.EqualTo(25));
+    }
+
+    [Test]
+    public void CardUpgrade_TransformsOnlyWhenResolvedForPlay()
+    {
+        Card original = new(Suit.Clubs, Rank.Five);
+        Card played = CardModifierResolver.Apply(original, CardModifierResolver.RankToSpades);
+
+        Assert.That(original.Suit, Is.EqualTo(Suit.Clubs));
+        Assert.That(original.HasModifier, Is.False);
+        Assert.That(played.Suit, Is.EqualTo(Suit.Spades));
+        Assert.That(played.ModifierId, Is.EqualTo(CardModifierResolver.RankToSpades));
+    }
+}
+#endif
