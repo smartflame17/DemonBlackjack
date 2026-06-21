@@ -66,4 +66,5 @@ public sealed class RankModifierData
 {
     public Rank rank;
     public string modifierId;
+    public int paidPrice;
 }
