@@ -16381,6 +16381,7 @@ GameObject:
   - component: {fileID: 1932875564}
   - component: {fileID: 1932875563}
   - component: {fileID: 1932875562}
+  - component: {fileID: 1932875569}
   - component: {fileID: 1932875567}
   - component: {fileID: 1932875566}
   - component: {fileID: 1932875568}
@@ -16525,6 +16526,26 @@ CanvasGroup:
   m_Interactable: 1
   m_BlocksRaycasts: 1
   m_IgnoreParentGroups: 0
+--- !u!114 &1932875569
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 1932875561}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 45c272dc11143064fa25117ebac03b59, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: Assembly-CSharp::ShopUi
+  runManager: {fileID: 562614337}
+  battleController: {fileID: 1399201285}
+  assetRegistry: {fileID: 11400000, guid: f571c9f53e8d97f4dab513809a72572c, type: 2}
+  catalog: {fileID: 0}
+  continueButton: {fileID: 1147531120}
+  activeItemOfferCount: 3
+  relicOfferCount: 3
+  upgradeOfferCount: 5
 --- !u!1 &1941815176
 GameObject:
   m_ObjectHideFlags: 0
