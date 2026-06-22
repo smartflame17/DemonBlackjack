@@ -21,6 +21,7 @@ public sealed class RunState
         Money = Math.Max(0, startingGold);
         MaxPlayerHp = Math.Max(1, maxPlayerHp);
         MaxActiveItemSlots = maxActiveItemSlots > 0 ? maxActiveItemSlots : DefaultMaxActiveItemSlots;
+        AddEmptyActiveItemSlots(MaxActiveItemSlots);
         _runDeck.AddRange(CreateStandardRunDeck());
         RefreshBattleDeck();
     }
@@ -35,7 +36,7 @@ public sealed class RunState
     public int DifficultyLevel { get; private set; } = 1;
     public int DevilProgression { get; private set; }
     public int MaxActiveItemSlots { get; private set; }
-    public bool AreActiveItemSlotsFull => _activeItemIds.Count >= MaxActiveItemSlots;
+    public bool AreActiveItemSlotsFull => FindEmptyActiveItemSlot() < 0;
     public IReadOnlyList<RunCard> RunDeck => _runDeck;
     public IReadOnlyList<Card> Deck => _deck;
     public IReadOnlyList<string> RelicIds => _relicIds;
@@ -135,17 +136,27 @@ public sealed class RunState
         if (string.IsNullOrWhiteSpace(itemId) || AreActiveItemSlotsFull)
             return false;
 
-        _activeItemIds.Add(itemId);
+        _activeItemIds[FindEmptyActiveItemSlot()] = itemId;
         EventBus.Publish(new ActiveItemAddedEvent(itemId, GetActiveItemCount(itemId)));
         return true;
     }
 
     public bool TrySetMaxActiveItemSlots(int maxActiveItemSlots)
     {
-        if (maxActiveItemSlots < _activeItemIds.Count || maxActiveItemSlots < 1)
+        if (maxActiveItemSlots < 1)
             return false;
 
+        for (int i = maxActiveItemSlots; i < _activeItemIds.Count; i++)
+        {
+            if (!string.IsNullOrWhiteSpace(_activeItemIds[i]))
+                return false;
+        }
+
         MaxActiveItemSlots = maxActiveItemSlots;
+        if (_activeItemIds.Count > maxActiveItemSlots)
+            _activeItemIds.RemoveRange(maxActiveItemSlots, _activeItemIds.Count - maxActiveItemSlots);
+        else
+            AddEmptyActiveItemSlots(maxActiveItemSlots - _activeItemIds.Count);
         EventBus.Publish(new ActiveItemCapacityChangedEvent(MaxActiveItemSlots));
         return true;
     }
@@ -181,8 +192,14 @@ public sealed class RunState
 
     public bool RemoveActiveItem(string itemId)
     {
-        if (string.IsNullOrWhiteSpace(itemId) || !_activeItemIds.Remove(itemId))
+        if (string.IsNullOrWhiteSpace(itemId))
             return false;
+
+        int slotIndex = FindActiveItemSlot(itemId);
+        if (slotIndex < 0)
+            return false;
+
+        _activeItemIds[slotIndex] = null;
 
         EventBus.Publish(new ActiveItemRemovedEvent(itemId, GetActiveItemCount(itemId)));
         return true;
@@ -190,7 +207,7 @@ public sealed class RunState
 
     public bool HasActiveItem(string itemId)
     {
-        return !string.IsNullOrWhiteSpace(itemId) && _activeItemIds.Contains(itemId);
+        return !string.IsNullOrWhiteSpace(itemId) && FindActiveItemSlot(itemId) >= 0;
     }
 
     public bool TryGetCard(string instanceId, out RunCard card)
@@ -345,10 +362,10 @@ public sealed class RunState
 
         int maxPlayerHp = data.maxPlayerHp > 0 ? data.maxPlayerHp : fallbackMaxPlayerHp;
         int startingGold = data.gold >= 0 ? data.gold : fallbackStartingGold;
-        int savedItemCount = CountNonBlank(data.activeItemIds);
+        int savedItemSlotCount = data.activeItemIds?.Count ?? 0;
         int maxActiveItemSlots = data.maxActiveItemSlots > 0
-            ? Math.Max(data.maxActiveItemSlots, savedItemCount)
-            : Math.Max(DefaultMaxActiveItemSlots, savedItemCount);
+            ? Math.Max(data.maxActiveItemSlots, savedItemSlotCount)
+            : Math.Max(DefaultMaxActiveItemSlots, savedItemSlotCount);
         var state = new RunState(data.seed, maxPlayerHp, startingGold, maxActiveItemSlots);
         state.Phase = data.phase;
         state.EncounterIndex = Math.Max(0, data.encounterIndex);
@@ -374,7 +391,11 @@ public sealed class RunState
 
         AddNonBlankRange(state._relicIds, data.relicIds);
         AddNonBlankRange(state._globalModifierIds, data.globalModifierIds);
-        AddNonBlankRange(state._activeItemIds, data.activeItemIds);
+        if (data.activeItemIds != null)
+        {
+            for (int i = 0; i < data.activeItemIds.Count; i++)
+                state._activeItemIds[i] = string.IsNullOrWhiteSpace(data.activeItemIds[i]) ? null : data.activeItemIds[i];
+        }
 
         if (data.battleHistory != null)
         {
@@ -455,18 +476,30 @@ public sealed class RunState
         }
     }
 
-    private static int CountNonBlank(List<string> source)
+    private int FindEmptyActiveItemSlot()
     {
-        if (source == null)
-            return 0;
-
-        int count = 0;
-        for (int i = 0; i < source.Count; i++)
+        for (int i = 0; i < _activeItemIds.Count; i++)
         {
-            if (!string.IsNullOrWhiteSpace(source[i]))
-                count++;
+            if (string.IsNullOrWhiteSpace(_activeItemIds[i]))
+                return i;
         }
-        return count;
+        return -1;
+    }
+
+    private int FindActiveItemSlot(string itemId)
+    {
+        for (int i = 0; i < _activeItemIds.Count; i++)
+        {
+            if (string.Equals(_activeItemIds[i], itemId, StringComparison.OrdinalIgnoreCase))
+                return i;
+        }
+        return -1;
+    }
+
+    private void AddEmptyActiveItemSlots(int count)
+    {
+        for (int i = 0; i < count; i++)
+            _activeItemIds.Add(null);
     }
 
     private static List<RunCard> CreateStandardRunDeck()

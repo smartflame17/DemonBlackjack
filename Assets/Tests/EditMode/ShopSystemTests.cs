@@ -51,6 +51,47 @@ public sealed class ShopSystemTests
     }
 
     [Test]
+    public void RemovingActiveItem_PreservesTheOtherItemsSlot()
+    {
+        var run = new RunState(1);
+        run.AddActiveItem("first");
+        run.AddActiveItem("second");
+
+        Assert.That(run.RemoveActiveItem("first"), Is.True);
+
+        Assert.That(run.ActiveItemIds[0], Is.Null);
+        Assert.That(run.ActiveItemIds[1], Is.EqualTo("second"));
+    }
+
+    [Test]
+    public void AddingActiveItem_FillsTheLeftmostEmptySlot()
+    {
+        var run = new RunState(1);
+        run.AddActiveItem("first");
+        run.AddActiveItem("second");
+        run.RemoveActiveItem("first");
+
+        Assert.That(run.AddActiveItem("replacement"), Is.True);
+
+        Assert.That(run.ActiveItemIds[0], Is.EqualTo("replacement"));
+        Assert.That(run.ActiveItemIds[1], Is.EqualTo("second"));
+    }
+
+    [Test]
+    public void EmptyActiveItemSlot_PersistsThroughSaveAndLoad()
+    {
+        var run = new RunState(1);
+        run.AddActiveItem("first");
+        run.AddActiveItem("second");
+        run.RemoveActiveItem("first");
+
+        RunState loaded = RunState.FromData(run.ToData());
+
+        Assert.That(loaded.ActiveItemIds[0], Is.Null);
+        Assert.That(loaded.ActiveItemIds[1], Is.EqualTo("second"));
+    }
+
+    [Test]
     public void ActiveItems_DefaultCapacityRejectsThirdPurchaseWithoutCharging()
     {
         var run = new RunState(1, startingGold: 100);
