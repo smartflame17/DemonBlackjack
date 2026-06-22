@@ -19234,13 +19234,14 @@ GameObject:
   - component: {fileID: 2011282976}
   - component: {fileID: 2011282978}
   - component: {fileID: 2011282977}
+  - component: {fileID: 2100000003}
   m_Layer: 5
   m_Name: ToolTip
   m_TagString: Untagged
   m_Icon: {fileID: 0}
   m_NavMeshLayer: 0
   m_StaticEditorFlags: 0
-  m_IsActive: 1
+  m_IsActive: 0
 --- !u!224 &2011282976
 RectTransform:
   m_ObjectHideFlags: 0
@@ -19285,6 +19286,22 @@ CanvasRenderer:
   m_PrefabAsset: {fileID: 0}
   m_GameObject: {fileID: 2011282975}
   m_CullTransparentMesh: 1
+--- !u!114 &2100000003
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 2011282975}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: b264307ad549408f845e4058b5b47179, type: 3}
+  m_Name:
+  m_EditorClassIdentifier: Assembly-CSharp::TooltipPanel
+  catalog: {fileID: 0}
+  displayNameText: {fileID: 812075871}
+  descriptionText: {fileID: 2005400849}
+  cursorOffset: {x: 20, y: -20}
 --- !u!1 &2023352303
 GameObject:
   m_ObjectHideFlags: 0

@@ -13,6 +13,33 @@ public sealed class ShopCatalog : ScriptableObject
     public IReadOnlyList<RelicDefinition> Relics => relics;
     public IReadOnlyList<CardUpgradeDefinition> CardUpgrades => cardUpgrades;
 
+    public bool TryGetDefinition(string id, out ShopContentDefinition definition)
+    {
+        if (!string.IsNullOrWhiteSpace(id))
+        {
+            if (TryFind(activeItems, id, out ActiveItemDefinition activeItem))
+            {
+                definition = activeItem;
+                return true;
+            }
+
+            if (TryFind(relics, id, out RelicDefinition relic))
+            {
+                definition = relic;
+                return true;
+            }
+
+            if (TryFind(cardUpgrades, id, out CardUpgradeDefinition upgrade))
+            {
+                definition = upgrade;
+                return true;
+            }
+        }
+
+        definition = null;
+        return false;
+    }
+
     public static ShopCatalog CreateRuntimeDefault()
     {
         ShopCatalog catalog = CreateInstance<ShopCatalog>();
@@ -34,6 +61,22 @@ public sealed class ShopCatalog : ScriptableObject
         definition.hideFlags = HideFlags.DontSave;
         definition.Initialize(id, displayName, description, price);
         return definition;
+    }
+
+    private static bool TryFind<T>(IReadOnlyList<T> definitions, string id, out T definition) where T : ShopContentDefinition
+    {
+        for (int i = 0; i < definitions.Count; i++)
+        {
+            T candidate = definitions[i];
+            if (candidate != null && string.Equals(candidate.Id, id, StringComparison.OrdinalIgnoreCase))
+            {
+                definition = candidate;
+                return true;
+            }
+        }
+
+        definition = null;
+        return false;
     }
 }
 

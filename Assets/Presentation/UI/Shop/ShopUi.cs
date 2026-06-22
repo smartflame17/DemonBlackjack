@@ -87,7 +87,7 @@ public sealed class ShopUi : MonoBehaviour
             if (i >= offers.Count || offers[i] == null) { _itemSlots[i].SetUnavailable(); continue; }
             ActiveItemDefinition offer = offers[i];
             ShopSlotView slot = _itemSlots[i];
-            slot.Bind(assetRegistry != null ? assetRegistry.GetActiveItemSprite(offer.Id) : null, offer.Price, offer.DisplayName, () => PurchaseItem(slot, offer, run));
+            slot.Bind(assetRegistry != null ? assetRegistry.GetActiveItemSprite(offer.Id) : null, offer.Price, offer.DisplayName, offer.Id, () => PurchaseItem(slot, offer, run));
         }
     }
 
@@ -98,7 +98,7 @@ public sealed class ShopUi : MonoBehaviour
             if (i >= offers.Count || offers[i] == null) { _relicSlots[i].SetUnavailable(); continue; }
             RelicDefinition offer = offers[i];
             ShopSlotView slot = _relicSlots[i];
-            slot.Bind(assetRegistry != null ? assetRegistry.GetRelicSprite(offer.Id) : null, offer.Price, offer.DisplayName, () => PurchaseRelic(slot, offer, run));
+            slot.Bind(assetRegistry != null ? assetRegistry.GetRelicSprite(offer.Id) : null, offer.Price, offer.DisplayName, offer.Id, () => PurchaseRelic(slot, offer, run));
         }
     }
 
@@ -110,7 +110,7 @@ public sealed class ShopUi : MonoBehaviour
             CardUpgradeOffer offer = offers[i];
             ShopSlotView slot = _upgradeSlots[i];
             string label = $"{offer.Rank}\n{offer.Definition.DisplayName}";
-            slot.Bind(assetRegistry != null ? assetRegistry.GetCardUpgradeSprite(offer.Definition.Id) : null, offer.Definition.Price, label, () => PurchaseUpgrade(slot, offer, run));
+            slot.Bind(assetRegistry != null ? assetRegistry.GetCardUpgradeSprite(offer.Definition.Id) : null, offer.Definition.Price, label, offer.Definition.Id, () => PurchaseUpgrade(slot, offer, run));
         }
     }
 

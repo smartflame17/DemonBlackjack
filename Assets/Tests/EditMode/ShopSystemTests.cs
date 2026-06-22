@@ -22,6 +22,23 @@ public sealed class ShopSystemTests
     }
 
     [Test]
+    public void Catalog_DefinitionLookupSupportsAllContentTypesAndCaseInsensitiveIds()
+    {
+        ShopCatalog catalog = ShopCatalog.CreateRuntimeDefault();
+
+        Assert.That(catalog.TryGetDefinition(ActiveItemResolver.ClearPlayerField.ToUpperInvariant(), out ShopContentDefinition item), Is.True);
+        Assert.That(item, Is.TypeOf<ActiveItemDefinition>());
+        Assert.That(catalog.TryGetDefinition(RelicRuleResolver.BurstTwentyTwo.ToUpperInvariant(), out ShopContentDefinition relic), Is.True);
+        Assert.That(relic, Is.TypeOf<RelicDefinition>());
+        Assert.That(catalog.TryGetDefinition(CardModifierResolver.RankToHearts.ToUpperInvariant(), out ShopContentDefinition upgrade), Is.True);
+        Assert.That(upgrade, Is.TypeOf<CardUpgradeDefinition>());
+        Assert.That(catalog.TryGetDefinition(string.Empty, out _), Is.False);
+        Assert.That(catalog.TryGetDefinition("unknown_content", out _), Is.False);
+
+        UnityEngine.Object.DestroyImmediate(catalog);
+    }
+
+    [Test]
     public void ActiveItems_AreCountedConsumables()
     {
         var run = new RunState(1, startingGold: 100);

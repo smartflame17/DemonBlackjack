@@ -10,6 +10,7 @@ public sealed class BattleUiCardView : MonoBehaviour
     [SerializeField] private TMP_Text label;
     [SerializeField] private Button button;
     [SerializeField] private RectTransform visualRoot;
+    [SerializeField] private TooltipTrigger tooltipTrigger;
 
     private Vector2 _baseAnchoredPosition;
     private bool _hasBasePosition;
@@ -55,6 +56,11 @@ public sealed class BattleUiCardView : MonoBehaviour
 
         if (button != null)
             button.interactable = interactable;
+
+        if (faceUp && card.HasModifier)
+            tooltipTrigger.Bind(card.ModifierId);
+        else
+            tooltipTrigger.Clear();
     }
 
     public void BindBack(Sprite sprite)
@@ -70,6 +76,8 @@ public sealed class BattleUiCardView : MonoBehaviour
 
         if (button != null)
             button.interactable = false;
+
+        tooltipTrigger.Clear();
     }
 
     public void SetSelected(bool selected)
@@ -98,6 +106,8 @@ public sealed class BattleUiCardView : MonoBehaviour
 
         if (visualRoot == null)
             visualRoot = image != null ? image.rectTransform : transform as RectTransform;
+
+        tooltipTrigger ??= GetComponent<TooltipTrigger>() ?? gameObject.AddComponent<TooltipTrigger>();
 
         if (!_hasBasePosition)
             CacheBasePosition();

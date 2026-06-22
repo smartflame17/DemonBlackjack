@@ -71,6 +71,10 @@ public sealed class TopMenuBarController : MonoBehaviour
         slot.Button.interactable = occupied;
         slot.Image.sprite = occupied && assetRegistry != null ? assetRegistry.GetActiveItemSprite(itemId) : null;
         slot.Image.color = occupied ? Color.white : Color.clear;
+        if (occupied)
+            slot.TooltipTrigger.Bind(itemId);
+        else
+            slot.TooltipTrigger.Clear();
         if (slot.Label != null)
             slot.Label.text = string.Empty;
 
@@ -117,7 +121,8 @@ public sealed class TopMenuBarController : MonoBehaviour
             return false;
         }
 
-        binding = new SlotBinding(root, button, image, button.GetComponentInChildren<TMP_Text>(true));
+        TooltipTrigger tooltipTrigger = root.GetComponent<TooltipTrigger>() ?? root.gameObject.AddComponent<TooltipTrigger>();
+        binding = new SlotBinding(root, button, image, button.GetComponentInChildren<TMP_Text>(true), tooltipTrigger);
         return true;
     }
 
@@ -166,17 +171,19 @@ public sealed class TopMenuBarController : MonoBehaviour
 
     private sealed class SlotBinding
     {
-        public SlotBinding(RectTransform root, Button button, Image image, TMP_Text label)
+        public SlotBinding(RectTransform root, Button button, Image image, TMP_Text label, TooltipTrigger tooltipTrigger)
         {
             Root = root;
             Button = button;
             Image = image;
             Label = label;
+            TooltipTrigger = tooltipTrigger;
         }
 
         public RectTransform Root { get; }
         public Button Button { get; }
         public Image Image { get; }
         public TMP_Text Label { get; }
+        public TooltipTrigger TooltipTrigger { get; }
     }
 }
