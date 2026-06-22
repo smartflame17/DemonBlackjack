@@ -67,6 +67,24 @@ public readonly struct ActiveItemAddedEvent
     public int Count { get; }
 }
 
+public readonly struct ActiveItemRemovedEvent
+{
+    public ActiveItemRemovedEvent(string itemId, int remainingCount)
+    {
+        ItemId = itemId;
+        RemainingCount = remainingCount;
+    }
+
+    public string ItemId { get; }
+    public int RemainingCount { get; }
+}
+
+public readonly struct ActiveItemCapacityChangedEvent
+{
+    public ActiveItemCapacityChangedEvent(int capacity) => Capacity = capacity;
+    public int Capacity { get; }
+}
+
 public readonly struct RankUpgradeChangedEvent
 {
     public RankUpgradeChangedEvent(Rank rank, string previousUpgradeId, string upgradeId)

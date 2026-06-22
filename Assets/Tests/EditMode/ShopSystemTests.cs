@@ -34,6 +34,81 @@ public sealed class ShopSystemTests
     }
 
     [Test]
+    public void ActiveItems_DefaultCapacityRejectsThirdPurchaseWithoutCharging()
+    {
+        var run = new RunState(1, startingGold: 100);
+
+        Assert.That(run.MaxActiveItemSlots, Is.EqualTo(2));
+        Assert.That(run.TryPurchaseActiveItem("first", 10).Succeeded, Is.True);
+        Assert.That(run.TryPurchaseActiveItem("second", 10).Succeeded, Is.True);
+
+        ShopPurchaseResult result = run.TryPurchaseActiveItem("third", 10);
+
+        Assert.That(result.Succeeded, Is.False);
+        Assert.That(result.Failure, Is.EqualTo(ShopPurchaseFailure.ActiveItemSlotsFull));
+        Assert.That(run.Money, Is.EqualTo(80));
+        Assert.That(run.ActiveItemIds.Count, Is.EqualTo(2));
+    }
+
+    [Test]
+    public void ActiveItemCapacity_PersistsThroughSaveAndLoad()
+    {
+        var run = new RunState(1, startingGold: 100, maxActiveItemSlots: 4);
+        run.AddActiveItem("item");
+
+        RunState loaded = RunState.FromData(run.ToData());
+
+        Assert.That(loaded.MaxActiveItemSlots, Is.EqualTo(4));
+        CollectionAssert.AreEqual(run.ActiveItemIds, loaded.ActiveItemIds);
+    }
+
+    [Test]
+    public void ActiveItemCapacity_CanChangeWithoutDroppingItems()
+    {
+        var run = new RunState(1);
+        run.AddActiveItem("item");
+
+        Assert.That(run.TrySetMaxActiveItemSlots(4), Is.True);
+        Assert.That(run.MaxActiveItemSlots, Is.EqualTo(4));
+        Assert.That(run.TrySetMaxActiveItemSlots(0), Is.False);
+        run.AddActiveItem("second");
+        Assert.That(run.TrySetMaxActiveItemSlots(1), Is.False);
+        Assert.That(run.MaxActiveItemSlots, Is.EqualTo(4));
+    }
+
+    [Test]
+    public void LegacySave_ExpandsCapacityToPreserveOwnedItems()
+    {
+        var data = new RunStateData
+        {
+            seed = 1,
+            gold = 100,
+            maxActiveItemSlots = 0,
+            activeItemIds = new List<string> { "one", "two", "three" }
+        };
+
+        RunState loaded = RunState.FromData(data);
+
+        Assert.That(loaded.MaxActiveItemSlots, Is.EqualTo(3));
+        CollectionAssert.AreEqual(data.activeItemIds, loaded.ActiveItemIds);
+    }
+
+    [Test]
+    public void RemovingActiveItem_PublishesRemainingCount()
+    {
+        var run = new RunState(1);
+        run.AddActiveItem("item");
+        run.AddActiveItem("item");
+        ActiveItemRemovedEvent received = default;
+        EventBus.Subscribe<ActiveItemRemovedEvent>(eventData => received = eventData);
+
+        Assert.That(run.RemoveActiveItem("item"), Is.True);
+
+        Assert.That(received.ItemId, Is.EqualTo("item"));
+        Assert.That(received.RemainingCount, Is.EqualTo(1));
+    }
+
+    [Test]
     public void Relics_AreUnique()
     {
         var run = new RunState(1, startingGold: 100);

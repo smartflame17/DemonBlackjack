@@ -290,7 +290,7 @@ public sealed class BattleState
 
     public bool TryUseActiveItem(string itemId)
     {
-        if (IsBattleOver || CurrentRound == null || !RunState.HasActiveItem(itemId))
+        if (!CanUseActiveItem(itemId))
             return false;
 
         if (!ActiveItemResolver.TryApply(itemId, this))
@@ -299,6 +299,14 @@ public sealed class BattleState
         RunState.RemoveActiveItem(itemId);
         EventBus.Publish(new ItemUsedEvent(itemId));
         return true;
+    }
+
+    public bool CanUseActiveItem(string itemId)
+    {
+        return !IsBattleOver
+            && CurrentRound != null
+            && RunState.HasActiveItem(itemId)
+            && ActiveItemResolver.CanApply(itemId, this);
     }
 
     public bool ClearField(Combatant owner)

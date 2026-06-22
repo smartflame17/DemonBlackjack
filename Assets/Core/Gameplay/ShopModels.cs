@@ -13,6 +13,7 @@ public enum ShopPurchaseFailure
     InvalidOffer,
     AlreadyPurchased,
     AlreadyOwned,
+    ActiveItemSlotsFull,
     InsufficientFunds
 }
 
