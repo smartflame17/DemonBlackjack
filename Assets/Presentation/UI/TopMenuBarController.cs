@@ -9,6 +9,7 @@ public sealed class TopMenuBarController : MonoBehaviour
     [SerializeField] private GameplayAssetRegistry assetRegistry;
     [SerializeField] private RectTransform activeItemSlotRoot;
     [SerializeField] private ItemUseMenu itemUseMenu;
+    [SerializeField] private TMP_Text playerMoneyText;
 
     private readonly List<SlotBinding> _slots = new();
 
@@ -24,6 +25,7 @@ public sealed class TopMenuBarController : MonoBehaviour
         EventBus.Subscribe<ActiveItemRemovedEvent>(OnActiveItemRemoved);
         EventBus.Subscribe<ActiveItemCapacityChangedEvent>(OnActiveItemCapacityChanged);
         EventBus.Subscribe<RunPhaseChangedEvent>(OnRunPhaseChanged);
+        EventBus.Subscribe<GoldChangedEvent>(OnGoldChanged);
         Refresh();
     }
 
@@ -38,6 +40,7 @@ public sealed class TopMenuBarController : MonoBehaviour
         EventBus.Unsubscribe<ActiveItemRemovedEvent>(OnActiveItemRemoved);
         EventBus.Unsubscribe<ActiveItemCapacityChangedEvent>(OnActiveItemCapacityChanged);
         EventBus.Unsubscribe<RunPhaseChangedEvent>(OnRunPhaseChanged);
+        EventBus.Unsubscribe<GoldChangedEvent>(OnGoldChanged);
     }
 
     public void Refresh()
@@ -62,6 +65,7 @@ public sealed class TopMenuBarController : MonoBehaviour
         }
 
         itemUseMenu?.RefreshAvailability();
+        RefreshPlayerMoney();
     }
 
     private void BindSlot(SlotBinding slot, string itemId)
@@ -131,6 +135,7 @@ public sealed class TopMenuBarController : MonoBehaviour
         runManager ??= FindFirstObjectByType<RunManager>();
         assetRegistry ??= FindLoadedRegistry();
         activeItemSlotRoot ??= FindChildRecursive(transform, "ActiveItemSlotRoot") as RectTransform;
+        playerMoneyText ??= FindChildRecursive(transform, "PlayerMoney")?.GetComponent<TMP_Text>();
 
         if (itemUseMenu == null)
         {
@@ -168,6 +173,18 @@ public sealed class TopMenuBarController : MonoBehaviour
     private void OnActiveItemRemoved(ActiveItemRemovedEvent eventData) => Refresh();
     private void OnActiveItemCapacityChanged(ActiveItemCapacityChangedEvent eventData) => Refresh();
     private void OnRunPhaseChanged(RunPhaseChangedEvent eventData) => Refresh();
+    private void OnGoldChanged(GoldChangedEvent eventData) => SetPlayerMoney(eventData.CurrentGold);
+
+    private void RefreshPlayerMoney()
+    {
+        SetPlayerMoney(runManager != null && runManager.RunState != null ? runManager.RunState.Gold : 0);
+    }
+
+    private void SetPlayerMoney(int amount)
+    {
+        if (playerMoneyText != null)
+            playerMoneyText.text = $"${Mathf.Max(0, amount)}";
+    }
 
     private sealed class SlotBinding
     {
