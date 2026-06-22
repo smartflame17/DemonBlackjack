@@ -10,9 +10,9 @@ MonoBehaviour:
   m_Enabled: 1
   m_EditorHideFlags: 0
   m_Script: {fileID: 11500000, guid: 8aafe7d7aedeeeb4da8d972e11f89f96, type: 3}
-  m_Name: DummyRelic
+  m_Name: add_jqk
   m_EditorClassIdentifier: Assembly-CSharp::RelicDefinition
-  id: dummy_relic
-  displayName: dummy relic
-  description: "\uC544\uBB34\uAC83\uB3C4 \uC548\uD568"
-  price: 0
+  id: 
+  displayName: 
+  description: 
+  price: 10

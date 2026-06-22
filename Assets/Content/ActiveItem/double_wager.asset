@@ -10,9 +10,10 @@ MonoBehaviour:
   m_Enabled: 1
   m_EditorHideFlags: 0
   m_Script: {fileID: 11500000, guid: 0120147e47e8f6644943f45da9786627, type: 3}
-  m_Name: DummyItem
+  m_Name: double_wager
   m_EditorClassIdentifier: Assembly-CSharp::ActiveItemDefinition
-  id: dummy_item
-  displayName: dummy item
-  description: "\uC544\uBB34\uAC83\uB3C4 \uC548\uD568"
-  price: 0
+  id: double_wager
+  displayName: "\uB808\uBC84\uB9AC\uC9C0"
+  description: "\uC774\uBC88 \uB77C\uC6B4\uB4DC\uC758 \uD310\uB3C8\uC744 2\uBC30\uB85C
+    \uACC4\uC0B0\uD569\uB2C8\uB2E4. (\uD68D\uB4DD, \uC190\uC2E4 \uBAA8\uB450 \uC801\uC6A9)"
+  price: 10
