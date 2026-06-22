@@ -25,6 +25,7 @@ public sealed class RunStateData
     public int encounterIndex;
     public int difficultyLevel;
     public int devilProgression;
+    public int maxActiveItemSlots;
     public List<RunCardData> deck = new();
     public List<string> relicIds = new();
     public List<string> globalModifierIds = new();
@@ -66,4 +67,5 @@ public sealed class RankModifierData
 {
     public Rank rank;
     public string modifierId;
+    public int paidPrice;
 }

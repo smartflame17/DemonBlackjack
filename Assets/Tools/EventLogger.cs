@@ -45,6 +45,12 @@ public class EventLogger : MonoBehaviour
                 Debug.Log($"<color=blue>[Battle]</color> Battle Phase Changed: NewPhase={eventData.Phase}");
             });
 
+            battleState.EventBus.Subscribe<ItemUsedEvent>(eventData =>
+            {
+                if (!logEvents) return;
+                Debug.Log($"<color=blue>[Battle]</color> Item Used: ItemId={eventData.ItemId}");
+            });
+
             // Round events
             battleState.EventBus.Subscribe<RoundStartedEvent>(eventData =>
             {

@@ -90,6 +90,29 @@ public class RunManager : MonoBehaviour, IDataPersistence
         Debug.Log($"Returning to map. Gold: {RunState.Gold}, Encounter Index: {RunState.EncounterIndex}");
     }
 
+    public bool OpenShop()
+    {
+        BattleState battle = battleController != null ? battleController.BattleState : null;
+        if (RunState == null || battle == null || battle.IsBattleOver || battle.Phase != BattlePhase.Cleanup)
+            return false;
+
+        SetPhase(RunPhase.Shop);
+        EventBus.Publish(new ShopOpenedEvent(RunState.EncounterIndex, battle.RoundNumber));
+        return true;
+    }
+
+    public bool ContinueFromShop()
+    {
+        if (RunState == null || RunState.Phase != RunPhase.Shop || battleController == null)
+            return false;
+
+        int roundNumber = battleController.BattleState != null ? battleController.BattleState.RoundNumber : 0;
+        battleController.CompletePendingVisualTransition();
+        SetPhase(RunPhase.Battle);
+        EventBus.Publish(new ShopClosedEvent(roundNumber));
+        return true;
+    }
+
     private void OnBattleEnded(BattleEndedEvent eventData)
     {
         if (RunState == null)

@@ -82,6 +82,11 @@ public class BattleController : MonoBehaviour
         return !IsWaitingForVisuals && BattleState != null && BattleState.TryUseActiveItem(itemId);
     }
 
+    public bool CanUseActiveItem(string itemId)
+    {
+        return !IsWaitingForVisuals && BattleState != null && BattleState.CanUseActiveItem(itemId);
+    }
+
     public RoundResolution EndPlayerPhase()
     {
         if (BattleState == null || IsWaitingForVisuals)
@@ -136,7 +141,10 @@ public class BattleController : MonoBehaviour
     public void CleanupBattle()
     {
         if (BattleState != null)
+        {
             BattleState.EventBus.Unsubscribe<BattleEndedEvent>(OnBattleEnded);
+            BattleState.Dispose();
+        }
 
         IsWaitingForVisuals = false;
         _pendingBattleEndedEvent = null;

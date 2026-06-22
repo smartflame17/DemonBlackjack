@@ -11,6 +11,8 @@ public sealed class BattleState
     private readonly List<Card> _playerHandCarryover = new();
     private readonly List<Card> _opponentHandCarryover = new();
     private int? _pendingOpponentWagerOffer;
+    private readonly BattleEffectRuntime _effectRuntime;
+    private bool _disposed;
 
     public BattleState(RunState runState, BattleConfig config)
     {
@@ -28,6 +30,7 @@ public sealed class BattleState
         _activeModifiers.AddRange(config.InitialModifiers);
         _activeModifiers.AddRange(config.DevilStrategy.GetGlobalModifiers(runState));
         config.DevilStrategy.RegisterAffinityHooks(this);
+        _effectRuntime = new BattleEffectRuntime(this);
         PlayerDrawValue = config.StartingHandSize;
     }
 
@@ -122,7 +125,7 @@ public sealed class BattleState
         if (CurrentRound.PlayerPlayedThisTurn)      // WARNING: If in the future items or modifiers that allow multiple plays per turn are added, this check will need to be updated to account for that
             return false;
 
-        if (!CurrentRound.TryPlayCard(handIndex, out Card card))
+        if (!CurrentRound.TryPlayCard(handIndex, ApplyPlayerCardUpgrade, out Card card))
             return false;
 
         EventBus.Publish(new CardPlayedEvent(Combatant.Player, card));
@@ -139,6 +142,7 @@ public sealed class BattleState
         if (!TryDrawCard(Combatant.Player, out Card card))
             return false;
 
+        card = ApplyPlayerCardUpgrade(card);
         if (!CurrentRound.TryPlayHitCard(card))
             return false;
 
@@ -192,15 +196,32 @@ public sealed class BattleState
         var result = new BattleResult(OpponentMoney <= 0 && PlayerMoney > 0, RoundNumber, PlayerMoney, OpponentMoney);
         EventBus.Publish(new BattleEndedEvent(result));
         CommandQueue.Enqueue(new VisualCommand(VisualCommandType.BattleEnded, result.PlayerWon.ToString()));
-        Config.DevilStrategy.UnregisterAffinityHooks(this);
-        EventBus.Clear();
+        Dispose();
         return result;
+    }
+
+    public void Dispose()
+    {
+        if (_disposed)
+            return;
+
+        Config.DevilStrategy.UnregisterAffinityHooks(this);
+        _effectRuntime.Dispose();
+        EventBus.Clear();
+        _disposed = true;
     }
 
     public void AddModifier(Modifier modifier)
     {
         _activeModifiers.Add(modifier);
         EventBus.Publish(new ModifierAddedEvent(modifier));
+    }
+
+    private Card ApplyPlayerCardUpgrade(Card card)
+    {
+        return RunState.TryGetRankUpgrade(card.Rank, out OwnedRankUpgrade upgrade)
+            ? CardModifierResolver.Apply(card, upgrade.UpgradeId)
+            : card;
     }
 
     public void DamagePlayer(int amount)
@@ -269,7 +290,7 @@ public sealed class BattleState
 
     public bool TryUseActiveItem(string itemId)
     {
-        if (IsBattleOver || CurrentRound == null || !RunState.HasActiveItem(itemId))
+        if (!CanUseActiveItem(itemId))
             return false;
 
         if (!ActiveItemResolver.TryApply(itemId, this))
@@ -278,6 +299,14 @@ public sealed class BattleState
         RunState.RemoveActiveItem(itemId);
         EventBus.Publish(new ItemUsedEvent(itemId));
         return true;
+    }
+
+    public bool CanUseActiveItem(string itemId)
+    {
+        return !IsBattleOver
+            && CurrentRound != null
+            && RunState.HasActiveItem(itemId)
+            && ActiveItemResolver.CanApply(itemId, this);
     }
 
     public bool ClearField(Combatant owner)

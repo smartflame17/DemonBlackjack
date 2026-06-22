@@ -1,0 +1,19 @@
+%YAML 1.1
+%TAG !u! tag:unity3d.com,2011:
+--- !u!114 &11400000
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 0}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 7068b647997375e40ace68d2b726739f, type: 3}
+  m_Name: move_jack
+  m_EditorClassIdentifier: Assembly-CSharp::CardUpgradeDefinition
+  id: move_jack
+  displayName: "\uBCF5\uC81C\uAE30"
+  description: "\uC774 \uCE74\uB4DC\uB97C \uC0AC\uC6A9 \uC2DC, \uD544\uB4DC \uB9C8\uC9C0\uB9C9\uC5D0
+    \uC788\uB294 \uCE74\uB4DC\uAC00 \uC0C1\uB300 \uD544\uB4DC\uB85C \uC774\uB3D9\uD569\uB2C8\uB2E4.  "
+  price: 10

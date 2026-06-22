@@ -183,3 +183,9 @@ MonoBehaviour:
     sprite: {fileID: 21300000, guid: d73cb3d9a03ddd94abc69876906c6773, type: 3}
   - devilId: devil4
     sprite: {fileID: 21300000, guid: 3e0c7543750b0e74b9889a7945b29fd7, type: 3}
+  defaultActiveItemSprite: {fileID: 0}
+  defaultRelicSprite: {fileID: 0}
+  defaultCardUpgradeSprite: {fileID: 0}
+  activeItemSprites: []
+  relicSprites: []
+  cardUpgradeSprites: []

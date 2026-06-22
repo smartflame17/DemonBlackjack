@@ -4,9 +4,27 @@ public static class ActiveItemResolver
     public const string ClearOpponentField = "item_clear_opponent_field";
     public const string ClearAllFields = "item_clear_all_fields";
 
+    public static bool CanApply(string itemId, BattleState battle)
+    {
+        if (string.IsNullOrWhiteSpace(itemId) || battle == null || battle.CurrentRound == null)
+            return false;
+
+        RoundState round = battle.CurrentRound;
+        bool playerHasCards = round.PlayerPlayedCards.Count > 0 || round.SharedVisibleCards.Count > 0;
+        bool opponentHasCards = round.OpponentVisibleCards.Count > 0;
+
+        return itemId switch
+        {
+            ClearPlayerField => playerHasCards,
+            ClearOpponentField => opponentHasCards,
+            ClearAllFields => playerHasCards || opponentHasCards,
+            _ => false
+        };
+    }
+
     public static bool TryApply(string itemId, BattleState battle)
     {
-        if (string.IsNullOrWhiteSpace(itemId) || battle == null)
+        if (!CanApply(itemId, battle))
             return false;
 
         return itemId switch

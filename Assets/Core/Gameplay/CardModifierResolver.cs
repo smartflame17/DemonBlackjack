@@ -19,4 +19,19 @@ public static class CardModifierResolver
             _ => runCard.ToBattleCard(modifierId)
         };
     }
+
+    public static Card Apply(Card card, string modifierId)
+    {
+        if (string.IsNullOrWhiteSpace(modifierId))
+            return card;
+
+        return modifierId switch
+        {
+            RankToHearts => new Card(Suit.Hearts, card.Rank, modifierId),
+            RankToDiamonds => new Card(Suit.Diamonds, card.Rank, modifierId),
+            RankToClubs => new Card(Suit.Clubs, card.Rank, modifierId),
+            RankToSpades => new Card(Suit.Spades, card.Rank, modifierId),
+            _ => new Card(card.Suit, card.Rank, modifierId)
+        };
+    }
 }
