@@ -2704,7 +2704,7 @@ MonoBehaviour:
   m_OnCullStateChanged:
     m_PersistentCalls:
       m_Calls: []
-  m_text: "\uBC88"
+  m_text: "\uC0AC\uC6A9"
   m_isRightToLeft: 0
   m_fontAsset: {fileID: 11400000, guid: 5d209cd291d5c8e42b7acb6b88142bf9, type: 2}
   m_sharedMaterial: {fileID: 1160606848045435344, guid: 5d209cd291d5c8e42b7acb6b88142bf9, type: 2}
@@ -4488,6 +4488,8 @@ GameObject:
   serializedVersion: 6
   m_Component:
   - component: {fileID: 388587366}
+  - component: {fileID: 388587368}
+  - component: {fileID: 388587367}
   m_Layer: 5
   m_Name: Relic1Slot
   m_TagString: Untagged
@@ -4516,6 +4518,30 @@ RectTransform:
   m_AnchoredPosition: {x: 73.333336, y: -100}
   m_SizeDelta: {x: 89.99999, y: 90}
   m_Pivot: {x: 0.5, y: 0.5}
+--- !u!114 &388587367
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 388587365}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 33f2550eff60d5542b5a882f11a1f0e3, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: Assembly-CSharp::ShopSlotView
+--- !u!225 &388587368
+CanvasGroup:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 388587365}
+  m_Enabled: 1
+  m_Alpha: 1
+  m_Interactable: 1
+  m_BlocksRaycasts: 1
+  m_IgnoreParentGroups: 0
 --- !u!1 &403684858
 GameObject:
   m_ObjectHideFlags: 0
@@ -5088,6 +5114,8 @@ GameObject:
   serializedVersion: 6
   m_Component:
   - component: {fileID: 440558546}
+  - component: {fileID: 440558548}
+  - component: {fileID: 440558547}
   m_Layer: 5
   m_Name: Upgrade5Slot
   m_TagString: Untagged
@@ -5116,6 +5144,30 @@ RectTransform:
   m_AnchoredPosition: {x: 892, y: -150}
   m_SizeDelta: {x: 90, y: 126}
   m_Pivot: {x: 0.5, y: 0.5}
+--- !u!114 &440558547
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 440558545}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 33f2550eff60d5542b5a882f11a1f0e3, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: Assembly-CSharp::ShopSlotView
+--- !u!225 &440558548
+CanvasGroup:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 440558545}
+  m_Enabled: 1
+  m_Alpha: 1
+  m_Interactable: 1
+  m_BlocksRaycasts: 1
+  m_IgnoreParentGroups: 0
 --- !u!1 &450388901
 GameObject:
   m_ObjectHideFlags: 0
@@ -6288,6 +6340,8 @@ GameObject:
   serializedVersion: 6
   m_Component:
   - component: {fileID: 536927742}
+  - component: {fileID: 536927744}
+  - component: {fileID: 536927743}
   m_Layer: 5
   m_Name: Upgrade1Slot
   m_TagString: Untagged
@@ -6316,6 +6370,30 @@ RectTransform:
   m_AnchoredPosition: {x: 108, y: -150}
   m_SizeDelta: {x: 90, y: 126}
   m_Pivot: {x: 0.5, y: 0.5}
+--- !u!114 &536927743
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 536927741}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 33f2550eff60d5542b5a882f11a1f0e3, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: Assembly-CSharp::ShopSlotView
+--- !u!225 &536927744
+CanvasGroup:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 536927741}
+  m_Enabled: 1
+  m_Alpha: 1
+  m_Interactable: 1
+  m_BlocksRaycasts: 1
+  m_IgnoreParentGroups: 0
 --- !u!1 &541582912
 GameObject:
   m_ObjectHideFlags: 0
@@ -6741,6 +6819,8 @@ GameObject:
   serializedVersion: 6
   m_Component:
   - component: {fileID: 556280874}
+  - component: {fileID: 556280876}
+  - component: {fileID: 556280875}
   m_Layer: 5
   m_Name: Upgrade4Slot
   m_TagString: Untagged
@@ -6769,6 +6849,30 @@ RectTransform:
   m_AnchoredPosition: {x: 696, y: -150}
   m_SizeDelta: {x: 90, y: 126}
   m_Pivot: {x: 0.5, y: 0.5}
+--- !u!114 &556280875
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 556280873}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 33f2550eff60d5542b5a882f11a1f0e3, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: Assembly-CSharp::ShopSlotView
+--- !u!225 &556280876
+CanvasGroup:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 556280873}
+  m_Enabled: 1
+  m_Alpha: 1
+  m_Interactable: 1
+  m_BlocksRaycasts: 1
+  m_IgnoreParentGroups: 0
 --- !u!1 &562614336
 GameObject:
   m_ObjectHideFlags: 0
@@ -7093,6 +7197,7 @@ GameObject:
   serializedVersion: 6
   m_Component:
   - component: {fileID: 598543880}
+  - component: {fileID: 598543881}
   m_Layer: 5
   m_Name: Relic3Slot
   m_TagString: Untagged
@@ -7121,6 +7226,18 @@ RectTransform:
   m_AnchoredPosition: {x: 326.6667, y: -100}
   m_SizeDelta: {x: 89.99999, y: 90}
   m_Pivot: {x: 0.5, y: 0.5}
+--- !u!225 &598543881
+CanvasGroup:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 598543879}
+  m_Enabled: 1
+  m_Alpha: 1
+  m_Interactable: 1
+  m_BlocksRaycasts: 1
+  m_IgnoreParentGroups: 0
 --- !u!1 &619394800
 GameObject:
   m_ObjectHideFlags: 0
@@ -8134,6 +8251,8 @@ GameObject:
   serializedVersion: 6
   m_Component:
   - component: {fileID: 722688669}
+  - component: {fileID: 722688671}
+  - component: {fileID: 722688670}
   m_Layer: 5
   m_Name: Upgrade2Slot
   m_TagString: Untagged
@@ -8162,6 +8281,30 @@ RectTransform:
   m_AnchoredPosition: {x: 304, y: -150}
   m_SizeDelta: {x: 90, y: 126}
   m_Pivot: {x: 0.5, y: 0.5}
+--- !u!114 &722688670
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 722688668}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 33f2550eff60d5542b5a882f11a1f0e3, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: Assembly-CSharp::ShopSlotView
+--- !u!225 &722688671
+CanvasGroup:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 722688668}
+  m_Enabled: 1
+  m_Alpha: 1
+  m_Interactable: 1
+  m_BlocksRaycasts: 1
+  m_IgnoreParentGroups: 0
 --- !u!1 &726207907
 GameObject:
   m_ObjectHideFlags: 0
@@ -9390,7 +9533,7 @@ MonoBehaviour:
   m_margin: {x: 0, y: 0, z: 0, w: 1.4955444}
   m_isUsingLegacyAnimationComponent: 0
   m_isVolumetricText: 0
-  m_hasFontAssetChanged: 1
+  m_hasFontAssetChanged: 0
   m_baseMaterial: {fileID: 0}
   m_maskOffset: {x: 0, y: 0, z: 0, w: 0}
 --- !u!222 &812075872
@@ -12094,6 +12237,8 @@ GameObject:
   serializedVersion: 6
   m_Component:
   - component: {fileID: 1103003610}
+  - component: {fileID: 1103003612}
+  - component: {fileID: 1103003611}
   m_Layer: 5
   m_Name: 'item2Slot '
   m_TagString: Untagged
@@ -12122,6 +12267,30 @@ RectTransform:
   m_AnchoredPosition: {x: 200.00002, y: -100}
   m_SizeDelta: {x: 89.99999, y: 90}
   m_Pivot: {x: 0.5, y: 0.5}
+--- !u!114 &1103003611
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 1103003609}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 33f2550eff60d5542b5a882f11a1f0e3, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: Assembly-CSharp::ShopSlotView
+--- !u!225 &1103003612
+CanvasGroup:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 1103003609}
+  m_Enabled: 1
+  m_Alpha: 1
+  m_Interactable: 1
+  m_BlocksRaycasts: 1
+  m_IgnoreParentGroups: 0
 --- !u!1 &1109111270
 GameObject:
   m_ObjectHideFlags: 0
@@ -13784,6 +13953,8 @@ GameObject:
   serializedVersion: 6
   m_Component:
   - component: {fileID: 1237826045}
+  - component: {fileID: 1237826047}
+  - component: {fileID: 1237826046}
   m_Layer: 5
   m_Name: Relic2Slot
   m_TagString: Untagged
@@ -13812,6 +13983,30 @@ RectTransform:
   m_AnchoredPosition: {x: 200.00002, y: -100}
   m_SizeDelta: {x: 89.99999, y: 90}
   m_Pivot: {x: 0.5, y: 0.5}
+--- !u!114 &1237826046
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 1237826044}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 33f2550eff60d5542b5a882f11a1f0e3, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: Assembly-CSharp::ShopSlotView
+--- !u!225 &1237826047
+CanvasGroup:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 1237826044}
+  m_Enabled: 1
+  m_Alpha: 1
+  m_Interactable: 1
+  m_BlocksRaycasts: 1
+  m_IgnoreParentGroups: 0
 --- !u!1 &1239365137
 GameObject:
   m_ObjectHideFlags: 0
@@ -15272,6 +15467,8 @@ GameObject:
   serializedVersion: 6
   m_Component:
   - component: {fileID: 1472062404}
+  - component: {fileID: 1472062406}
+  - component: {fileID: 1472062405}
   m_Layer: 5
   m_Name: item1Slot
   m_TagString: Untagged
@@ -15300,6 +15497,30 @@ RectTransform:
   m_AnchoredPosition: {x: 73.333336, y: -100}
   m_SizeDelta: {x: 89.99999, y: 90}
   m_Pivot: {x: 0.5, y: 0.5}
+--- !u!114 &1472062405
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 1472062403}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 33f2550eff60d5542b5a882f11a1f0e3, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: Assembly-CSharp::ShopSlotView
+--- !u!225 &1472062406
+CanvasGroup:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 1472062403}
+  m_Enabled: 1
+  m_Alpha: 1
+  m_Interactable: 1
+  m_BlocksRaycasts: 1
+  m_IgnoreParentGroups: 0
 --- !u!1 &1475312855
 GameObject:
   m_ObjectHideFlags: 0
@@ -16293,6 +16514,8 @@ GameObject:
   serializedVersion: 6
   m_Component:
   - component: {fileID: 1631780100}
+  - component: {fileID: 1631780102}
+  - component: {fileID: 1631780101}
   m_Layer: 5
   m_Name: Upgrade3Slot
   m_TagString: Untagged
@@ -16321,6 +16544,30 @@ RectTransform:
   m_AnchoredPosition: {x: 500, y: -150}
   m_SizeDelta: {x: 90, y: 126}
   m_Pivot: {x: 0.5, y: 0.5}
+--- !u!114 &1631780101
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 1631780099}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 33f2550eff60d5542b5a882f11a1f0e3, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: Assembly-CSharp::ShopSlotView
+--- !u!225 &1631780102
+CanvasGroup:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 1631780099}
+  m_Enabled: 1
+  m_Alpha: 1
+  m_Interactable: 1
+  m_BlocksRaycasts: 1
+  m_IgnoreParentGroups: 0
 --- !u!1 &1637065594
 GameObject:
   m_ObjectHideFlags: 0
@@ -18951,6 +19198,8 @@ GameObject:
   serializedVersion: 6
   m_Component:
   - component: {fileID: 2003521585}
+  - component: {fileID: 2003521587}
+  - component: {fileID: 2003521586}
   m_Layer: 5
   m_Name: item3Slot
   m_TagString: Untagged
@@ -18979,6 +19228,30 @@ RectTransform:
   m_AnchoredPosition: {x: 326.6667, y: -100}
   m_SizeDelta: {x: 89.99999, y: 90}
   m_Pivot: {x: 0.5, y: 0.5}
+--- !u!114 &2003521586
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 2003521584}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 33f2550eff60d5542b5a882f11a1f0e3, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: Assembly-CSharp::ShopSlotView
+--- !u!225 &2003521587
+CanvasGroup:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 2003521584}
+  m_Enabled: 1
+  m_Alpha: 1
+  m_Interactable: 1
+  m_BlocksRaycasts: 1
+  m_IgnoreParentGroups: 0
 --- !u!1 &2005400847
 GameObject:
   m_ObjectHideFlags: 0
@@ -19105,7 +19378,7 @@ MonoBehaviour:
   m_margin: {x: 0, y: 0, z: 0, w: 0}
   m_isUsingLegacyAnimationComponent: 0
   m_isVolumetricText: 0
-  m_hasFontAssetChanged: 1
+  m_hasFontAssetChanged: 0
   m_baseMaterial: {fileID: 0}
   m_maskOffset: {x: 0, y: 0, z: 0, w: 0}
 --- !u!222 &2005400850

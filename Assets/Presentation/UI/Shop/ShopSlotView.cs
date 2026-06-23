@@ -10,6 +10,7 @@ public sealed class ShopSlotView : MonoBehaviour
     private TMP_Text _priceText;
     private TMP_Text _label;
     private TooltipTrigger _tooltipTrigger;
+    private CanvasGroup _canvasGroup;
 
     public void Initialize(Button button, TMP_Text priceText)
     {
@@ -18,11 +19,19 @@ public sealed class ShopSlotView : MonoBehaviour
         _priceText = priceText;
         _label = button != null ? button.GetComponentInChildren<TMP_Text>(true) : null;
         _tooltipTrigger = GetComponent<TooltipTrigger>() ?? gameObject.AddComponent<TooltipTrigger>();
+        _canvasGroup = GetComponent<CanvasGroup>() ?? gameObject.AddComponent<CanvasGroup>();
     }
 
     public void Bind(Sprite sprite, int price, string label, string contentId, Action purchase)
     {
-        gameObject.SetActive(true);
+        //gameObject.SetActive(true);
+        if (_canvasGroup != null)
+        {
+            _canvasGroup.alpha = 1.0f;
+            _canvasGroup.interactable = true;
+            _canvasGroup.blocksRaycasts = true;
+        }
+
         _tooltipTrigger ??= GetComponent<TooltipTrigger>() ?? gameObject.AddComponent<TooltipTrigger>();
         _tooltipTrigger.Bind(contentId);
         if (_image != null)
@@ -44,6 +53,13 @@ public sealed class ShopSlotView : MonoBehaviour
         _tooltipTrigger?.Clear();
         if (_button != null)
             _button.onClick.RemoveAllListeners();
-        gameObject.SetActive(false);
+
+        if (_canvasGroup != null)
+        {
+            _canvasGroup.alpha = 0.0f;
+            _canvasGroup.interactable = false;
+            _canvasGroup.blocksRaycasts = false;
+        }
+        //gameObject.SetActive(false);
     }
 }
