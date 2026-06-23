@@ -12,8 +12,9 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: 7068b647997375e40ace68d2b726739f, type: 3}
   m_Name: copy_queen
   m_EditorClassIdentifier: Assembly-CSharp::CardUpgradeDefinition
-  id: move_jack
-  displayName: "\uBCF5\uC81C\uAE30"
+  id: copy_queen
+  displayName: "\uBB38\uC591 \uBCF5\uC81C"
   description: "\uC774 \uCE74\uB4DC\uB97C \uC0AC\uC6A9 \uC2DC, \uD544\uB4DC \uB9C8\uC9C0\uB9C9\uC5D0
-    \uC788\uB294 \uCE74\uB4DC\uAC00 \uC0C1\uB300 \uD544\uB4DC\uB85C \uC774\uB3D9\uD569\uB2C8\uB2E4.  "
+    \uC788\uB294 \uCE74\uB4DC\uC640 \uB3D9\uC77C\uD55C \uBB38\uC591\uC758 \uC784\uC758\uC758
+    \uCE74\uB4DC 1\uC7A5\uC744 \uC0AC\uC6A9\uD569\uB2C8\uB2E4."
   price: 10

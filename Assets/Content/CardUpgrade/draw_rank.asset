@@ -12,7 +12,8 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: 7068b647997375e40ace68d2b726739f, type: 3}
   m_Name: draw_rank
   m_EditorClassIdentifier: Assembly-CSharp::CardUpgradeDefinition
-  id: 
-  displayName: 
-  description: 
+  id: draw_rank
+  displayName: "\uC0C9\uC778"
+  description: "\uC774 \uCE74\uB4DC\uB97C \uC0AC\uC6A9 \uC2DC, \uAC19\uC740 \uBB38\uC591\uC758
+    \uCE74\uB4DC\uB97C \uD55C \uC7A5 \uC190\uD328\uB85C \uAC00\uC838\uC635\uB2C8\uB2E4."
   price: 10

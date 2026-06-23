@@ -12,7 +12,8 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: 7068b647997375e40ace68d2b726739f, type: 3}
   m_Name: negative_rank
   m_EditorClassIdentifier: Assembly-CSharp::CardUpgradeDefinition
-  id: 
-  displayName: 
-  description: 
+  id: negative_rank
+  displayName: "\uB9C8\uC774\uB108\uC2A4 \uC801\uAE08"
+  description: "\uC774 \uCE74\uB4DC\uB97C \uC0AC\uC6A9 \uC2DC, \uD574\uB2F9 \uC22B\uC790\uB97C
+    \uC74C\uC218\uB85C \uCDE8\uAE09\uD569\uB2C8\uB2E4."
   price: 10
