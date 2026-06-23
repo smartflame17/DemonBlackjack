@@ -10,6 +10,8 @@ public sealed class TopMenuBarController : MonoBehaviour
     [SerializeField] private RectTransform activeItemSlotRoot;
     [SerializeField] private ItemUseMenu itemUseMenu;
     [SerializeField] private TMP_Text playerMoneyText;
+    [SerializeField] private Button viewFullDeckButton;
+    [SerializeField] private DeckViewPanel deckViewPanel;
 
     private readonly List<SlotBinding> _slots = new();
 
@@ -21,11 +23,14 @@ public sealed class TopMenuBarController : MonoBehaviour
 
     private void OnEnable()
     {
+        ResolveReferences();
         EventBus.Subscribe<ActiveItemAddedEvent>(OnActiveItemAdded);
         EventBus.Subscribe<ActiveItemRemovedEvent>(OnActiveItemRemoved);
         EventBus.Subscribe<ActiveItemCapacityChangedEvent>(OnActiveItemCapacityChanged);
         EventBus.Subscribe<RunPhaseChangedEvent>(OnRunPhaseChanged);
         EventBus.Subscribe<GoldChangedEvent>(OnGoldChanged);
+        if (viewFullDeckButton != null)
+            viewFullDeckButton.onClick.AddListener(ShowFullDeck);
         Refresh();
     }
 
@@ -41,6 +46,8 @@ public sealed class TopMenuBarController : MonoBehaviour
         EventBus.Unsubscribe<ActiveItemCapacityChangedEvent>(OnActiveItemCapacityChanged);
         EventBus.Unsubscribe<RunPhaseChangedEvent>(OnRunPhaseChanged);
         EventBus.Unsubscribe<GoldChangedEvent>(OnGoldChanged);
+        if (viewFullDeckButton != null)
+            viewFullDeckButton.onClick.RemoveListener(ShowFullDeck);
     }
 
     public void Refresh()
@@ -65,7 +72,17 @@ public sealed class TopMenuBarController : MonoBehaviour
         }
 
         itemUseMenu?.RefreshAvailability();
+        RefreshFullDeckButton(run);
         RefreshPlayerMoney();
+    }
+
+    private void ShowFullDeck()
+    {
+        RunState run = runManager != null ? runManager.RunState : null;
+        if (run == null)
+            return;
+
+        deckViewPanel?.Show(run.Deck, DeckViewOptions.Default);
     }
 
     private void BindSlot(SlotBinding slot, string itemId)
@@ -136,6 +153,8 @@ public sealed class TopMenuBarController : MonoBehaviour
         assetRegistry ??= FindLoadedRegistry();
         activeItemSlotRoot ??= FindChildRecursive(transform, "ActiveItemSlotRoot") as RectTransform;
         playerMoneyText ??= FindChildRecursive(transform, "PlayerMoney")?.GetComponent<TMP_Text>();
+        viewFullDeckButton ??= FindChildRecursive(transform, "ViewFullDeckButton")?.GetComponent<Button>();
+        deckViewPanel ??= FindFirstObjectByType<DeckViewPanel>(FindObjectsInactive.Include);
 
         if (itemUseMenu == null)
         {
@@ -178,6 +197,12 @@ public sealed class TopMenuBarController : MonoBehaviour
     private void RefreshPlayerMoney()
     {
         SetPlayerMoney(runManager != null && runManager.RunState != null ? runManager.RunState.Gold : 0);
+    }
+
+    private void RefreshFullDeckButton(RunState run)
+    {
+        if (viewFullDeckButton != null)
+            viewFullDeckButton.interactable = run != null && run.Deck != null && run.Deck.Count > 0 && deckViewPanel != null;
     }
 
     private void SetPlayerMoney(int amount)
