@@ -309,6 +309,82 @@ public sealed class BattleState
             && ActiveItemResolver.CanApply(itemId, this);
     }
 
+    public bool CanDiscardLastPlayerHitCard()
+    {
+        return CurrentRound != null && CurrentRound.CanRemoveLastPlayerHitCard;
+    }
+
+    public bool DiscardLastPlayerHitCard()
+    {
+        if (CurrentRound == null || !CurrentRound.TryRemoveLastPlayerHitCard(out Card card))
+            return false;
+
+        _playerDeck.Discard(card);
+        EventBus.Publish(new CardDiscardedEvent(Combatant.Player, card));
+        CommandQueue.Enqueue(new VisualCommand(VisualCommandType.CardsPlayed, card.ToString()));
+        return true;
+    }
+
+    public bool CanDrawPlayerCards()
+    {
+        return CurrentRound != null && (_playerDeck.RemainingCards > 0 || _playerDeck.DiscardedCards > 0);
+    }
+
+    public int DrawCardsToPlayerHand(int count)
+    {
+        if (CurrentRound == null || count <= 0)
+            return 0;
+
+        int drawn = 0;
+        for (int i = 0; i < count; i++)
+        {
+            if (!TryDrawCard(Combatant.Player, out Card card))
+                break;
+
+            CurrentRound.AddToHand(card);
+            drawn++;
+            EventBus.Publish(new CardDrawnEvent(Combatant.Player, card, _playerDeck.RemainingCards));
+        }
+
+        if (drawn > 0)
+        {
+            EventBus.Publish(new HandRefilledEvent(CurrentRound.PlayerHand.Count));
+            CommandQueue.Enqueue(new VisualCommand(VisualCommandType.CardsDrawn, CurrentRound.PlayerHand.Count.ToString()));
+        }
+
+        return drawn;
+    }
+
+    public bool CanDoubleCurrentRoundWager()
+    {
+        return CurrentRound != null
+            && CurrentRound.WagerCommitted
+            && CurrentRound.PlayerStake > 0
+            && CurrentRound.OpponentStake > 0
+            && PlayerMoney >= CurrentRound.PlayerStake
+            && OpponentMoney >= CurrentRound.OpponentStake;
+    }
+
+    public bool DoubleCurrentRoundWager()
+    {
+        if (!CanDoubleCurrentRoundWager())
+            return false;
+
+        int playerExtraStake = CurrentRound.PlayerStake;
+        int opponentExtraStake = CurrentRound.OpponentStake;
+        RunState.AddMoney(-playerExtraStake);
+        AddOpponentMoney(-opponentExtraStake);
+
+        if (!CurrentRound.TryIncreaseWager(playerExtraStake, opponentExtraStake))
+        {
+            RunState.AddMoney(playerExtraStake);
+            AddOpponentMoney(opponentExtraStake);
+            return false;
+        }
+
+        return true;
+    }
+
     public bool ClearField(Combatant owner)
     {
         if (CurrentRound == null)

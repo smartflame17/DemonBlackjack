@@ -44,9 +44,9 @@ public sealed class ShopCatalog : ScriptableObject
     {
         ShopCatalog catalog = CreateInstance<ShopCatalog>();
         catalog.hideFlags = HideFlags.DontSave;
-        catalog.activeItems.Add(Create<ActiveItemDefinition>(ActiveItemResolver.ClearPlayerField, "Clear Your Field", "Discard all cards on your field.", 20));
-        catalog.activeItems.Add(Create<ActiveItemDefinition>(ActiveItemResolver.ClearOpponentField, "Clear Enemy Field", "Discard all cards on the opponent field.", 30));
-        catalog.activeItems.Add(Create<ActiveItemDefinition>(ActiveItemResolver.ClearAllFields, "Clear All Fields", "Discard every card currently in play.", 40));
+        catalog.activeItems.Add(Create<ActiveItemDefinition>(ActiveItemResolver.RejectLastHit, "결재 반려", "이번 턴 마지막 Hit 카드를 무덤으로 보내 점수와 족보 계산에서 제외합니다.", 10));
+        catalog.activeItems.Add(Create<ActiveItemDefinition>(ActiveItemResolver.DrawThree, "특근 지시서", "덱에서 카드 3장을 즉시 드로우합니다. 손패가 3장을 넘어갈 수 있습니다.", 10));
+        catalog.activeItems.Add(Create<ActiveItemDefinition>(ActiveItemResolver.DoubleWager, "레버리지", "이번 라운드의 판돈을 2배로 계산합니다. 획득과 손실 모두 적용됩니다.", 10));
         catalog.relics.Add(Create<RelicDefinition>(RelicRuleResolver.BurstTwentyTwo, "Twenty-Two", "Raise your burst threshold to 22.", 50));
         catalog.cardUpgrades.Add(Create<CardUpgradeDefinition>(CardModifierResolver.RankToHearts, "Heart Imprint", "Cards of the selected rank become Hearts when played.", 25));
         catalog.cardUpgrades.Add(Create<CardUpgradeDefinition>(CardModifierResolver.RankToDiamonds, "Diamond Imprint", "Cards of the selected rank become Diamonds when played.", 25));

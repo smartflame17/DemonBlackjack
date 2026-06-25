@@ -12,6 +12,7 @@ public sealed class RoundState
     private readonly List<Card> _revealedFutureCards = new();
     private readonly List<string> _pendingEffectIds = new();
     private readonly List<Modifier> _scoringModifiers = new();
+    private int _lastPlayerHitCardIndex = -1;
 
     public RoundState(int roundNumber, int targetScore, int burstThreshold, int playerStake, int opponentStake, bool playerActsFirst)
     {
@@ -72,6 +73,16 @@ public sealed class RoundState
         return true;
     }
 
+    public bool TryIncreaseWager(int playerStakeDelta, int opponentStakeDelta)
+    {
+        if (!WagerCommitted || playerStakeDelta <= 0 || opponentStakeDelta <= 0)
+            return false;
+
+        PlayerStake += playerStakeDelta;
+        OpponentStake += opponentStakeDelta;
+        return true;
+    }
+
     public void AddSharedVisibleCard(Card card)
     {
         _sharedVisibleCards.Add(card);
@@ -95,6 +106,7 @@ public sealed class RoundState
         if (transform != null)
             card = transform(card);
         _playerPlayedCards.Add(card);
+        _lastPlayerHitCardIndex = -1;
         PlayerPlayedThisTurn = true;
         PlayerStood = false;
         return true;
@@ -119,8 +131,25 @@ public sealed class RoundState
     public bool TryPlayHitCard(Card card)
     {
         _playerPlayedCards.Add(card);
+        _lastPlayerHitCardIndex = _playerPlayedCards.Count - 1;
         PlayerPlayedThisTurn = true;
         PlayerStood = false;
+        return true;
+    }
+
+    public bool CanRemoveLastPlayerHitCard => _lastPlayerHitCardIndex >= 0 && _lastPlayerHitCardIndex < _playerPlayedCards.Count;
+
+    public bool TryRemoveLastPlayerHitCard(out Card card)
+    {
+        if (!CanRemoveLastPlayerHitCard)
+        {
+            card = default;
+            return false;
+        }
+
+        card = _playerPlayedCards[_lastPlayerHitCardIndex];
+        _playerPlayedCards.RemoveAt(_lastPlayerHitCardIndex);
+        _lastPlayerHitCardIndex = -1;
         return true;
     }
 
@@ -166,6 +195,7 @@ public sealed class RoundState
             cards.AddRange(_sharedVisibleCards);
             _playerPlayedCards.Clear();
             _sharedVisibleCards.Clear();
+            _lastPlayerHitCardIndex = -1;
         }
         else
         {
@@ -210,6 +240,7 @@ public sealed class RoundState
         _playerPlayedCards.Clear();
         _opponentVisibleCards.Clear();
         _sharedVisibleCards.Clear();
+        _lastPlayerHitCardIndex = -1;
         _lockedCards.Clear();
         _revealedFutureCards.Clear();
         _pendingEffectIds.Clear();
@@ -225,6 +256,7 @@ public sealed class RoundState
         cards.AddRange(_sharedVisibleCards);
         _playerPlayedCards.Clear();
         _sharedVisibleCards.Clear();
+        _lastPlayerHitCardIndex = -1;
         return cards;
     }
 
@@ -242,5 +274,6 @@ public sealed class RoundState
         _revealedFutureCards.Clear();
         _pendingEffectIds.Clear();
         _scoringModifiers.Clear();
+        _lastPlayerHitCardIndex = -1;
     }
 }
