@@ -20571,7 +20571,7 @@ MonoBehaviour:
   runManager: {fileID: 562614337}
   assetRegistry: {fileID: 11400000, guid: f571c9f53e8d97f4dab513809a72572c, type: 2}
   activeItemSlotRoot: {fileID: 1313127641}
-  relicRoot: {fileID: 0}
+  relicRoot: {fileID: 2081250086}
   itemUseMenu: {fileID: 2100000001}
   playerMoneyText: {fileID: 506044665}
   viewFullDeckButton: {fileID: 1542388535}
