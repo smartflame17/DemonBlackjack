@@ -106,7 +106,7 @@ public sealed class RoundState
         if (transform != null)
             card = transform(card);
         _playerPlayedCards.Add(card);
-        _lastPlayerHitCardIndex = -1;
+        _lastPlayerHitCardIndex = _playerPlayedCards.Count - 1;
         PlayerPlayedThisTurn = true;
         PlayerStood = false;
         return true;
