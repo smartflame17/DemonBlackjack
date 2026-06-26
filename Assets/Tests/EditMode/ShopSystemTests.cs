@@ -220,6 +220,66 @@ public sealed class ShopSystemTests
     }
 
     [Test]
+    public void RankUpgradePurchase_ImmediatelyTransformsPlayerBattleCards()
+    {
+        var run = new RunState(1, startingGold: 100);
+        var battle = new BattleState(run, new BattleConfig("test", 100));
+        battle.StartRound();
+        battle.CurrentRound.AddToHand(new Card(Suit.Clubs, Rank.Five));
+        battle.CurrentRound.TryPlayHitCard(new Card(Suit.Diamonds, Rank.Five));
+        battle.ClearField(Combatant.Player);
+        battle.CurrentRound.AddToHand(new Card(Suit.Hearts, Rank.Six));
+        battle.CurrentRound.TryPlayHitCard(new Card(Suit.Hearts, Rank.Five));
+        Card opponentCardBefore = battle.OpponentDrawPile[0];
+
+        ShopPurchaseResult result = run.TryPurchaseRankUpgrade(Rank.Five, CardModifierResolver.RankToSpades, 10);
+
+        Assert.That(result.Succeeded, Is.True);
+        Assert.That(ContainsUpgradedRank(battle.PlayerDrawPile, Rank.Five, CardModifierResolver.RankToSpades), Is.True);
+        Assert.That(ContainsUpgradedRank(battle.PlayerDiscardPile, Rank.Five, CardModifierResolver.RankToSpades), Is.True);
+        Assert.That(ContainsUpgradedRank(battle.CurrentRound.PlayerHand, Rank.Five, CardModifierResolver.RankToSpades), Is.True);
+        Assert.That(ContainsUpgradedRank(battle.CurrentRound.PlayerPlayedCards, Rank.Five, CardModifierResolver.RankToSpades), Is.True);
+        Assert.That(ContainsModifier(battle.CurrentRound.PlayerHand, Rank.Six, CardModifierResolver.RankToSpades), Is.False);
+        Assert.That(battle.OpponentDrawPile[0], Is.EqualTo(opponentCardBefore));
+
+        battle.Dispose();
+    }
+
+    [Test]
+    public void RankUpgradeReplacement_RewritesActiveBattleCardsToNewModifier()
+    {
+        var run = new RunState(1, startingGold: 100);
+        var battle = new BattleState(run, new BattleConfig("test", 100));
+        battle.StartRound();
+        battle.CurrentRound.AddToHand(new Card(Suit.Clubs, Rank.Queen));
+
+        Assert.That(run.TryPurchaseRankUpgrade(Rank.Queen, CardModifierResolver.RankToHearts, 10).Succeeded, Is.True);
+        Assert.That(run.TryPurchaseRankUpgrade(Rank.Queen, CardModifierResolver.RankToDiamonds, 10).Succeeded, Is.True);
+
+        Assert.That(ContainsUpgradedRank(battle.CurrentRound.PlayerHand, Rank.Queen, CardModifierResolver.RankToDiamonds), Is.True);
+        Assert.That(ContainsModifier(battle.CurrentRound.PlayerHand, Rank.Queen, CardModifierResolver.RankToHearts), Is.False);
+
+        battle.Dispose();
+    }
+
+    [Test]
+    public void RankUpgradePurchase_TransformsPlayerHandCarryover()
+    {
+        var run = new RunState(1, startingGold: 100);
+        var battle = new BattleState(run, new BattleConfig("test", 100));
+        battle.StartRound();
+        battle.CurrentRound.AddToHand(new Card(Suit.Clubs, Rank.Jack));
+        battle.CleanupRound();
+
+        Assert.That(run.TryPurchaseRankUpgrade(Rank.Jack, CardModifierResolver.RankToClubs, 10).Succeeded, Is.True);
+        Assert.That(battle.StartRound(), Is.True);
+
+        Assert.That(ContainsUpgradedRank(battle.CurrentRound.PlayerHand, Rank.Jack, CardModifierResolver.RankToClubs), Is.True);
+
+        battle.Dispose();
+    }
+
+    [Test]
     public void DrawThree_AddsCardsPastNormalHandSize()
     {
         var run = new RunState(1);
@@ -268,6 +328,42 @@ public sealed class ShopSystemTests
         Assert.That(battle.CurrentRound.Pot, Is.EqualTo(40));
         Assert.That(run.Money, Is.EqualTo(90));
         Assert.That(battle.OpponentMoney, Is.EqualTo(90));
+    }
+
+    private static bool ContainsUpgradedRank(IReadOnlyList<Card> cards, Rank rank, string modifierId)
+    {
+        for (int i = 0; i < cards.Count; i++)
+        {
+            Card card = cards[i];
+            if (card.Rank == rank && card.ModifierId == modifierId && card.Suit == SuitForModifier(modifierId))
+                return true;
+        }
+
+        return false;
+    }
+
+    private static bool ContainsModifier(IReadOnlyList<Card> cards, Rank rank, string modifierId)
+    {
+        for (int i = 0; i < cards.Count; i++)
+        {
+            Card card = cards[i];
+            if (card.Rank == rank && card.ModifierId == modifierId)
+                return true;
+        }
+
+        return false;
+    }
+
+    private static Suit SuitForModifier(string modifierId)
+    {
+        return modifierId switch
+        {
+            CardModifierResolver.RankToHearts => Suit.Hearts,
+            CardModifierResolver.RankToDiamonds => Suit.Diamonds,
+            CardModifierResolver.RankToClubs => Suit.Clubs,
+            CardModifierResolver.RankToSpades => Suit.Spades,
+            _ => default
+        };
     }
 }
 #endif

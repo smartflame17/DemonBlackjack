@@ -19,6 +19,7 @@ public sealed class BattleState
         RunState = runState ?? throw new ArgumentNullException(nameof(runState));
         Config = config ?? throw new ArgumentNullException(nameof(config));
         EventBus = new ScopedEventBus();
+        global::EventBus.Subscribe<RankUpgradeChangedEvent>(OnRankUpgradeChanged);
         EventBus.Subscribe<CardPlayedEvent>(OnCardPlayedForRefill);
         EventBus.Subscribe<CardDiscardedEvent>(OnCardDiscardedForRefill);
         CommandQueue = new CommandQueue();
@@ -207,6 +208,7 @@ public sealed class BattleState
 
         Config.DevilStrategy.UnregisterAffinityHooks(this);
         _effectRuntime.Dispose();
+        global::EventBus.Unsubscribe<RankUpgradeChangedEvent>(OnRankUpgradeChanged);
         EventBus.Clear();
         _disposed = true;
     }
@@ -222,6 +224,21 @@ public sealed class BattleState
         return RunState.TryGetRankUpgrade(card.Rank, out OwnedRankUpgrade upgrade)
             ? CardModifierResolver.Apply(card, upgrade.UpgradeId)
             : card;
+    }
+
+    public void ApplyRankUpgradeToPlayerBattleCards(Rank rank, string upgradeId)
+    {
+        if (!Enum.IsDefined(typeof(Rank), rank) || string.IsNullOrWhiteSpace(upgradeId))
+            return;
+
+        Card Transform(Card card)
+        {
+            return card.Rank == rank ? CardModifierResolver.Apply(card, upgradeId) : card;
+        }
+
+        _playerDeck.TransformCards(Transform);
+        CurrentRound?.TransformPlayerCards(Transform);
+        TransformCards(_playerHandCarryover, Transform);
     }
 
     public void DamagePlayer(int amount)
@@ -726,6 +743,14 @@ public sealed class BattleState
         RefillHandIfEmpty(eventData.Owner);
     }
 
+    private void OnRankUpgradeChanged(RankUpgradeChangedEvent eventData)
+    {
+        if (eventData.RunState != null && !ReferenceEquals(eventData.RunState, RunState))
+            return;
+
+        ApplyRankUpgradeToPlayerBattleCards(eventData.Rank, eventData.UpgradeId);
+    }
+
     private void RefillHandIfEmpty(Combatant owner)
     {
         if (CurrentRound == null)
@@ -735,5 +760,14 @@ public sealed class BattleState
             RefillPlayerHandIfEmpty();
         else
             RefillOpponentHandIfEmpty();
+    }
+
+    private static void TransformCards(List<Card> cards, Func<Card, Card> transform)
+    {
+        if (transform == null)
+            return;
+
+        for (int i = 0; i < cards.Count; i++)
+            cards[i] = transform(cards[i]);
     }
 }

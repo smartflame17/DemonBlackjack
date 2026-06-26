@@ -271,7 +271,7 @@ public sealed class RunState
 
         AddMoney(-netCost);
         _rankUpgrades[rank] = new OwnedRankUpgrade(rank, upgradeId, price);
-        EventBus.Publish(new RankUpgradeChangedEvent(rank, previous.UpgradeId, upgradeId));
+        EventBus.Publish(new RankUpgradeChangedEvent(this, rank, previous.UpgradeId, upgradeId));
         return ShopPurchaseResult.Success(price, refund);
     }
 

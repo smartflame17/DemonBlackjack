@@ -88,6 +88,16 @@ public sealed class RoundState
         _sharedVisibleCards.Add(card);
     }
 
+    public void TransformPlayerCards(Func<Card, Card> transform)
+    {
+        if (transform == null)
+            return;
+
+        TransformCards(_playerHand, transform);
+        TransformCards(_playerPlayedCards, transform);
+        TransformCards(_sharedVisibleCards, transform);
+    }
+
     public bool TryPlayCard(int handIndex, out Card card)
     {
         return TryPlayCard(handIndex, null, out card);
@@ -275,5 +285,11 @@ public sealed class RoundState
         _pendingEffectIds.Clear();
         _scoringModifiers.Clear();
         _lastPlayerHitCardIndex = -1;
+    }
+
+    private static void TransformCards(List<Card> cards, Func<Card, Card> transform)
+    {
+        for (int i = 0; i < cards.Count; i++)
+            cards[i] = transform(cards[i]);
     }
 }

@@ -53,6 +53,15 @@ public sealed class Deck
         _discardPile.AddRange(cards);
     }
 
+    public void TransformCards(Func<Card, Card> transform)
+    {
+        if (transform == null)
+            return;
+
+        TransformCards(_drawPile, transform);
+        TransformCards(_discardPile, transform);
+    }
+
     public bool ReshuffleDiscardIntoDraw()
     {
         if (_discardPile.Count == 0)
@@ -71,6 +80,12 @@ public sealed class Deck
             int swapIndex = _random.Next(i + 1);
             (_drawPile[i], _drawPile[swapIndex]) = (_drawPile[swapIndex], _drawPile[i]);
         }
+    }
+
+    private static void TransformCards(List<Card> cards, Func<Card, Card> transform)
+    {
+        for (int i = 0; i < cards.Count; i++)
+            cards[i] = transform(cards[i]);
     }
 
 // TODO: Based on gameplay designer's request, this method may be altered to generate a custom starting deck
