@@ -9245,8 +9245,8 @@ RectTransform:
   m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
   m_AnchorMin: {x: 0.5, y: 0.5}
   m_AnchorMax: {x: 0.5, y: 0.5}
-  m_AnchoredPosition: {x: 0, y: 0}
-  m_SizeDelta: {x: 200, y: 160}
+  m_AnchoredPosition: {x: 17.146019, y: -53.776226}
+  m_SizeDelta: {x: 234.292, y: 267.5525}
   m_Pivot: {x: 0.5, y: 0.5}
 --- !u!114 &800846465
 MonoBehaviour:
@@ -9441,8 +9441,8 @@ RectTransform:
   m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
   m_AnchorMin: {x: 0.5, y: 0.5}
   m_AnchorMax: {x: 0.5, y: 0.5}
-  m_AnchoredPosition: {x: 0, y: 60}
-  m_SizeDelta: {x: 200, y: 40}
+  m_AnchoredPosition: {x: 17.146019, y: 60}
+  m_SizeDelta: {x: 234.29, y: 40}
   m_Pivot: {x: 0.5, y: 0.5}
 --- !u!114 &812075871
 MonoBehaviour:
@@ -9830,15 +9830,16 @@ RectTransform:
   m_Children:
   - {fileID: 417832716}
   - {fileID: 1313127641}
+  - {fileID: 1542388534}
   - {fileID: 905040768}
   - {fileID: 2081250086}
   - {fileID: 506044664}
   m_Father: {fileID: 970734544}
   m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
-  m_AnchorMin: {x: 0, y: 0}
+  m_AnchorMin: {x: 0, y: 1}
   m_AnchorMax: {x: 1, y: 1}
-  m_AnchoredPosition: {x: 0, y: 425}
-  m_SizeDelta: {x: 0, y: -850}
+  m_AnchoredPosition: {x: 0, y: -25}
+  m_SizeDelta: {x: 0, y: 50}
   m_Pivot: {x: 0.5, y: 0.5}
 --- !u!114 &850427038
 MonoBehaviour:
@@ -10949,6 +10950,7 @@ RectTransform:
   - {fileID: 436573414}
   - {fileID: 850427037}
   - {fileID: 2011282976}
+  - {fileID: 1303072123}
   m_Father: {fileID: 0}
   m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
   m_AnchorMin: {x: 0, y: 0}
@@ -12843,8 +12845,8 @@ RectTransform:
   m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
   m_AnchorMin: {x: 0, y: 1}
   m_AnchorMax: {x: 0, y: 1}
-  m_AnchoredPosition: {x: 300, y: -50}
-  m_SizeDelta: {x: 120, y: 60}
+  m_AnchoredPosition: {x: 221, y: -43.196075}
+  m_SizeDelta: {x: 138, y: 66.39215}
   m_Pivot: {x: 0.5, y: 0.5}
 --- !u!114 &1160106947
 MonoBehaviour:
@@ -14109,8 +14111,8 @@ RectTransform:
   m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
   m_AnchorMin: {x: 0, y: 1}
   m_AnchorMax: {x: 0, y: 1}
-  m_AnchoredPosition: {x: 100, y: -50}
-  m_SizeDelta: {x: 120, y: 60}
+  m_AnchoredPosition: {x: 79, y: -43.196075}
+  m_SizeDelta: {x: 138, y: 66.39215}
   m_Pivot: {x: 0.5, y: 0.5}
 --- !u!114 &1251186224
 MonoBehaviour:
@@ -14463,6 +14465,7 @@ GameObject:
   - component: {fileID: 1303072123}
   - component: {fileID: 1303072126}
   - component: {fileID: 1303072125}
+  - component: {fileID: 2100000005}
   m_Layer: 5
   m_Name: DeckViewPanel
   m_TagString: Untagged
@@ -14487,7 +14490,7 @@ RectTransform:
   - {fileID: 1239365138}
   - {fileID: 623223806}
   - {fileID: 1944044444}
-  m_Father: {fileID: 1394531203}
+  m_Father: {fileID: 970734544}
   m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
   m_AnchorMin: {x: 0, y: 0}
   m_AnchorMax: {x: 1, y: 1}
@@ -15001,9 +15004,7 @@ RectTransform:
   - {fileID: 647403621}
   - {fileID: 299405097}
   - {fileID: 818130448}
-  - {fileID: 1542388534}
   - {fileID: 199694684}
-  - {fileID: 1303072123}
   - {fileID: 1450920646}
   - {fileID: 1169989697}
   m_Father: {fileID: 0}
@@ -15067,15 +15068,9 @@ MonoBehaviour:
   declineOfferButton: {fileID: 270618832}
   proposalAmountText: {fileID: 778220374}
   devilOfferAmountText: {fileID: 1200967374}
-  viewFullDeckButton: {fileID: 1542388535}
+  deckViewPanel: {fileID: 2100000005}
   viewDrawPileButton: {fileID: 134017602}
   viewPlayedPileButton: {fileID: 808826198}
-  deckViewPanel: {fileID: 1303072122}
-  rankGridViewRoot: {fileID: 990505794}
-  suitGridViewRoot: {fileID: 1239365138}
-  viewByRankButton: {fileID: 1251186226}
-  viewBySuitButton: {fileID: 1160106949}
-  closeDeckViewButton: {fileID: 623223807}
   roundResultPanel: {fileID: 1450920645}
   roundResultText: {fileID: 1923911676}
   toShopButton: {fileID: 118463398}
@@ -15807,12 +15802,12 @@ RectTransform:
   m_ConstrainProportionsScale: 0
   m_Children:
   - {fileID: 375755367}
-  m_Father: {fileID: 1394531203}
+  m_Father: {fileID: 850427037}
   m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
-  m_AnchorMin: {x: 0, y: 1}
-  m_AnchorMax: {x: 0, y: 1}
-  m_AnchoredPosition: {x: 102, y: -164.74}
-  m_SizeDelta: {x: 100, y: 80}
+  m_AnchorMin: {x: 0, y: 0.5}
+  m_AnchorMax: {x: 0, y: 0.5}
+  m_AnchoredPosition: {x: 100, y: 0}
+  m_SizeDelta: {x: 100, y: 40}
   m_Pivot: {x: 0.5, y: 0.5}
 --- !u!114 &1542388535
 MonoBehaviour:
@@ -19120,10 +19115,10 @@ RectTransform:
   - {fileID: 1160106946}
   m_Father: {fileID: 1303072123}
   m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
-  m_AnchorMin: {x: 0.5, y: 0.5}
-  m_AnchorMax: {x: 0.5, y: 0.5}
-  m_AnchoredPosition: {x: 400, y: 362.74}
-  m_SizeDelta: {x: 400, y: 100}
+  m_AnchorMin: {x: 0, y: 0}
+  m_AnchorMax: {x: 1, y: 1}
+  m_AnchoredPosition: {x: 450, y: 355}
+  m_SizeDelta: {x: -1300, y: -810}
   m_Pivot: {x: 0.5, y: 0.5}
 --- !u!114 &1944044445
 MonoBehaviour:
@@ -19176,16 +19171,16 @@ MonoBehaviour:
   m_Name: 
   m_EditorClassIdentifier: UnityEngine.UI::UnityEngine.UI.HorizontalLayoutGroup
   m_Padding:
-    m_Left: 0
-    m_Right: 0
-    m_Top: 0
-    m_Bottom: 0
+    m_Left: 10
+    m_Right: 10
+    m_Top: 10
+    m_Bottom: 10
   m_ChildAlignment: 4
-  m_Spacing: 0
+  m_Spacing: 4
   m_ChildForceExpandWidth: 1
   m_ChildForceExpandHeight: 1
-  m_ChildControlWidth: 0
-  m_ChildControlHeight: 0
+  m_ChildControlWidth: 1
+  m_ChildControlHeight: 1
   m_ChildScaleWidth: 0
   m_ChildScaleHeight: 0
   m_ReverseArrangement: 0
@@ -19286,8 +19281,8 @@ RectTransform:
   m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
   m_AnchorMin: {x: 0.5, y: 0.5}
   m_AnchorMax: {x: 0.5, y: 0.5}
-  m_AnchoredPosition: {x: 0, y: -13}
-  m_SizeDelta: {x: 180, y: 100}
+  m_AnchoredPosition: {x: 14.808, y: -65.9969}
+  m_SizeDelta: {x: 209.616, y: 205.9937}
   m_Pivot: {x: 0.5, y: 0.5}
 --- !u!114 &2005400849
 MonoBehaviour:
@@ -20377,9 +20372,9 @@ RectTransform:
   m_Father: {fileID: 850427037}
   m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
   m_AnchorMin: {x: 0, y: 1}
-  m_AnchorMax: {x: 0, y: 1}
-  m_AnchoredPosition: {x: 320, y: -100}
-  m_SizeDelta: {x: 600, y: 60}
+  m_AnchorMax: {x: 1, y: 1}
+  m_AnchoredPosition: {x: -480, y: -100}
+  m_SizeDelta: {x: -1000, y: 60}
   m_Pivot: {x: 0.5, y: 0.5}
 --- !u!114 &2081250087
 MonoBehaviour:
@@ -20576,8 +20571,11 @@ MonoBehaviour:
   runManager: {fileID: 562614337}
   assetRegistry: {fileID: 11400000, guid: f571c9f53e8d97f4dab513809a72572c, type: 2}
   activeItemSlotRoot: {fileID: 1313127641}
+  relicRoot: {fileID: 2081250086}
   itemUseMenu: {fileID: 2100000001}
   playerMoneyText: {fileID: 506044665}
+  viewFullDeckButton: {fileID: 1542388535}
+  deckViewPanel: {fileID: 2100000005}
 --- !u!114 &2100000003
 MonoBehaviour:
   m_ObjectHideFlags: 0
@@ -20606,6 +20604,25 @@ CanvasGroup:
   m_Interactable: 1
   m_BlocksRaycasts: 0
   m_IgnoreParentGroups: 0
+--- !u!114 &2100000005
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 1303072122}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 0d5d688322a6407abfa681671b2a0614, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: Assembly-CSharp::DeckViewPanel
+  assetRegistry: {fileID: 11400000, guid: f571c9f53e8d97f4dab513809a72572c, type: 2}
+  panelRoot: {fileID: 1303072122}
+  rankGridViewRoot: {fileID: 990505794}
+  suitGridViewRoot: {fileID: 1239365138}
+  viewByRankButton: {fileID: 1251186226}
+  viewBySuitButton: {fileID: 1160106949}
+  closeButton: {fileID: 623223807}
 --- !u!1 &2122109772
 GameObject:
   m_ObjectHideFlags: 0

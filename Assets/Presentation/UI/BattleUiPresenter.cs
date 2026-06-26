@@ -42,15 +42,9 @@ public sealed class BattleUiPresenter : MonoBehaviour
     [SerializeField] private TMP_Text devilOfferAmountText;
 
     [Header("Deck View")]
-    [SerializeField] private Button viewFullDeckButton;
+    [SerializeField] private DeckViewPanel deckViewPanel;
     [SerializeField] private Button viewDrawPileButton;
     [SerializeField] private Button viewPlayedPileButton;
-    [SerializeField] private GameObject deckViewPanel;
-    [SerializeField] private RectTransform rankGridViewRoot;
-    [SerializeField] private RectTransform suitGridViewRoot;
-    [SerializeField] private Button viewByRankButton;
-    [SerializeField] private Button viewBySuitButton;
-    [SerializeField] private Button closeDeckViewButton;
 
     [Header("Results")]
     [SerializeField] private GameObject roundResultPanel;
@@ -77,9 +71,7 @@ public sealed class BattleUiPresenter : MonoBehaviour
     private readonly List<BattleUiCardView> _devilPlayPileCards = new();
     private readonly List<BattleUiCardView> _sharedPlayPileCards = new();
     private readonly List<BattleUiCardView> _playerPlayPileCards = new();
-    private readonly List<BattleUiCardView> _deckCards = new();
     private readonly HashSet<int> _selectedHandIndices = new();
-    private readonly List<Card> _deckViewCards = new();
     private readonly List<CardLayoutSnapshot> _previousPlayerHand = new();
     private readonly List<CardLayoutSnapshot> _previousOpponentHand = new();
     private readonly List<Card> _lastPlayerHandCards = new();
@@ -92,7 +84,6 @@ public sealed class BattleUiPresenter : MonoBehaviour
     private int _pendingWager = 10;
     private bool _wagerOpen;
     private bool _suppressRoundPilesUntilNextRound;
-    private DeckViewSortMode _deckViewSortMode = DeckViewSortMode.Rank;
 
     private enum CardAnimationContext
     {
@@ -114,12 +105,6 @@ public sealed class BattleUiPresenter : MonoBehaviour
         public Vector3 WorldPosition { get; }
     }
 
-    private enum DeckViewSortMode
-    {
-        Rank,
-        Suit
-    }
-
     private void Awake()
     {
         if (battleController == null)
@@ -134,9 +119,6 @@ public sealed class BattleUiPresenter : MonoBehaviour
         ConfigureCardLayout(devilPlayPileRoot);
         ConfigureCardLayout(sharedPlayPileRoot);
         ConfigureCardLayout(playerPlayPileRoot);
-        //ConfigureCardLayout(cardGridViewRoot);
-        //ConfigureCardLayoutGroups(rankGridViewRoot);
-        //ConfigureCardLayoutGroups(suitGridViewRoot);
     }
 
     private void OnEnable()
@@ -264,18 +246,10 @@ public sealed class BattleUiPresenter : MonoBehaviour
             acceptOfferButton.onClick.AddListener(AcceptDevilOffer);
         if (declineOfferButton != null)
             declineOfferButton.onClick.AddListener(DeclineDevilOffer);
-        if (viewFullDeckButton != null)
-            viewFullDeckButton.onClick.AddListener(ShowFullDeck);
         if (viewDrawPileButton != null)
             viewDrawPileButton.onClick.AddListener(ShowDrawPile);
         if (viewPlayedPileButton != null)
             viewPlayedPileButton.onClick.AddListener(ShowPlayedPile);
-        if (viewByRankButton != null)
-            viewByRankButton.onClick.AddListener(ShowDeckViewByRank);
-        if (viewBySuitButton != null)
-            viewBySuitButton.onClick.AddListener(ShowDeckViewBySuit);
-        if (closeDeckViewButton != null)
-            closeDeckViewButton.onClick.AddListener(CloseDeckView);
         if (toShopButton != null)
             toShopButton.onClick.AddListener(OpenShop);
         if (backToMapButton != null)
@@ -292,12 +266,8 @@ public sealed class BattleUiPresenter : MonoBehaviour
         Remove(proposalButton, ProposeWager);
         Remove(acceptOfferButton, AcceptDevilOffer);
         Remove(declineOfferButton, DeclineDevilOffer);
-        Remove(viewFullDeckButton, ShowFullDeck);
         Remove(viewDrawPileButton, ShowDrawPile);
         Remove(viewPlayedPileButton, ShowPlayedPile);
-        Remove(viewByRankButton, ShowDeckViewByRank);
-        Remove(viewBySuitButton, ShowDeckViewBySuit);
-        Remove(closeDeckViewButton, CloseDeckView);
         Remove(toShopButton, OpenShop);
         Remove(backToMapButton, ReturnToMap);
     }
@@ -423,23 +393,13 @@ public sealed class BattleUiPresenter : MonoBehaviour
         Refresh();
     }
 
-    private void ShowFullDeck()
-    {
-        BattleState battle = battleController?.BattleState;
-        if (battle == null)
-            return;
-
-        var cards = new List<Card>(battle.RunState.Deck);
-        ShowDeckView(cards);
-    }
-
     private void ShowDrawPile()
     {
         BattleState battle = battleController?.BattleState;
         if (battle == null)
             return;
 
-        ShowDeckView(battle.PlayerDrawPile);
+        deckViewPanel?.Show(battle.PlayerDrawPile, DeckViewOptions.Default);
     }
 
     private void ShowPlayedPile()
@@ -453,40 +413,7 @@ public sealed class BattleUiPresenter : MonoBehaviour
         if (battle.CurrentRound != null)
             cards.AddRange(battle.CurrentRound.PlayerPlayedCards);
 
-        ShowDeckView(cards);
-    }
-
-    private void ShowDeckView(IReadOnlyList<Card> cards)
-    {
-        if (deckViewPanel != null)
-            deckViewPanel.SetActive(true);
-
-        _deckViewSortMode = DeckViewSortMode.Rank;
-        _deckViewCards.Clear();
-        if (cards != null)
-            _deckViewCards.AddRange(cards);
-
-        RenderDeckView();
-    }
-
-    private void ShowDeckViewByRank()
-    {
-        _deckViewSortMode = DeckViewSortMode.Rank;
-        RenderDeckView();
-    }
-
-    private void ShowDeckViewBySuit()
-    {
-        _deckViewSortMode = DeckViewSortMode.Suit;
-        RenderDeckView();
-    }
-
-    private void CloseDeckView()
-    {
-        if (deckViewPanel != null)
-            deckViewPanel.SetActive(false);
-
-        DestroyCardViews(_deckCards);
+        deckViewPanel?.Show(cards, DeckViewOptions.Default);
     }
 
     private void OnRunPhaseChanged(RunPhaseChangedEvent eventData)
@@ -840,141 +767,6 @@ public sealed class BattleUiPresenter : MonoBehaviour
             views[i].SetSelected(interactable && _selectedHandIndices.Contains(i));
     }
 
-    private void RenderDeckView()
-    {
-        DestroyCardViews(_deckCards);
-
-        bool showRank = _deckViewSortMode == DeckViewSortMode.Rank;
-        SetActive(rankGridViewRoot != null ? rankGridViewRoot.gameObject : null, showRank);
-        SetActive(suitGridViewRoot != null ? suitGridViewRoot.gameObject : null, !showRank);
-
-        if (viewByRankButton != null)
-            viewByRankButton.interactable = !showRank;
-        if (viewBySuitButton != null)
-            viewBySuitButton.interactable = showRank;
-
-        if (showRank)
-            RenderDeckCardsByRank();
-        else
-            RenderDeckCardsBySuit();
-    }
-
-    private void RenderDeckCardsByRank()
-    {
-        if (rankGridViewRoot == null)
-        {
-            RenderDeckCardsFallback(CompareCardsByRank);
-            return;
-        }
-
-        //ConfigureCardLayoutGroups(rankGridViewRoot); - Don't configure group layouts. Already configured in editor
-        var sorted = new List<Card>(_deckViewCards);
-        sorted.Sort(CompareCardsByRank);
-
-        for (int i = 0; i < sorted.Count; i++)
-        {
-            Card card = sorted[i];
-            RectTransform group = GetRankGroup(card.Rank);
-            if (group == null)
-                continue;
-
-            BattleUiCardView view = CreateCardView(group, false);
-            _deckCards.Add(view);
-            BindCard(view, card, true, false, -1);
-        }
-
-        RebuildCardLayoutGroups(rankGridViewRoot);
-    }
-
-    private void RenderDeckCardsBySuit()
-    {
-        if (suitGridViewRoot == null)
-        {
-            RenderDeckCardsFallback(CompareCardsBySuit);
-            return;
-        }
-
-        //ConfigureCardLayoutGroups(suitGridViewRoot); - Don't configure group layouts. Already configured in editor
-        var sorted = new List<Card>(_deckViewCards);
-        sorted.Sort(CompareCardsBySuit);
-
-        for (int i = 0; i < sorted.Count; i++)
-        {
-            Card card = sorted[i];
-            RectTransform group = GetSuitGroup(card.Suit);
-            if (group == null)
-                continue;
-
-            BattleUiCardView view = CreateCardView(group, false);
-            _deckCards.Add(view);
-            BindCard(view, card, true, false, -1);
-        }
-
-        RebuildCardLayoutGroups(suitGridViewRoot);
-    }
-
-    private void RenderDeckCardsFallback(System.Comparison<Card> comparison)
-    {
-        var sorted = new List<Card>(_deckViewCards);
-        sorted.Sort(comparison);
-
-        RectTransform fallbackRoot = _deckViewSortMode == DeckViewSortMode.Rank ? rankGridViewRoot : suitGridViewRoot;
-        fallbackRoot ??= rankGridViewRoot != null ? rankGridViewRoot : suitGridViewRoot;
-        if (fallbackRoot == null)
-            return;
-
-        // Ensure the root we are rendering into is visible.
-        SetActive(rankGridViewRoot != null ? rankGridViewRoot.gameObject : null, fallbackRoot == rankGridViewRoot);
-        SetActive(suitGridViewRoot != null ? suitGridViewRoot.gameObject : null, fallbackRoot == suitGridViewRoot);
-
-        RenderCards(_deckCards, fallbackRoot, sorted.Count, sorted, true, false, false);
-    }
-
-    private RectTransform GetRankGroup(Rank rank)
-    {
-        int index = (int)rank - 1;
-        return GetChildRect(rankGridViewRoot, index);
-    }
-
-    private RectTransform GetSuitGroup(Suit suit)
-    {
-        return GetChildRect(suitGridViewRoot, (int)suit);
-    }
-
-    private static RectTransform GetChildRect(RectTransform root, int index)
-    {
-        if (root == null || index < 0 || index >= root.childCount)
-            return null;
-
-        return root.GetChild(index).GetComponent<RectTransform>();
-    }
-
-    private static int CompareCardsByRank(Card x, Card y)
-    {
-        int rank = x.Rank.CompareTo(y.Rank);
-        if (rank != 0)
-            return rank;
-
-        int suit = x.Suit.CompareTo(y.Suit);
-        if (suit != 0)
-            return suit;
-
-        return string.CompareOrdinal(x.ModifierId, y.ModifierId);
-    }
-
-    private static int CompareCardsBySuit(Card x, Card y)
-    {
-        int suit = x.Suit.CompareTo(y.Suit);
-        if (suit != 0)
-            return suit;
-
-        int rank = x.Rank.CompareTo(y.Rank);
-        if (rank != 0)
-            return rank;
-
-        return string.CompareOrdinal(x.ModifierId, y.ModifierId);
-    }
-
     private void BindCard(BattleUiCardView view, Card card, bool faceUp, bool interactable, int handIndex)
     {
         Sprite sprite = faceUp && assetRegistry != null ? assetRegistry.GetCardFront(card) : assetRegistry != null ? assetRegistry.CardBack : null;
@@ -1091,16 +883,9 @@ public sealed class BattleUiPresenter : MonoBehaviour
         declineOfferButton ??= FindDescendantComponent<Button>("DeclineButton");
         proposalAmountText ??= FindFirstTextUnder(playerProposalRoot, "RoundWagerAmount");
         devilOfferAmountText ??= FindFirstTextUnder(devilOfferRoot, "RoundWagerAmount");
-        viewFullDeckButton ??= FindDescendantComponent<Button>("ViewFullDeckButton");
+        deckViewPanel ??= FindFirstObjectByType<DeckViewPanel>(FindObjectsInactive.Include);
         viewDrawPileButton ??= FindDescendantComponent<Button>("ViewDrawPileButton");
         viewPlayedPileButton ??= FindDescendantComponent<Button>("ViewPlayedPileButton");
-        deckViewPanel ??= FindDescendant("DeckViewPanel");
-        //cardGridViewRoot ??= FindDescendantRect("CardGridViewRoot");
-        rankGridViewRoot ??= FindDescendantRect("RankGridViewRoot");
-        suitGridViewRoot ??= FindDescendantRect("SuitGridViewRoot");
-        viewByRankButton ??= FindDescendantComponent<Button>("ViewByRankButton");
-        viewBySuitButton ??= FindDescendantComponent<Button>("ViewBySuitButton");
-        closeDeckViewButton ??= FindDescendantComponent<Button>("CloseButton");
         roundResultPanel ??= FindDescendant("RoundResultPanel");
         roundResultText ??= FindDescendantComponent<TMP_Text>("RoundResultText");
         toShopButton ??= FindDescendantComponent<Button>("ToShopButton");
@@ -1233,7 +1018,6 @@ public sealed class BattleUiPresenter : MonoBehaviour
         DestroyCardViews(_devilPlayPileCards);
         DestroyCardViews(_sharedPlayPileCards);
         DestroyCardViews(_playerPlayPileCards);
-        DestroyCardViews(_deckCards);
         ClearChildren(playerHandRoot);
         ClearChildren(opponentHandRoot);
         ClearChildren(devilPlayPileRoot);

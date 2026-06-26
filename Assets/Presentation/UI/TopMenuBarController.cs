@@ -8,10 +8,14 @@ public sealed class TopMenuBarController : MonoBehaviour
     [SerializeField] private RunManager runManager;
     [SerializeField] private GameplayAssetRegistry assetRegistry;
     [SerializeField] private RectTransform activeItemSlotRoot;
+    [SerializeField] private RectTransform relicRoot;
     [SerializeField] private ItemUseMenu itemUseMenu;
     [SerializeField] private TMP_Text playerMoneyText;
+    [SerializeField] private Button viewFullDeckButton;
+    [SerializeField] private DeckViewPanel deckViewPanel;
 
     private readonly List<SlotBinding> _slots = new();
+    private readonly List<RelicBinding> _relics = new();
 
     private void Awake()
     {
@@ -21,11 +25,15 @@ public sealed class TopMenuBarController : MonoBehaviour
 
     private void OnEnable()
     {
+        ResolveReferences();
         EventBus.Subscribe<ActiveItemAddedEvent>(OnActiveItemAdded);
         EventBus.Subscribe<ActiveItemRemovedEvent>(OnActiveItemRemoved);
         EventBus.Subscribe<ActiveItemCapacityChangedEvent>(OnActiveItemCapacityChanged);
+        EventBus.Subscribe<RelicAddedEvent>(OnRelicAdded);
         EventBus.Subscribe<RunPhaseChangedEvent>(OnRunPhaseChanged);
         EventBus.Subscribe<GoldChangedEvent>(OnGoldChanged);
+        if (viewFullDeckButton != null)
+            viewFullDeckButton.onClick.AddListener(ShowFullDeck);
         Refresh();
     }
 
@@ -39,8 +47,11 @@ public sealed class TopMenuBarController : MonoBehaviour
         EventBus.Unsubscribe<ActiveItemAddedEvent>(OnActiveItemAdded);
         EventBus.Unsubscribe<ActiveItemRemovedEvent>(OnActiveItemRemoved);
         EventBus.Unsubscribe<ActiveItemCapacityChangedEvent>(OnActiveItemCapacityChanged);
+        EventBus.Unsubscribe<RelicAddedEvent>(OnRelicAdded);
         EventBus.Unsubscribe<RunPhaseChangedEvent>(OnRunPhaseChanged);
         EventBus.Unsubscribe<GoldChangedEvent>(OnGoldChanged);
+        if (viewFullDeckButton != null)
+            viewFullDeckButton.onClick.RemoveListener(ShowFullDeck);
     }
 
     public void Refresh()
@@ -64,8 +75,19 @@ public sealed class TopMenuBarController : MonoBehaviour
             BindSlot(slot, itemId);
         }
 
+        RefreshRelics(run);
         itemUseMenu?.RefreshAvailability();
+        RefreshFullDeckButton(run);
         RefreshPlayerMoney();
+    }
+
+    private void ShowFullDeck()
+    {
+        RunState run = runManager != null ? runManager.RunState : null;
+        if (run == null)
+            return;
+
+        deckViewPanel?.Show(run.Deck, DeckViewOptions.Default);
     }
 
     private void BindSlot(SlotBinding slot, string itemId)
@@ -130,12 +152,91 @@ public sealed class TopMenuBarController : MonoBehaviour
         return true;
     }
 
+    private void RefreshRelics(RunState run)
+    {
+        int relicCount = run != null ? run.RelicIds.Count : 0;
+        EnsureRelicCount(relicRoot != null ? relicCount : 0);
+
+        for (int i = 0; i < _relics.Count; i++)
+        {
+            bool visible = i < relicCount;
+            RelicBinding relic = _relics[i];
+            relic.Root.gameObject.SetActive(visible);
+            if (!visible)
+            {
+                relic.TooltipTrigger.Clear();
+                continue;
+            }
+
+            BindRelic(relic, run.RelicIds[i]);
+        }
+    }
+
+    private void EnsureRelicCount(int count)
+    {
+        while (_relics.Count > count)
+        {
+            int index = _relics.Count - 1;
+            RelicBinding relic = _relics[index];
+            _relics.RemoveAt(index);
+            if (relic.Root != null)
+                Destroy(relic.Root.gameObject);
+        }
+
+        if (relicRoot == null)
+            return;
+
+        while (_relics.Count < count)
+            _relics.Add(CreateRelicBinding(_relics.Count));
+    }
+
+    private RelicBinding CreateRelicBinding(int index)
+    {
+        GameObject rootObject = new($"RelicButton{index + 1}", typeof(RectTransform), typeof(CanvasRenderer), typeof(Image), typeof(Button), typeof(TooltipTrigger));
+        rootObject.layer = relicRoot.gameObject.layer;
+        RectTransform root = rootObject.GetComponent<RectTransform>();
+        root.SetParent(relicRoot, false);
+        root.sizeDelta = GetRelicIconSize();
+
+        Image image = rootObject.GetComponent<Image>();
+        image.preserveAspect = true;
+        image.color = Color.white;
+
+        Button button = rootObject.GetComponent<Button>();
+        button.targetGraphic = image;
+        button.interactable = true;
+        button.onClick.RemoveAllListeners();
+
+        TooltipTrigger tooltipTrigger = rootObject.GetComponent<TooltipTrigger>();
+        return new RelicBinding(root, image, tooltipTrigger);
+    }
+
+    private Vector2 GetRelicIconSize()
+    {
+        return _slots.Count > 0 && _slots[0].Root != null ? _slots[0].Root.sizeDelta : new Vector2(30f, 30f);
+    }
+
+    private void BindRelic(RelicBinding relic, string relicId)
+    {
+        bool occupied = !string.IsNullOrWhiteSpace(relicId);
+        relic.Root.gameObject.SetActive(occupied);
+        relic.Image.sprite = occupied && assetRegistry != null ? assetRegistry.GetRelicSprite(relicId) : null;
+        relic.Image.color = occupied ? Color.white : Color.clear;
+        if (occupied)
+            relic.TooltipTrigger.Bind(relicId);
+        else
+            relic.TooltipTrigger.Clear();
+    }
+
     private void ResolveReferences()
     {
         runManager ??= FindFirstObjectByType<RunManager>();
         assetRegistry ??= FindLoadedRegistry();
         activeItemSlotRoot ??= FindChildRecursive(transform, "ActiveItemSlotRoot") as RectTransform;
+        relicRoot ??= FindChildRecursive(transform, "RelicRoot") as RectTransform;
         playerMoneyText ??= FindChildRecursive(transform, "PlayerMoney")?.GetComponent<TMP_Text>();
+        viewFullDeckButton ??= FindChildRecursive(transform, "ViewFullDeckButton")?.GetComponent<Button>();
+        deckViewPanel ??= FindFirstObjectByType<DeckViewPanel>(FindObjectsInactive.Include);
 
         if (itemUseMenu == null)
         {
@@ -172,12 +273,19 @@ public sealed class TopMenuBarController : MonoBehaviour
     private void OnActiveItemAdded(ActiveItemAddedEvent eventData) => Refresh();
     private void OnActiveItemRemoved(ActiveItemRemovedEvent eventData) => Refresh();
     private void OnActiveItemCapacityChanged(ActiveItemCapacityChangedEvent eventData) => Refresh();
+    private void OnRelicAdded(RelicAddedEvent eventData) => Refresh();
     private void OnRunPhaseChanged(RunPhaseChangedEvent eventData) => Refresh();
     private void OnGoldChanged(GoldChangedEvent eventData) => SetPlayerMoney(eventData.CurrentGold);
 
     private void RefreshPlayerMoney()
     {
         SetPlayerMoney(runManager != null && runManager.RunState != null ? runManager.RunState.Gold : 0);
+    }
+
+    private void RefreshFullDeckButton(RunState run)
+    {
+        if (viewFullDeckButton != null)
+            viewFullDeckButton.interactable = run != null && run.Deck != null && run.Deck.Count > 0 && deckViewPanel != null;
     }
 
     private void SetPlayerMoney(int amount)
@@ -201,6 +309,20 @@ public sealed class TopMenuBarController : MonoBehaviour
         public Button Button { get; }
         public Image Image { get; }
         public TMP_Text Label { get; }
+        public TooltipTrigger TooltipTrigger { get; }
+    }
+
+    private sealed class RelicBinding
+    {
+        public RelicBinding(RectTransform root, Image image, TooltipTrigger tooltipTrigger)
+        {
+            Root = root;
+            Image = image;
+            TooltipTrigger = tooltipTrigger;
+        }
+
+        public RectTransform Root { get; }
+        public Image Image { get; }
         public TooltipTrigger TooltipTrigger { get; }
     }
 }
