@@ -15044,6 +15044,7 @@ MonoBehaviour:
   battleController: {fileID: 1399201285}
   runManager: {fileID: 562614337}
   assetRegistry: {fileID: 11400000, guid: f571c9f53e8d97f4dab513809a72572c, type: 2}
+  cardPrefab: {fileID: 7602269838714400112, guid: 6d725c9d171616644a487327746db669, type: 3}
   devilImage: {fileID: 1697461681}
   playerScoreText: {fileID: 44889464}
   devilScoreText: {fileID: 1834147683}
@@ -20617,6 +20618,7 @@ MonoBehaviour:
   m_Name: 
   m_EditorClassIdentifier: Assembly-CSharp::DeckViewPanel
   assetRegistry: {fileID: 11400000, guid: f571c9f53e8d97f4dab513809a72572c, type: 2}
+  cardPrefab: {fileID: 7602269838714400112, guid: 6d725c9d171616644a487327746db669, type: 3}
   panelRoot: {fileID: 1303072122}
   rankGridViewRoot: {fileID: 990505794}
   suitGridViewRoot: {fileID: 1239365138}

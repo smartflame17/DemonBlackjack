@@ -1,6 +1,5 @@
 using System;
 using System.Collections.Generic;
-using TMPro;
 using UnityEngine;
 using UnityEngine.UI;
 
@@ -36,6 +35,7 @@ public struct DeckViewOptions
 public sealed class DeckViewPanel : MonoBehaviour
 {
     [SerializeField] private GameplayAssetRegistry assetRegistry;
+    [SerializeField] private BattleUiCardView cardPrefab;
     [SerializeField] private GameObject panelRoot;
     [SerializeField] private RectTransform rankGridViewRoot;
     [SerializeField] private RectTransform suitGridViewRoot;
@@ -175,6 +175,9 @@ public sealed class DeckViewPanel : MonoBehaviour
                 continue;
 
             BattleUiCardView view = CreateCardView(group);
+            if (view == null)
+                continue;
+
             _cardViews.Add(view);
             BindCard(view, card);
         }
@@ -201,6 +204,9 @@ public sealed class DeckViewPanel : MonoBehaviour
                 continue;
 
             BattleUiCardView view = CreateCardView(group);
+            if (view == null)
+                continue;
+
             _cardViews.Add(view);
             BindCard(view, card);
         }
@@ -224,6 +230,9 @@ public sealed class DeckViewPanel : MonoBehaviour
         for (int i = 0; i < sorted.Count; i++)
         {
             BattleUiCardView view = CreateCardView(fallbackRoot);
+            if (view == null)
+                continue;
+
             _cardViews.Add(view);
             BindCard(view, sorted[i]);
         }
@@ -279,7 +288,7 @@ public sealed class DeckViewPanel : MonoBehaviour
     private void BindCard(BattleUiCardView view, Card card)
     {
         Sprite sprite = assetRegistry != null ? assetRegistry.GetCardFront(card) : null;
-        view.Bind(card, sprite, true, false);
+        view.Bind(card, sprite, true, false, assetRegistry);
 
         if (view.Button != null)
             view.Button.onClick.RemoveAllListeners();
@@ -287,41 +296,13 @@ public sealed class DeckViewPanel : MonoBehaviour
 
     private BattleUiCardView CreateCardView(RectTransform parent)
     {
-        GameObject card = new("Card", typeof(RectTransform), typeof(LayoutElement));
-        card.transform.SetParent(parent, false);
-        RectTransform rect = card.GetComponent<RectTransform>();
-        rect.sizeDelta = new Vector2(90f, 126f);
+        BattleUiCardView prefab = ResolveCardPrefab();
+        if (prefab == null)
+            return null;
 
-        LayoutElement layout = card.GetComponent<LayoutElement>();
-        layout.minWidth = 90f;
-        layout.minHeight = 126f;
-        layout.preferredWidth = 90f;
-        layout.preferredHeight = 126f;
-        layout.flexibleWidth = 0f;
-        layout.flexibleHeight = 0f;
-
-        GameObject visual = new("Visual", typeof(RectTransform), typeof(Image));
-        visual.transform.SetParent(card.transform, false);
-        RectTransform visualRect = visual.GetComponent<RectTransform>();
-        visualRect.anchorMin = Vector2.zero;
-        visualRect.anchorMax = Vector2.one;
-        visualRect.offsetMin = Vector2.zero;
-        visualRect.offsetMax = Vector2.zero;
-
-        Image image = visual.GetComponent<Image>();
-        image.color = Color.white;
-        image.preserveAspect = true;
-
-        TMP_Text label = CreateText(visual.transform, "Label", 18, TextAlignmentOptions.Center);
-        RectTransform labelRect = label.rectTransform;
-        labelRect.anchorMin = Vector2.zero;
-        labelRect.anchorMax = Vector2.one;
-        labelRect.offsetMin = new Vector2(6f, 6f);
-        labelRect.offsetMax = new Vector2(-6f, -6f);
-        label.color = Color.black;
-
-        BattleUiCardView view = card.AddComponent<BattleUiCardView>();
-        view.Initialize(image, label, null);
+        BattleUiCardView view = Instantiate(prefab, parent, false);
+        view.name = "Card";
+        ConfigureCardInstance(view);
         return view;
     }
 
@@ -359,15 +340,42 @@ public sealed class DeckViewPanel : MonoBehaviour
         return registries.Length > 0 ? registries[0] : null;
     }
 
-    private static TMP_Text CreateText(Transform parent, string name, int fontSize, TextAlignmentOptions alignment)
+    private BattleUiCardView ResolveCardPrefab()
     {
-        GameObject go = new(name, typeof(RectTransform), typeof(TextMeshProUGUI));
-        go.transform.SetParent(parent, false);
-        TMP_Text text = go.GetComponent<TMP_Text>();
-        text.fontSize = fontSize;
-        text.alignment = alignment;
-        text.textWrappingMode = TextWrappingModes.NoWrap;
-        return text;
+        if (cardPrefab != null)
+            return cardPrefab;
+
+        BattleUiCardView[] candidates = Resources.FindObjectsOfTypeAll<BattleUiCardView>();
+        for (int i = 0; i < candidates.Length; i++)
+        {
+            BattleUiCardView candidate = candidates[i];
+            if (candidate != null && candidate.name == "CardPrefab" && !candidate.gameObject.scene.IsValid())
+            {
+                cardPrefab = candidate;
+                return cardPrefab;
+            }
+        }
+
+        Debug.LogWarning($"{nameof(DeckViewPanel)} is missing a card prefab reference.", this);
+        return null;
+    }
+
+    private static void ConfigureCardInstance(BattleUiCardView view)
+    {
+        RectTransform rect = view.RectTransform;
+        if (rect != null)
+            rect.sizeDelta = new Vector2(90f, 126f);
+
+        LayoutElement layout = view.GetComponent<LayoutElement>();
+        if (layout == null)
+            layout = view.gameObject.AddComponent<LayoutElement>();
+
+        layout.minWidth = 90f;
+        layout.minHeight = 126f;
+        layout.preferredWidth = 90f;
+        layout.preferredHeight = 126f;
+        layout.flexibleWidth = 0f;
+        layout.flexibleHeight = 0f;
     }
 
     private static void RebuildCardLayoutGroups(RectTransform root)

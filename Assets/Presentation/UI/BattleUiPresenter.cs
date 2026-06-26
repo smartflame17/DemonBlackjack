@@ -14,6 +14,7 @@ public sealed class BattleUiPresenter : MonoBehaviour
     [SerializeField] private GameplayAssetRegistry assetRegistry;
 
     [Header("Main")]
+    [SerializeField] private BattleUiCardView cardPrefab;
     [SerializeField] private Image devilImage;
     [SerializeField] private TMP_Text playerScoreText;
     [SerializeField] private TMP_Text devilScoreText;
@@ -770,7 +771,7 @@ public sealed class BattleUiPresenter : MonoBehaviour
     private void BindCard(BattleUiCardView view, Card card, bool faceUp, bool interactable, int handIndex)
     {
         Sprite sprite = faceUp && assetRegistry != null ? assetRegistry.GetCardFront(card) : assetRegistry != null ? assetRegistry.CardBack : null;
-        view.Bind(card, sprite, faceUp, interactable);
+        view.Bind(card, sprite, faceUp, interactable, assetRegistry);
 
         if (view.Button == null)
             return;
@@ -790,7 +791,13 @@ public sealed class BattleUiPresenter : MonoBehaviour
 
         int previousCount = views.Count;
         while (views.Count < count)
-            views.Add(CreateCardView(root, withButton));
+        {
+            BattleUiCardView view = CreateCardView(root, withButton);
+            if (view == null)
+                break;
+
+            views.Add(view);
+        }
 
         if (withButton)
         {
@@ -804,42 +811,16 @@ public sealed class BattleUiPresenter : MonoBehaviour
 
     private BattleUiCardView CreateCardView(RectTransform parent, bool withButton)
     {
-        GameObject card = new("Card", typeof(RectTransform), typeof(LayoutElement));
-        card.transform.SetParent(parent, false);
-        RectTransform rect = card.GetComponent<RectTransform>();
-        rect.sizeDelta = new Vector2(90f, 126f);
+        BattleUiCardView prefab = ResolveCardPrefab();
+        if (prefab == null)
+            return null;
 
-        LayoutElement layout = card.GetComponent<LayoutElement>();
-        layout.minWidth = 90f;
-        layout.minHeight = 126f;
-        layout.preferredWidth = 90f;
-        layout.preferredHeight = 126f;
-        layout.flexibleWidth = 0f;
-        layout.flexibleHeight = 0f;
+        BattleUiCardView view = Instantiate(prefab, parent, false);
+        view.name = "Card";
+        ConfigureCardInstance(view);
+        if (withButton)
+            view.EnsureButton();
 
-        GameObject visual = new("Visual", typeof(RectTransform), typeof(Image));
-        visual.transform.SetParent(card.transform, false);
-        RectTransform visualRect = visual.GetComponent<RectTransform>();
-        visualRect.anchorMin = Vector2.zero;
-        visualRect.anchorMax = Vector2.one;
-        visualRect.offsetMin = Vector2.zero;
-        visualRect.offsetMax = Vector2.zero;
-
-        Image image = visual.GetComponent<Image>();
-        image.color = Color.white;
-        image.preserveAspect = true;
-
-        Button button = withButton ? visual.AddComponent<Button>() : null;
-        TMP_Text label = CreateText(visual.transform, "Label", 18, TextAlignmentOptions.Center);
-        RectTransform labelRect = label.rectTransform;
-        labelRect.anchorMin = Vector2.zero;
-        labelRect.anchorMax = Vector2.one;
-        labelRect.offsetMin = new Vector2(6f, 6f);
-        labelRect.offsetMax = new Vector2(-6f, -6f);
-        label.color = Color.black;
-
-        BattleUiCardView view = card.AddComponent<BattleUiCardView>();
-        view.Initialize(image, label, button);
         return view;
     }
 
@@ -932,15 +913,42 @@ public sealed class BattleUiPresenter : MonoBehaviour
         return texts.Length > 0 ? texts[0] : null;
     }
 
-    private static TMP_Text CreateText(Transform parent, string name, int fontSize, TextAlignmentOptions alignment)
+    private BattleUiCardView ResolveCardPrefab()
     {
-        GameObject go = new(name, typeof(RectTransform), typeof(TextMeshProUGUI));
-        go.transform.SetParent(parent, false);
-        TMP_Text text = go.GetComponent<TMP_Text>();
-        text.fontSize = fontSize;
-        text.alignment = alignment;
-        text.textWrappingMode = TextWrappingModes.NoWrap;
-        return text;
+        if (cardPrefab != null)
+            return cardPrefab;
+
+        BattleUiCardView[] candidates = Resources.FindObjectsOfTypeAll<BattleUiCardView>();
+        for (int i = 0; i < candidates.Length; i++)
+        {
+            BattleUiCardView candidate = candidates[i];
+            if (candidate != null && candidate.name == "CardPrefab" && !candidate.gameObject.scene.IsValid())
+            {
+                cardPrefab = candidate;
+                return cardPrefab;
+            }
+        }
+
+        Debug.LogWarning($"{nameof(BattleUiPresenter)} is missing a card prefab reference.", this);
+        return null;
+    }
+
+    private static void ConfigureCardInstance(BattleUiCardView view)
+    {
+        RectTransform rect = view.RectTransform;
+        if (rect != null)
+            rect.sizeDelta = new Vector2(90f, 126f);
+
+        LayoutElement layout = view.GetComponent<LayoutElement>();
+        if (layout == null)
+            layout = view.gameObject.AddComponent<LayoutElement>();
+
+        layout.minWidth = 90f;
+        layout.minHeight = 126f;
+        layout.preferredWidth = 90f;
+        layout.preferredHeight = 126f;
+        layout.flexibleWidth = 0f;
+        layout.flexibleHeight = 0f;
     }
 
     private static void ConfigureCardLayout(RectTransform root)
