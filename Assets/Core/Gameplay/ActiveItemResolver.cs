@@ -1,23 +1,19 @@
 public static class ActiveItemResolver
 {
-    public const string ClearPlayerField = "item_clear_player_field";
-    public const string ClearOpponentField = "item_clear_opponent_field";
-    public const string ClearAllFields = "item_clear_all_fields";
+    public const string RejectLastHit = "hit_to_played";
+    public const string DrawThree = "draw_three";
+    public const string DoubleWager = "double_wager";
 
     public static bool CanApply(string itemId, BattleState battle)
     {
         if (string.IsNullOrWhiteSpace(itemId) || battle == null || battle.CurrentRound == null)
             return false;
 
-        RoundState round = battle.CurrentRound;
-        bool playerHasCards = round.PlayerPlayedCards.Count > 0 || round.SharedVisibleCards.Count > 0;
-        bool opponentHasCards = round.OpponentVisibleCards.Count > 0;
-
         return itemId switch
         {
-            ClearPlayerField => playerHasCards,
-            ClearOpponentField => opponentHasCards,
-            ClearAllFields => playerHasCards || opponentHasCards,
+            RejectLastHit => battle.CanDiscardLastPlayerHitCard(),
+            DrawThree => battle.CanDrawPlayerCards(),
+            DoubleWager => battle.CanDoubleCurrentRoundWager(),
             _ => false
         };
     }
@@ -29,9 +25,9 @@ public static class ActiveItemResolver
 
         return itemId switch
         {
-            ClearPlayerField => battle.ClearField(Combatant.Player),
-            ClearOpponentField => battle.ClearField(Combatant.Opponent),
-            ClearAllFields => battle.ClearAllFields(),
+            RejectLastHit => battle.DiscardLastPlayerHitCard(),
+            DrawThree => battle.DrawCardsToPlayerHand(3) > 0,
+            DoubleWager => battle.DoubleCurrentRoundWager(),
             _ => false
         };
     }

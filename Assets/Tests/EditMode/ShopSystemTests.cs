@@ -26,7 +26,7 @@ public sealed class ShopSystemTests
     {
         ShopCatalog catalog = ShopCatalog.CreateRuntimeDefault();
 
-        Assert.That(catalog.TryGetDefinition(ActiveItemResolver.ClearPlayerField.ToUpperInvariant(), out ShopContentDefinition item), Is.True);
+        Assert.That(catalog.TryGetDefinition(ActiveItemResolver.RejectLastHit.ToUpperInvariant(), out ShopContentDefinition item), Is.True);
         Assert.That(item, Is.TypeOf<ActiveItemDefinition>());
         Assert.That(catalog.TryGetDefinition(RelicRuleResolver.BurstTwentyTwo.ToUpperInvariant(), out ShopContentDefinition relic), Is.True);
         Assert.That(relic, Is.TypeOf<RelicDefinition>());
@@ -217,6 +217,57 @@ public sealed class ShopSystemTests
         Assert.That(original.HasModifier, Is.False);
         Assert.That(played.Suit, Is.EqualTo(Suit.Spades));
         Assert.That(played.ModifierId, Is.EqualTo(CardModifierResolver.RankToSpades));
+    }
+
+    [Test]
+    public void DrawThree_AddsCardsPastNormalHandSize()
+    {
+        var run = new RunState(1);
+        run.AddActiveItem(ActiveItemResolver.DrawThree);
+        var battle = new BattleState(run, new BattleConfig("test", 100));
+        battle.StartRound();
+
+        int before = battle.CurrentRound.PlayerHand.Count;
+
+        Assert.That(battle.TryUseActiveItem(ActiveItemResolver.DrawThree), Is.True);
+
+        Assert.That(battle.CurrentRound.PlayerHand.Count, Is.EqualTo(before + 3));
+        Assert.That(run.HasActiveItem(ActiveItemResolver.DrawThree), Is.False);
+    }
+
+    [Test]
+    public void RejectLastHit_RemovesLatestHitCardFromScoringField()
+    {
+        var run = new RunState(1);
+        run.AddActiveItem(ActiveItemResolver.RejectLastHit);
+        var battle = new BattleState(run, new BattleConfig("test", 100));
+        battle.StartRound();
+        Card hitCard = new(Suit.Hearts, Rank.Eight);
+        battle.CurrentRound.TryPlayHitCard(hitCard);
+
+        Assert.That(battle.TryUseActiveItem(ActiveItemResolver.RejectLastHit), Is.True);
+
+        Assert.That(battle.CurrentRound.PlayerPlayedCards.Count, Is.EqualTo(0));
+        Assert.That(battle.PlayerDiscardPile.Count, Is.EqualTo(1));
+        Assert.That(battle.PlayerDiscardPile[0], Is.EqualTo(hitCard));
+    }
+
+    [Test]
+    public void DoubleWager_AddsMatchingExtraStakes()
+    {
+        var run = new RunState(1, startingGold: 100);
+        run.AddActiveItem(ActiveItemResolver.DoubleWager);
+        var battle = new BattleState(run, new BattleConfig("test", 100));
+        battle.StartRound();
+        Assert.That(battle.CurrentRound.TryCommitWager(10, 10), Is.True);
+
+        Assert.That(battle.TryUseActiveItem(ActiveItemResolver.DoubleWager), Is.True);
+
+        Assert.That(battle.CurrentRound.PlayerStake, Is.EqualTo(20));
+        Assert.That(battle.CurrentRound.OpponentStake, Is.EqualTo(20));
+        Assert.That(battle.CurrentRound.Pot, Is.EqualTo(40));
+        Assert.That(run.Money, Is.EqualTo(90));
+        Assert.That(battle.OpponentMoney, Is.EqualTo(90));
     }
 }
 #endif
