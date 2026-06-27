@@ -15,18 +15,17 @@ MonoBehaviour:
   activeItems:
   - {fileID: 11400000, guid: 55b00d89020d96f42988ec2e3cd36de8, type: 2}
   - {fileID: 11400000, guid: 65f5da7b60265f64ea6e83b232d13d3d, type: 2}
-  - {fileID: 11400000, guid: 0831f48bd24bbf34ca365d2c6039b54b, type: 2}
   - {fileID: 11400000, guid: 168b39be9ecd1d34092d92732d5fd858, type: 2}
   relics:
   - {fileID: 11400000, guid: 81e21a1a6d970884a9590b5b7a19873a, type: 2}
   - {fileID: 11400000, guid: 075ef54a7fe1d554f8d3992e73ffea95, type: 2}
-  - {fileID: 11400000, guid: 04509c8e72f82dd4c861f067e7fbc537, type: 2}
   - {fileID: 11400000, guid: eeb4d0910e5f667428f6f92ad0ff41f9, type: 2}
+  - {fileID: 11400000, guid: 04509c8e72f82dd4c861f067e7fbc537, type: 2}
   cardUpgrades:
   - {fileID: 11400000, guid: dbf9f9e2035dba4409d918b999db28bd, type: 2}
   - {fileID: 11400000, guid: 1d076513cf749054d9a9c5f8eb8a34fa, type: 2}
-  - {fileID: 11400000, guid: ddecad3ae3b8aa24fa4ef8e5c0e00f74, type: 2}
   - {fileID: 11400000, guid: c276ee6e796cc6a4ca8a341c3f1a4c53, type: 2}
   - {fileID: 11400000, guid: 46de8d85f124a244db3a8636bcbfb133, type: 2}
   - {fileID: 11400000, guid: 24d441e244b606045acf570bcc2300a5, type: 2}
   - {fileID: 11400000, guid: 088c852b295b24c49b8d3cd259fb6352, type: 2}
+  - {fileID: 11400000, guid: ddecad3ae3b8aa24fa4ef8e5c0e00f74, type: 2}

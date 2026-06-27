@@ -113,7 +113,7 @@ public sealed class GameplayCanvasCoordinator : MonoBehaviour
         if (runManager == null)
             return;
 
-        var config = new BattleConfig(devilId, 100, devilId: devilId);
+        var config = new BattleConfig(devilId, 1000, devilId: devilId);
         runManager.StartBattle(config);
     }
 

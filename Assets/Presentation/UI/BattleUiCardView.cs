@@ -10,6 +10,7 @@ public sealed class BattleUiCardView : MonoBehaviour
     [SerializeField] private TMP_Text label;
     [SerializeField] private Button button;
     [SerializeField] private RectTransform visualRoot;
+    [SerializeField] private Image upgradeImage;
     [SerializeField] private TooltipTrigger tooltipTrigger;
 
     private Vector2 _baseAnchoredPosition;
@@ -45,6 +46,11 @@ public sealed class BattleUiCardView : MonoBehaviour
 
     public void Bind(Card card, Sprite sprite, bool faceUp, bool interactable)
     {
+        Bind(card, sprite, faceUp, interactable, null);
+    }
+
+    public void Bind(Card card, Sprite sprite, bool faceUp, bool interactable, GameplayAssetRegistry assetRegistry)
+    {
         EnsureReferences();
         SetSelected(false);
 
@@ -56,6 +62,8 @@ public sealed class BattleUiCardView : MonoBehaviour
 
         if (button != null)
             button.interactable = interactable;
+
+        BindUpgrade(card, faceUp, assetRegistry);
 
         if (faceUp && card.HasModifier)
             tooltipTrigger.Bind(card.ModifierId);
@@ -77,6 +85,7 @@ public sealed class BattleUiCardView : MonoBehaviour
         if (button != null)
             button.interactable = false;
 
+        ClearUpgrade();
         tooltipTrigger.Clear();
     }
 
@@ -107,10 +116,49 @@ public sealed class BattleUiCardView : MonoBehaviour
         if (visualRoot == null)
             visualRoot = image != null ? image.rectTransform : transform as RectTransform;
 
+        if (upgradeImage == null)
+            upgradeImage = FindChildImage("Upgrade");
+
         tooltipTrigger ??= GetComponent<TooltipTrigger>() ?? gameObject.AddComponent<TooltipTrigger>();
 
         if (!_hasBasePosition)
             CacheBasePosition();
+    }
+
+    private void BindUpgrade(Card card, bool faceUp, GameplayAssetRegistry assetRegistry)
+    {
+        if (upgradeImage == null)
+            return;
+
+        if (!faceUp || !card.HasModifier || assetRegistry == null)
+        {
+            ClearUpgrade();
+            return;
+        }
+
+        upgradeImage.sprite = assetRegistry.GetCardUpgradeSprite(card.ModifierId);
+        upgradeImage.gameObject.SetActive(upgradeImage.sprite != null);
+    }
+
+    private void ClearUpgrade()
+    {
+        if (upgradeImage == null)
+            return;
+
+        upgradeImage.sprite = null;
+        upgradeImage.gameObject.SetActive(false);
+    }
+
+    private Image FindChildImage(string childName)
+    {
+        Transform[] children = GetComponentsInChildren<Transform>(true);
+        for (int i = 0; i < children.Length; i++)
+        {
+            if (children[i].name == childName && children[i].TryGetComponent(out Image childImage))
+                return childImage;
+        }
+
+        return null;
     }
 
     private void CacheBasePosition()

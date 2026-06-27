@@ -1,4 +1,3 @@
-using System;
 using System.Collections.Generic;
 using TMPro;
 using UnityEngine;
@@ -64,15 +63,7 @@ public sealed class ShopUi : MonoBehaviour
         }
         List<RelicDefinition> relics = ShopOfferGenerator.TakeRandom(eligibleRelics, relicOfferCount, random);
 
-        var upgradePool = new List<CardUpgradeOffer>();
-        for (int i = 0; i < catalog.CardUpgrades.Count; i++)
-        {
-            CardUpgradeDefinition definition = catalog.CardUpgrades[i];
-            if (definition == null)
-                continue;
-            foreach (Rank rank in Enum.GetValues(typeof(Rank)))
-                upgradePool.Add(new CardUpgradeOffer(definition, rank));
-        }
+        List<CardUpgradeOffer> upgradePool = ShopOfferGenerator.CreateCardUpgradeOfferPool(catalog.CardUpgrades);
         List<CardUpgradeOffer> upgrades = ShopOfferGenerator.TakeRandom(upgradePool, upgradeOfferCount, random);
 
         BindItems(items, run);
@@ -110,7 +101,7 @@ public sealed class ShopUi : MonoBehaviour
             CardUpgradeOffer offer = offers[i];
             ShopSlotView slot = _upgradeSlots[i];
             string label = $"{offer.Rank}\n{offer.Definition.DisplayName}";
-            slot.Bind(assetRegistry != null ? assetRegistry.GetCardUpgradeSprite(offer.Definition.Id) : null, offer.Definition.Price, label, offer.Definition.Id, () => PurchaseUpgrade(slot, offer, run));
+            slot.Bind(assetRegistry != null ? assetRegistry.GetCardUpgradeSprite(offer.Definition.Id) : null, offer.Definition.Price, label, offer.Definition.Id, () => PurchaseUpgrade(slot, offer, run, battleController));
         }
     }
 
@@ -136,11 +127,19 @@ public sealed class ShopUi : MonoBehaviour
         if (result.Succeeded) slot.SetUnavailable();
     }
 
-    private static void PurchaseUpgrade(ShopSlotView slot, CardUpgradeOffer offer, RunState run)
+    private static void PurchaseUpgrade(ShopSlotView slot, CardUpgradeOffer offer, RunState run, BattleController battleController)
     {
         ShopPurchaseResult result = run.TryPurchaseRankUpgrade(offer.Rank, offer.Definition.Id, offer.Definition.Price);
         PublishResult(ShopOfferType.CardUpgrade, offer.Definition.Id, offer.Rank, result);
-        if (result.Succeeded) slot.SetUnavailable();
+        if (!result.Succeeded)
+            return;
+
+        slot.SetUnavailable();
+        BattleUiPresenter presenter = battleController != null
+            ? battleController.GetComponentInChildren<BattleUiPresenter>(true)
+            : null;
+        presenter ??= UnityEngine.Object.FindFirstObjectByType<BattleUiPresenter>(FindObjectsInactive.Include);
+        presenter?.Refresh();
     }
 
     private void Continue() => runManager?.ContinueFromShop();

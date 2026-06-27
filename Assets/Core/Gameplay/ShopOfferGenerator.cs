@@ -32,4 +32,26 @@ public static class ShopOfferGenerator
 
         return result;
     }
+
+    public static List<CardUpgradeOffer> CreateCardUpgradeOfferPool(IReadOnlyList<CardUpgradeDefinition> definitions)
+    {
+        var offers = new List<CardUpgradeOffer>();
+        if (definitions == null)
+            return offers;
+
+        for (int i = 0; i < definitions.Count; i++)
+        {
+            CardUpgradeDefinition definition = definitions[i];
+            if (definition == null)
+                continue;
+
+            foreach (Rank rank in Enum.GetValues(typeof(Rank)))
+            {
+                if (definition.CanApplyToRank(rank))
+                    offers.Add(new CardUpgradeOffer(definition, rank));
+            }
+        }
+
+        return offers;
+    }
 }

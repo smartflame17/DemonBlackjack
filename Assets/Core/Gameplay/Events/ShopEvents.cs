@@ -88,11 +88,18 @@ public readonly struct ActiveItemCapacityChangedEvent
 public readonly struct RankUpgradeChangedEvent
 {
     public RankUpgradeChangedEvent(Rank rank, string previousUpgradeId, string upgradeId)
+        : this(null, rank, previousUpgradeId, upgradeId)
     {
+    }
+
+    public RankUpgradeChangedEvent(RunState runState, Rank rank, string previousUpgradeId, string upgradeId)
+    {
+        RunState = runState;
         Rank = rank;
         PreviousUpgradeId = previousUpgradeId;
         UpgradeId = upgradeId;
     }
+    public RunState RunState { get; }
     public Rank Rank { get; }
     public string PreviousUpgradeId { get; }
     public string UpgradeId { get; }

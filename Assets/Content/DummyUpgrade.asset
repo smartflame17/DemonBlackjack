@@ -16,3 +16,4 @@ MonoBehaviour:
   displayName: dummy upgrade
   description: dummy upgrade test
   price: 10
+  assignmentType: 0

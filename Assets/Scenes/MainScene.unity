@@ -6905,7 +6905,7 @@ MonoBehaviour:
   m_EditorClassIdentifier: Assembly-CSharp::RunManager
   battleController: {fileID: 1399201285}
   startRunOnAwake: 1
-  debugSeed: 1234
+  debugSeed: 6767
   playerMaxHp: 100
   startingGold: 0
   defaultOpponentHp: 1000
@@ -7478,7 +7478,7 @@ RectTransform:
   m_AnchorMin: {x: 1, y: 1}
   m_AnchorMax: {x: 1, y: 1}
   m_AnchoredPosition: {x: -800, y: -84.196}
-  m_SizeDelta: {x: 238.93, y: 50}
+  m_SizeDelta: {x: 300, y: 50}
   m_Pivot: {x: 0.5, y: 0.5}
 --- !u!114 &647403622
 MonoBehaviour:
@@ -9245,8 +9245,8 @@ RectTransform:
   m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
   m_AnchorMin: {x: 0.5, y: 0.5}
   m_AnchorMax: {x: 0.5, y: 0.5}
-  m_AnchoredPosition: {x: 17.146019, y: -53.776226}
-  m_SizeDelta: {x: 234.292, y: 267.5525}
+  m_AnchoredPosition: {x: 37.398525, y: -25}
+  m_SizeDelta: {x: 275.7971, y: 210}
   m_Pivot: {x: 0.5, y: 0.5}
 --- !u!114 &800846465
 MonoBehaviour:
@@ -9441,8 +9441,8 @@ RectTransform:
   m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
   m_AnchorMin: {x: 0.5, y: 0.5}
   m_AnchorMax: {x: 0.5, y: 0.5}
-  m_AnchoredPosition: {x: 17.146019, y: 60}
-  m_SizeDelta: {x: 234.29, y: 40}
+  m_AnchoredPosition: {x: 37.649, y: 60}
+  m_SizeDelta: {x: 275.3, y: 40}
   m_Pivot: {x: 0.5, y: 0.5}
 --- !u!114 &812075871
 MonoBehaviour:
@@ -10949,8 +10949,8 @@ RectTransform:
   m_Children:
   - {fileID: 436573414}
   - {fileID: 850427037}
-  - {fileID: 2011282976}
   - {fileID: 1303072123}
+  - {fileID: 2011282976}
   m_Father: {fileID: 0}
   m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
   m_AnchorMin: {x: 0, y: 0}
@@ -15044,6 +15044,7 @@ MonoBehaviour:
   battleController: {fileID: 1399201285}
   runManager: {fileID: 562614337}
   assetRegistry: {fileID: 11400000, guid: f571c9f53e8d97f4dab513809a72572c, type: 2}
+  cardPrefab: {fileID: 7602269838714400112, guid: 6d725c9d171616644a487327746db669, type: 3}
   devilImage: {fileID: 1697461681}
   playerScoreText: {fileID: 44889464}
   devilScoreText: {fileID: 1834147683}
@@ -19281,8 +19282,8 @@ RectTransform:
   m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
   m_AnchorMin: {x: 0.5, y: 0.5}
   m_AnchorMax: {x: 0.5, y: 0.5}
-  m_AnchoredPosition: {x: 14.808, y: -65.9969}
-  m_SizeDelta: {x: 209.616, y: 205.9937}
+  m_AnchoredPosition: {x: 36.29929, y: -37.471203}
+  m_SizeDelta: {x: 252.5985, y: 148.9423}
   m_Pivot: {x: 0.5, y: 0.5}
 --- !u!114 &2005400849
 MonoBehaviour:
@@ -20373,7 +20374,7 @@ RectTransform:
   m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
   m_AnchorMin: {x: 0, y: 1}
   m_AnchorMax: {x: 1, y: 1}
-  m_AnchoredPosition: {x: -480, y: -100}
+  m_AnchoredPosition: {x: -484, y: -80}
   m_SizeDelta: {x: -1000, y: 60}
   m_Pivot: {x: 0.5, y: 0.5}
 --- !u!114 &2081250087
@@ -20617,6 +20618,7 @@ MonoBehaviour:
   m_Name: 
   m_EditorClassIdentifier: Assembly-CSharp::DeckViewPanel
   assetRegistry: {fileID: 11400000, guid: f571c9f53e8d97f4dab513809a72572c, type: 2}
+  cardPrefab: {fileID: 7602269838714400112, guid: 6d725c9d171616644a487327746db669, type: 3}
   panelRoot: {fileID: 1303072122}
   rankGridViewRoot: {fileID: 990505794}
   suitGridViewRoot: {fileID: 1239365138}
