@@ -90,6 +90,7 @@ public sealed class TopMenuBarController : MonoBehaviour
         deckViewPanel?.Show(run.Deck, DeckViewOptions.Default);
     }
 
+    // Method for binding an active item slot to a specific item ID, updating the UI elements accordingly.
     private void BindSlot(SlotBinding slot, string itemId)
     {
         slot.Button.onClick.RemoveAllListeners();
