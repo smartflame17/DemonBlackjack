@@ -51,11 +51,6 @@ public sealed class RunState
         Phase = phase;
     }
 
-    public void AddGold(int amount)
-    {
-        AddMoney(amount);
-    }
-
     public void AddMoney(int amount)
     {
         Money = Math.Max(0, Money + amount);
@@ -271,6 +266,7 @@ public sealed class RunState
 
         AddMoney(-netCost);
         _rankUpgrades[rank] = new OwnedRankUpgrade(rank, upgradeId, price);
+        ApplyRankUpgradeToRunDeck(rank, upgradeId);
         EventBus.Publish(new RankUpgradeChangedEvent(this, rank, previous.UpgradeId, upgradeId));
         return ShopPurchaseResult.Success(price, refund);
     }
@@ -439,6 +435,7 @@ public sealed class RunState
             }
         }
 
+        state.ApplyRankUpgradesToRunDeck();
         state.RefreshBattleDeck();
         return state;
     }
@@ -462,6 +459,30 @@ public sealed class RunState
             RunCard runCard = _runDeck[i];
             _deck.Add(runCard.ToBattleCard());
         }
+    }
+
+    private void ApplyRankUpgradesToRunDeck()
+    {
+        foreach (OwnedRankUpgrade upgrade in _rankUpgrades.Values)
+            ApplyRankUpgradeToRunDeck(upgrade.Rank, upgrade.UpgradeId);
+    }
+
+    private void ApplyRankUpgradeToRunDeck(Rank rank, string upgradeId)
+    {
+        if (!Enum.IsDefined(typeof(Rank), rank) || string.IsNullOrWhiteSpace(upgradeId))
+            return;
+
+        for (int i = 0; i < _runDeck.Count; i++)
+        {
+            RunCard runCard = _runDeck[i];
+            if (runCard.Rank != rank)
+                continue;
+
+            Card upgraded = CardModifierResolver.Apply(runCard, upgradeId);
+            _runDeck[i] = new RunCard(runCard.InstanceId, upgraded.Suit, upgraded.Rank, upgraded.ModifierId);
+        }
+
+        RefreshBattleDeck();
     }
 
     private static void AddNonBlankRange(List<string> target, List<string> source)

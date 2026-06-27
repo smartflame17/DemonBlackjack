@@ -252,6 +252,52 @@ public sealed class ShopSystemTests
     }
 
     [Test]
+    public void RankUpgradePurchase_ImmediatelyTransformsRunDeck()
+    {
+        var run = new RunState(1, startingGold: 100);
+
+        ShopPurchaseResult result = run.TryPurchaseRankUpgrade(Rank.Five, CardModifierResolver.RankToSpades, 10);
+
+        Assert.That(result.Succeeded, Is.True);
+        Assert.That(ContainsUpgradedRank(run.Deck, Rank.Five, CardModifierResolver.RankToSpades), Is.True);
+        Assert.That(ContainsModifier(run.Deck, Rank.Six, CardModifierResolver.RankToSpades), Is.False);
+    }
+
+    [Test]
+    public void RankUpgradeReplacement_RewritesRunDeckToNewModifier()
+    {
+        var run = new RunState(1, startingGold: 100);
+
+        Assert.That(run.TryPurchaseRankUpgrade(Rank.Queen, CardModifierResolver.RankToHearts, 10).Succeeded, Is.True);
+        Assert.That(run.TryPurchaseRankUpgrade(Rank.Queen, CardModifierResolver.RankToDiamonds, 10).Succeeded, Is.True);
+
+        Assert.That(ContainsUpgradedRank(run.Deck, Rank.Queen, CardModifierResolver.RankToDiamonds), Is.True);
+        Assert.That(ContainsModifier(run.Deck, Rank.Queen, CardModifierResolver.RankToHearts), Is.False);
+    }
+
+    [Test]
+    public void RankUpgradeLoad_ReconcilesLegacyRawRunDeck()
+    {
+        var data = new RunStateData
+        {
+            seed = 1,
+            gold = 100,
+            maxActiveItemSlots = RunState.DefaultMaxActiveItemSlots
+        };
+        data.deck.Add(CardData(Suit.Clubs, Rank.Seven));
+        data.rankModifierIds.Add(new RankModifierData
+        {
+            rank = Rank.Seven,
+            modifierId = CardModifierResolver.RankToClubs,
+            paidPrice = 10
+        });
+
+        RunState loaded = RunState.FromData(data);
+
+        Assert.That(ContainsUpgradedRank(loaded.Deck, Rank.Seven, CardModifierResolver.RankToClubs), Is.True);
+    }
+
+    [Test]
     public void CardUpgrade_TransformsOnlyWhenResolvedForPlay()
     {
         Card original = new(Suit.Clubs, Rank.Five);
