@@ -6905,7 +6905,7 @@ MonoBehaviour:
   m_EditorClassIdentifier: Assembly-CSharp::RunManager
   battleController: {fileID: 1399201285}
   startRunOnAwake: 1
-  debugSeed: 1234
+  debugSeed: 6767
   playerMaxHp: 100
   startingGold: 0
   defaultOpponentHp: 1000
@@ -7478,7 +7478,7 @@ RectTransform:
   m_AnchorMin: {x: 1, y: 1}
   m_AnchorMax: {x: 1, y: 1}
   m_AnchoredPosition: {x: -800, y: -84.196}
-  m_SizeDelta: {x: 238.93, y: 50}
+  m_SizeDelta: {x: 300, y: 50}
   m_Pivot: {x: 0.5, y: 0.5}
 --- !u!114 &647403622
 MonoBehaviour:

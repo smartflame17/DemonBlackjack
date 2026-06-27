@@ -172,8 +172,11 @@ public sealed class BattleState
             return;
 
         CurrentRound.MoveHandsTo(_playerHandCarryover, _opponentHandCarryover);
-        _playerDeck.DiscardRange(CurrentRound.TakePlayerCardsForCleanup());
-        _opponentDeck.DiscardRange(CurrentRound.TakeOpponentCardsForCleanup());
+        var playerCards = new List<Card>(CurrentRound.TakePlayerCardsForCleanup());
+        var opponentCards = new List<Card>();
+        CurrentRound.TakeOpponentCardsForCleanup(playerCards, opponentCards);
+        _playerDeck.DiscardRange(playerCards);
+        _opponentDeck.DiscardRange(opponentCards);
         CurrentRound.ClearRoundOnlyState();
         CurrentRound = null;
 
@@ -255,6 +258,58 @@ public sealed class BattleState
 
         CurrentRound.AddToHand(card);
         EventBus.Publish(new CardDrawnEvent(Combatant.Player, card, _playerDeck.RemainingCards));
+        EventBus.Publish(new HandRefilledEvent(CurrentRound.PlayerHand.Count));
+        CommandQueue.Enqueue(new VisualCommand(VisualCommandType.CardsDrawn, CurrentRound.PlayerHand.Count.ToString()));
+        return true;
+    }
+
+    public bool TryGetPreviousPlayerPlayedCard(out Card card)
+    {
+        if (CurrentRound == null)
+        {
+            card = default;
+            return false;
+        }
+
+        return CurrentRound.TryGetPreviousPlayerPlayedCard(out card);
+    }
+
+    public bool TryMovePreviousPlayerPlayedCardToOpponent(out Card card)
+    {
+        if (CurrentRound == null)
+        {
+            card = default;
+            return false;
+        }
+
+        return CurrentRound.TryMovePreviousPlayerPlayedCardToOpponent(out card);
+    }
+
+    public bool TryPlayRandomPlayerHandCardOfSuit(Suit suit)
+    {
+        if (CurrentRound == null)
+            return false;
+
+        var matchingIndices = new List<int>();
+        for (int i = 0; i < CurrentRound.PlayerHand.Count; i++)
+        {
+            if (CurrentRound.PlayerHand[i].Suit == suit)
+                matchingIndices.Add(i);
+        }
+
+        if (matchingIndices.Count == 0)
+            return false;
+
+        int selected = matchingIndices[_random.Next(matchingIndices.Count)];
+        return TryPlayPlayerHandCardForEffect(selected);
+    }
+
+    public bool AddBattleOnlyCardToPlayerHand(Card card)
+    {
+        if (CurrentRound == null)
+            return false;
+
+        CurrentRound.AddBattleOnlyPlayerHandCard(card);
         EventBus.Publish(new HandRefilledEvent(CurrentRound.PlayerHand.Count));
         CommandQueue.Enqueue(new VisualCommand(VisualCommandType.CardsDrawn, CurrentRound.PlayerHand.Count.ToString()));
         return true;
@@ -448,6 +503,9 @@ public sealed class BattleState
         if (CurrentRound == null)
             return false;
 
+        if (owner == Combatant.Opponent)
+            return ClearOpponentField();
+
         IReadOnlyList<Card> cards = CurrentRound.TakeFieldCards(owner);
         if (cards.Count == 0)
             return false;
@@ -457,6 +515,26 @@ public sealed class BattleState
 
         for (int i = 0; i < cards.Count; i++)
             EventBus.Publish(new CardDiscardedEvent(owner, cards[i]));
+
+        return true;
+    }
+
+    private bool ClearOpponentField()
+    {
+        var playerOwnedCards = new List<Card>();
+        var opponentOwnedCards = new List<Card>();
+        CurrentRound.TakeOpponentCardsForCleanup(playerOwnedCards, opponentOwnedCards);
+        if (playerOwnedCards.Count == 0 && opponentOwnedCards.Count == 0)
+            return false;
+
+        _playerDeck.DiscardRange(playerOwnedCards);
+        _opponentDeck.DiscardRange(opponentOwnedCards);
+
+        for (int i = 0; i < playerOwnedCards.Count; i++)
+            EventBus.Publish(new CardDiscardedEvent(Combatant.Player, playerOwnedCards[i]));
+
+        for (int i = 0; i < opponentOwnedCards.Count; i++)
+            EventBus.Publish(new CardDiscardedEvent(Combatant.Opponent, opponentOwnedCards[i]));
 
         return true;
     }

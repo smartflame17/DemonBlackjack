@@ -4,7 +4,10 @@ using UnityEngine;
 public enum CardUpgradeAssignmentType
 {
     NumberedCards,
-    FaceCards
+    FaceCards,
+    JackCards,
+    QueenCards,
+    KingCards
 }
 
 [CreateAssetMenu(fileName = "CardUpgrade", menuName = "Demon Blackjack/Shop/Card Upgrade")]
@@ -29,6 +32,9 @@ public sealed class CardUpgradeDefinition : ShopContentDefinition
         {
             CardUpgradeAssignmentType.NumberedCards => (int)rank >= (int)Rank.Ace && (int)rank <= (int)Rank.Ten,
             CardUpgradeAssignmentType.FaceCards => (int)rank >= (int)Rank.Jack && (int)rank <= (int)Rank.King,
+            CardUpgradeAssignmentType.JackCards => rank == Rank.Jack,
+            CardUpgradeAssignmentType.QueenCards => rank == Rank.Queen,
+            CardUpgradeAssignmentType.KingCards => rank == Rank.King,
             _ => false
         };
     }

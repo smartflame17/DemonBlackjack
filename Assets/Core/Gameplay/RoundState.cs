@@ -7,6 +7,7 @@ public sealed class RoundState
     private readonly List<Card> _playerPlayedCards = new();
     private readonly List<Card> _opponentHand = new();
     private readonly List<Card> _opponentVisibleCards = new();
+    private readonly List<Combatant> _opponentVisibleCardOwners = new();
     private readonly List<Card> _sharedVisibleCards = new();
     private readonly List<Card> _lockedCards = new();
     private readonly List<Card> _revealedFutureCards = new();
@@ -96,6 +97,12 @@ public sealed class RoundState
         TransformCards(_playerHand, transform);
         TransformCards(_playerPlayedCards, transform);
         TransformCards(_sharedVisibleCards, transform);
+
+        for (int i = 0; i < _opponentVisibleCards.Count; i++)
+        {
+            if (_opponentVisibleCardOwners[i] == Combatant.Player)
+                _opponentVisibleCards[i] = transform(_opponentVisibleCards[i]);
+        }
     }
 
     public bool TryPlayCard(int handIndex, out Card card)
@@ -132,7 +139,7 @@ public sealed class RoundState
 
         card = _opponentHand[handIndex];
         _opponentHand.RemoveAt(handIndex);
-        _opponentVisibleCards.Add(card);
+        AddOpponentVisibleCard(card, Combatant.Opponent);
         OpponentPlayedThisTurn = true;
         OpponentStood = false;
         return true;
@@ -165,9 +172,47 @@ public sealed class RoundState
 
     public void PlayOpponentHitCard(Card card)
     {
-        _opponentVisibleCards.Add(card);
+        AddOpponentVisibleCard(card, Combatant.Opponent);
         OpponentPlayedThisTurn = true;
         OpponentStood = false;
+    }
+
+    public bool TryGetPreviousPlayerPlayedCard(out Card card)
+    {
+        int previousIndex = _playerPlayedCards.Count - 2;
+        if (previousIndex < 0)
+        {
+            card = default;
+            return false;
+        }
+
+        card = _playerPlayedCards[previousIndex];
+        return true;
+    }
+
+    public bool TryMovePreviousPlayerPlayedCardToOpponent(out Card card)
+    {
+        int previousIndex = _playerPlayedCards.Count - 2;
+        if (previousIndex < 0)
+        {
+            card = default;
+            return false;
+        }
+
+        card = _playerPlayedCards[previousIndex];
+        _playerPlayedCards.RemoveAt(previousIndex);
+        if (_lastPlayerHitCardIndex > previousIndex)
+            _lastPlayerHitCardIndex--;
+        else if (_lastPlayerHitCardIndex == previousIndex)
+            _lastPlayerHitCardIndex = -1;
+
+        AddOpponentVisibleCard(card, Combatant.Player);
+        return true;
+    }
+
+    public void AddBattleOnlyPlayerHandCard(Card card)
+    {
+        _playerHand.Add(card);
     }
 
     public void BeginPlayerTurn()
@@ -211,6 +256,7 @@ public sealed class RoundState
         {
             cards.AddRange(_opponentVisibleCards);
             _opponentVisibleCards.Clear();
+            _opponentVisibleCardOwners.Clear();
         }
 
         return cards;
@@ -249,6 +295,7 @@ public sealed class RoundState
 
         _playerPlayedCards.Clear();
         _opponentVisibleCards.Clear();
+        _opponentVisibleCardOwners.Clear();
         _sharedVisibleCards.Clear();
         _lastPlayerHitCardIndex = -1;
         _lockedCards.Clear();
@@ -275,7 +322,22 @@ public sealed class RoundState
         var cards = new List<Card>();
         cards.AddRange(_opponentVisibleCards);
         _opponentVisibleCards.Clear();
+        _opponentVisibleCardOwners.Clear();
         return cards;
+    }
+
+    public void TakeOpponentCardsForCleanup(ICollection<Card> playerOwnedCards, ICollection<Card> opponentOwnedCards)
+    {
+        for (int i = 0; i < _opponentVisibleCards.Count; i++)
+        {
+            if (_opponentVisibleCardOwners[i] == Combatant.Player)
+                playerOwnedCards?.Add(_opponentVisibleCards[i]);
+            else
+                opponentOwnedCards?.Add(_opponentVisibleCards[i]);
+        }
+
+        _opponentVisibleCards.Clear();
+        _opponentVisibleCardOwners.Clear();
     }
 
     public void ClearRoundOnlyState()
@@ -285,6 +347,12 @@ public sealed class RoundState
         _pendingEffectIds.Clear();
         _scoringModifiers.Clear();
         _lastPlayerHitCardIndex = -1;
+    }
+
+    private void AddOpponentVisibleCard(Card card, Combatant owner)
+    {
+        _opponentVisibleCards.Add(card);
+        _opponentVisibleCardOwners.Add(owner);
     }
 
     private static void TransformCards(List<Card> cards, Func<Card, Card> transform)

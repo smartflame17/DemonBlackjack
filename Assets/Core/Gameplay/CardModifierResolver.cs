@@ -7,6 +7,9 @@ public static class CardModifierResolver
     public const string NegativeRank = "negative_rank";
     public const string HitLower = "hit_lower";
     public const string DrawSuit = "draw_suit";
+    public const string MoveJack = "move_jack";
+    public const string CopyQueen = "copy_queen";
+    public const string DuplicateKing = "duplicate_king";
 
     public static Card Apply(RunCard runCard, string modifierId)
     {

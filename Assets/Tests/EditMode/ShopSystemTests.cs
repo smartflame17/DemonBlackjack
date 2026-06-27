@@ -61,11 +61,32 @@ public sealed class ShopSystemTests
     }
 
     [Test]
+    public void CardUpgradeAssignment_SpecificFaceCardsAcceptOnlyMatchingRank()
+    {
+        CardUpgradeDefinition jack = CreateUpgrade(CardUpgradeAssignmentType.JackCards);
+        CardUpgradeDefinition queen = CreateUpgrade(CardUpgradeAssignmentType.QueenCards);
+        CardUpgradeDefinition king = CreateUpgrade(CardUpgradeAssignmentType.KingCards);
+
+        foreach (Rank rank in AllRanks())
+        {
+            Assert.That(jack.CanApplyToRank(rank), Is.EqualTo(rank == Rank.Jack), $"Jack {rank}");
+            Assert.That(queen.CanApplyToRank(rank), Is.EqualTo(rank == Rank.Queen), $"Queen {rank}");
+            Assert.That(king.CanApplyToRank(rank), Is.EqualTo(rank == Rank.King), $"King {rank}");
+        }
+
+        UnityEngine.Object.DestroyImmediate(jack);
+        UnityEngine.Object.DestroyImmediate(queen);
+        UnityEngine.Object.DestroyImmediate(king);
+    }
+
+    [Test]
     public void CardUpgradeOfferPool_UsesDefinitionAssignmentType()
     {
         CardUpgradeDefinition numbered = CreateUpgrade(CardUpgradeAssignmentType.NumberedCards, "numbered");
-        CardUpgradeDefinition face = CreateUpgrade(CardUpgradeAssignmentType.FaceCards, "face");
-        var definitions = new List<CardUpgradeDefinition> { numbered, face };
+        CardUpgradeDefinition jack = CreateUpgrade(CardUpgradeAssignmentType.JackCards, "jack");
+        CardUpgradeDefinition queen = CreateUpgrade(CardUpgradeAssignmentType.QueenCards, "queen");
+        CardUpgradeDefinition king = CreateUpgrade(CardUpgradeAssignmentType.KingCards, "king");
+        var definitions = new List<CardUpgradeDefinition> { numbered, jack, queen, king };
 
         List<CardUpgradeOffer> offers = ShopOfferGenerator.CreateCardUpgradeOfferPool(definitions);
 
@@ -73,13 +94,17 @@ public sealed class ShopSystemTests
         Assert.That(ContainsOffer(offers, numbered, Rank.Ace), Is.True);
         Assert.That(ContainsOffer(offers, numbered, Rank.Ten), Is.True);
         Assert.That(ContainsOffer(offers, numbered, Rank.Jack), Is.False);
-        Assert.That(ContainsOffer(offers, face, Rank.Ten), Is.False);
-        Assert.That(ContainsOffer(offers, face, Rank.Jack), Is.True);
-        Assert.That(ContainsOffer(offers, face, Rank.Queen), Is.True);
-        Assert.That(ContainsOffer(offers, face, Rank.King), Is.True);
+        Assert.That(ContainsOffer(offers, jack, Rank.Jack), Is.True);
+        Assert.That(ContainsOffer(offers, jack, Rank.Queen), Is.False);
+        Assert.That(ContainsOffer(offers, queen, Rank.Queen), Is.True);
+        Assert.That(ContainsOffer(offers, queen, Rank.King), Is.False);
+        Assert.That(ContainsOffer(offers, king, Rank.King), Is.True);
+        Assert.That(ContainsOffer(offers, king, Rank.Jack), Is.False);
 
         UnityEngine.Object.DestroyImmediate(numbered);
-        UnityEngine.Object.DestroyImmediate(face);
+        UnityEngine.Object.DestroyImmediate(jack);
+        UnityEngine.Object.DestroyImmediate(queen);
+        UnityEngine.Object.DestroyImmediate(king);
     }
 
     [Test]
@@ -344,6 +369,115 @@ public sealed class ShopSystemTests
             21);
 
         Assert.That(score.BlackjackScore, Is.EqualTo(16));
+    }
+
+    [Test]
+    public void CopyQueen_ContributesZeroBlackjackValueButKeepsPokerIdentity()
+    {
+        ScoreResult score = ScoreResolver.Resolve(
+            new[] { new Card(Suit.Clubs, Rank.Queen, CardModifierResolver.CopyQueen), new Card(Suit.Hearts, Rank.Queen) },
+            null,
+            21,
+            21);
+
+        Assert.That(score.BlackjackScore, Is.EqualTo(10));
+        Assert.That(score.PokerRank, Is.EqualTo(PokerHandRank.Pair));
+    }
+
+    [Test]
+    public void MoveJack_MovesPreviousPlayerCardToOpponentVisiblePile()
+    {
+        RunState run = CreateRunWithDeck(CardData(Suit.Hearts, Rank.Five), CardData(Suit.Clubs, Rank.Jack, CardModifierResolver.MoveJack));
+        var battle = new BattleState(run, new BattleConfig("test", 100));
+        battle.StartRound();
+
+        Assert.That(battle.TryPlayPlayerHandCardForEffect(IndexOfRank(battle.CurrentRound.PlayerHand, Rank.Five)), Is.True);
+        Assert.That(battle.TryPlayPlayerHandCardForEffect(IndexOfRank(battle.CurrentRound.PlayerHand, Rank.Jack)), Is.True);
+
+        Assert.That(ContainsRank(battle.CurrentRound.PlayerPlayedCards, Rank.Five), Is.False);
+        Assert.That(ContainsRank(battle.CurrentRound.PlayerPlayedCards, Rank.Jack), Is.True);
+        Assert.That(ContainsRank(battle.CurrentRound.OpponentVisibleCards, Rank.Five), Is.True);
+        Assert.That(ScoreResolver.Resolve(battle.CurrentRound.OpponentVisibleCards, null, 21, 21).BlackjackScore, Is.EqualTo(5));
+
+        battle.Dispose();
+    }
+
+    [Test]
+    public void MoveJack_CleansMovedPlayerCardToPlayerDiscardPile()
+    {
+        RunState run = CreateRunWithDeck(CardData(Suit.Hearts, Rank.Five), CardData(Suit.Clubs, Rank.Jack, CardModifierResolver.MoveJack));
+        var battle = new BattleState(run, new BattleConfig("test", 100));
+        battle.StartRound();
+        battle.TryPlayPlayerHandCardForEffect(IndexOfRank(battle.CurrentRound.PlayerHand, Rank.Five));
+        battle.TryPlayPlayerHandCardForEffect(IndexOfRank(battle.CurrentRound.PlayerHand, Rank.Jack));
+
+        battle.CleanupRound();
+
+        Assert.That(ContainsRank(battle.PlayerDiscardPile, Rank.Five), Is.True);
+        Assert.That(ContainsRank(battle.OpponentDiscardPile, Rank.Five), Is.False);
+
+        battle.Dispose();
+    }
+
+    [Test]
+    public void CopyQueen_PlaysRandomHandCardWithPreviousCardSuit()
+    {
+        RunState run = CreateRunWithDeck(
+            CardData(Suit.Hearts, Rank.Five),
+            CardData(Suit.Clubs, Rank.Queen, CardModifierResolver.CopyQueen),
+            CardData(Suit.Hearts, Rank.Two),
+            CardData(Suit.Spades, Rank.Three));
+        var battle = new BattleState(run, new BattleConfig("test", 100));
+        battle.StartRound();
+        int playedEvents = 0;
+        battle.EventBus.Subscribe<CardPlayedEvent>(_ => playedEvents++);
+
+        Assert.That(battle.TryPlayPlayerHandCardForEffect(IndexOfRank(battle.CurrentRound.PlayerHand, Rank.Five)), Is.True);
+        Assert.That(battle.TryPlayPlayerHandCardForEffect(IndexOfRank(battle.CurrentRound.PlayerHand, Rank.Queen)), Is.True);
+
+        Assert.That(ContainsRank(battle.CurrentRound.PlayerPlayedCards, Rank.Two), Is.True);
+        Assert.That(ContainsRank(battle.CurrentRound.PlayerPlayedCards, Rank.Three), Is.False);
+        Assert.That(playedEvents, Is.EqualTo(3));
+
+        battle.Dispose();
+    }
+
+    [Test]
+    public void CopyQueen_DoesNothingWhenNoHandCardMatchesPreviousSuit()
+    {
+        RunState run = CreateRunWithDeck(
+            CardData(Suit.Hearts, Rank.Five),
+            CardData(Suit.Clubs, Rank.Queen, CardModifierResolver.CopyQueen),
+            CardData(Suit.Spades, Rank.Three));
+        var battle = new BattleState(run, new BattleConfig("test", 100));
+        battle.StartRound();
+
+        battle.TryPlayPlayerHandCardForEffect(IndexOfRank(battle.CurrentRound.PlayerHand, Rank.Five));
+        battle.TryPlayPlayerHandCardForEffect(IndexOfRank(battle.CurrentRound.PlayerHand, Rank.Queen));
+
+        Assert.That(battle.CurrentRound.PlayerPlayedCards.Count, Is.EqualTo(2));
+        Assert.That(ContainsRank(battle.CurrentRound.PlayerPlayedCards, Rank.Three), Is.False);
+
+        battle.Dispose();
+    }
+
+    [Test]
+    public void DuplicateKing_AddsBattleOnlyDuplicateOfPreviousCardToPlayerHand()
+    {
+        RunState run = CreateRunWithDeck(
+            CardData(Suit.Hearts, Rank.Nine, CardModifierResolver.NegativeRank),
+            CardData(Suit.Clubs, Rank.King, CardModifierResolver.DuplicateKing));
+        int runDeckCount = run.Deck.Count;
+        var battle = new BattleState(run, new BattleConfig("test", 100));
+        battle.StartRound();
+
+        battle.TryPlayPlayerHandCardForEffect(IndexOfRank(battle.CurrentRound.PlayerHand, Rank.Nine));
+        battle.TryPlayPlayerHandCardForEffect(IndexOfRank(battle.CurrentRound.PlayerHand, Rank.King));
+
+        Assert.That(ContainsModifier(battle.CurrentRound.PlayerHand, Rank.Nine, CardModifierResolver.NegativeRank), Is.True);
+        Assert.That(run.Deck.Count, Is.EqualTo(runDeckCount));
+
+        battle.Dispose();
     }
 
     [Test]

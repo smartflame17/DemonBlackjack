@@ -27,7 +27,8 @@ public static class ScoreResolver
         foreach (Card card in cards)
         {
             bool negativeRank = string.Equals(card.ModifierId, CardModifierResolver.NegativeRank, StringComparison.Ordinal);
-            score += negativeRank ? -card.BlackjackValue : card.BlackjackValue;
+            bool copyQueen = string.Equals(card.ModifierId, CardModifierResolver.CopyQueen, StringComparison.Ordinal);
+            score += copyQueen ? 0 : negativeRank ? -card.BlackjackValue : card.BlackjackValue;
 
             if (card.Rank == Rank.Ace && !negativeRank)
                 aces++;

@@ -40,6 +40,17 @@ public sealed class BattleEffectRuntime : IDisposable
             case CardModifierResolver.DrawSuit:
                 _battle.TryDrawRandomPlayerCardOfSuitToHand(eventData.Card.Suit);
                 break;
+            case CardModifierResolver.MoveJack:
+                _battle.TryMovePreviousPlayerPlayedCardToOpponent(out _);
+                break;
+            case CardModifierResolver.CopyQueen:
+                if (_battle.TryGetPreviousPlayerPlayedCard(out Card queenPrevious))
+                    _battle.TryPlayRandomPlayerHandCardOfSuit(queenPrevious.Suit);
+                break;
+            case CardModifierResolver.DuplicateKing:
+                if (_battle.TryGetPreviousPlayerPlayedCard(out Card kingPrevious))
+                    _battle.AddBattleOnlyCardToPlayerHand(new Card(kingPrevious.Suit, kingPrevious.Rank, kingPrevious.ModifierId));
+                break;
         }
     }
 

@@ -152,3 +152,84 @@ At minimum, cover:
 The current resolvers use ID switches, which are simple and explicit for the initial content set. If the number of effects grows substantially, preserve the same ScriptableObject IDs and replace the switches with registries such as `Dictionary<string, Func<...>>` or handler factories. Keep behavior out of the data assets unless there is a deliberate decision to let Unity objects execute core gameplay logic; doing so would couple tests and save-compatible gameplay to asset loading.
 
 Effects requiring parameters beyond an ID should add serialized configuration to a specialized definition type and convert it into a plain runtime descriptor when the battle is initialized. Do not store a ScriptableObject reference directly in `RunState` or persistence data.
+
+## Implemented card upgrade IDs
+
+Card upgrades are still assigned by rank in `RunState`, but their runtime behavior now falls into three categories:
+
+- immediate played-card transformation in `CardModifierResolver`;
+- blackjack score interpretation in `ScoreResolver`;
+- event-driven reactions in `BattleEffectRuntime.OnCardPlayed`.
+
+The event-driven upgrades use the battle's scoped `CardPlayedEvent`. They apply only to player-owned played cards because player rank upgrades are applied through `BattleState.ApplyPlayerCardUpgrade`.
+
+Shop offer eligibility is controlled by `CardUpgradeDefinition.AssignmentType`. `NumberedCards` offers can target Ace through Ten, `FaceCards` can target any Jack/Queen/King, and the rank-specific face values `JackCards`, `QueenCards`, and `KingCards` restrict offers to exactly that rank.
+
+### Suit imprint upgrades
+
+These IDs are resolved by `CardModifierResolver.Apply` when a player card is committed to play:
+
+- `rank_to_hearts`: the played card keeps its rank but becomes Hearts.
+- `rank_to_diamonds`: the played card keeps its rank but becomes Diamonds.
+- `rank_to_clubs`: the played card keeps its rank but becomes Clubs.
+- `rank_to_spades`: the played card keeps its rank but becomes Spades.
+
+These affect poker suit evaluation and visuals for the played card. They do not change blackjack value.
+
+### Numbered-card upgrades
+
+`negative_rank`
+
+- The played card keeps its rank and suit.
+- In blackjack score calculation, the card contributes the negative of its blackjack value.
+- Numbered ranks contribute `-2` through `-10`; Ace contributes `-11`.
+- Negative Aces are not counted as soft Aces for the usual Ace reduction rule.
+- Poker evaluation still uses the card's real rank and suit.
+
+`hit_lower`
+
+- When the modified card is played, `BattleEffectRuntime` asks `BattleState` to play one random card from the player's current hand with a lower rank than the triggering card.
+- The extra card is moved from hand to `RoundState.PlayerPlayedCards` using the same player play helper as other effect-driven plays.
+- The extra card has its own rank upgrade applied before it is placed in the played pile.
+- The extra play publishes another `CardPlayedEvent`, so chained card-upgrade effects can trigger.
+- If no lower-rank card exists in hand, nothing happens.
+- This effect does not complete the player turn by itself.
+
+`draw_suit`
+
+- When the modified card is played, `BattleEffectRuntime` asks `BattleState` to draw one random card with the same suit from the player's current draw pile into the player's hand.
+- The search is limited to the current draw pile. It does not reshuffle the discard pile.
+- The selected card is removed from the draw pile and added to `RoundState.PlayerHand`.
+- The effect publishes `CardDrawnEvent`, `HandRefilledEvent`, and a draw visual command.
+- If no matching-suit card exists in the draw pile, nothing happens.
+
+### Face-card upgrades
+
+All face-card upgrades use the "previous player played card", defined as `RoundState.PlayerPlayedCards[Count - 2]` after the triggering face card has entered the player played pile. If there is no previous card, the effect does nothing.
+
+`move_jack`
+
+- Its definition should use `CardUpgradeAssignmentType.JackCards`, so shop offers only attach it to Jacks.
+- When the modified Jack is played, the previous player played card is removed from `RoundState.PlayerPlayedCards`.
+- That previous card is added to `RoundState.OpponentVisibleCards`, so it contributes to the opponent's score for the current round.
+- No opponent `CardPlayedEvent` is published for the moved card. This avoids treating the move as an opponent action and avoids opponent hand-refill side effects.
+- `RoundState` tracks ownership for cards in the opponent visible pile. Cards moved by `move_jack` remain player-owned.
+- During round cleanup or opponent field clearing, player-owned cards in the opponent visible pile are discarded to the player deck's discard pile, not the opponent deck.
+
+`copy_queen`
+
+- Its definition should use `CardUpgradeAssignmentType.QueenCards`, so shop offers only attach it to Queens.
+- In blackjack score calculation, the modified Queen contributes `0`.
+- Poker evaluation still uses the Queen's real rank and suit.
+- When the modified Queen is played, the previous player played card determines the suit to copy.
+- `BattleEffectRuntime` asks `BattleState` to play one random card from the player's current hand with that same suit.
+- The selected hand card is moved to the player played pile, has its own rank upgrade applied, and publishes `CardPlayedEvent`, so chained effects can trigger.
+- If no current hand card has the previous card's suit, nothing happens.
+
+`duplicate_king`
+
+- Its definition should use `CardUpgradeAssignmentType.KingCards`, so shop offers only attach it to Kings.
+- When the modified King is played, a battle-only duplicate of the previous player played card is added to the player's hand.
+- The duplicate preserves suit, rank, and modifier ID.
+- The duplicate is not added to `RunState.Deck` and does not persist after battle cleanup.
+- Adding the duplicate publishes `HandRefilledEvent` and a draw visual command so presentation can refresh the hand.
