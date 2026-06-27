@@ -39,6 +39,50 @@ public sealed class ShopSystemTests
     }
 
     [Test]
+    public void CardUpgradeAssignment_NumberedCardsAcceptOnlyAceThroughTen()
+    {
+        CardUpgradeDefinition definition = CreateUpgrade(CardUpgradeAssignmentType.NumberedCards);
+
+        foreach (Rank rank in AllRanks())
+            Assert.That(definition.CanApplyToRank(rank), Is.EqualTo((int)rank >= (int)Rank.Ace && (int)rank <= (int)Rank.Ten), rank.ToString());
+
+        UnityEngine.Object.DestroyImmediate(definition);
+    }
+
+    [Test]
+    public void CardUpgradeAssignment_FaceCardsAcceptOnlyJackQueenKing()
+    {
+        CardUpgradeDefinition definition = CreateUpgrade(CardUpgradeAssignmentType.FaceCards);
+
+        foreach (Rank rank in AllRanks())
+            Assert.That(definition.CanApplyToRank(rank), Is.EqualTo((int)rank >= (int)Rank.Jack && (int)rank <= (int)Rank.King), rank.ToString());
+
+        UnityEngine.Object.DestroyImmediate(definition);
+    }
+
+    [Test]
+    public void CardUpgradeOfferPool_UsesDefinitionAssignmentType()
+    {
+        CardUpgradeDefinition numbered = CreateUpgrade(CardUpgradeAssignmentType.NumberedCards, "numbered");
+        CardUpgradeDefinition face = CreateUpgrade(CardUpgradeAssignmentType.FaceCards, "face");
+        var definitions = new List<CardUpgradeDefinition> { numbered, face };
+
+        List<CardUpgradeOffer> offers = ShopOfferGenerator.CreateCardUpgradeOfferPool(definitions);
+
+        Assert.That(offers.Count, Is.EqualTo(13));
+        Assert.That(ContainsOffer(offers, numbered, Rank.Ace), Is.True);
+        Assert.That(ContainsOffer(offers, numbered, Rank.Ten), Is.True);
+        Assert.That(ContainsOffer(offers, numbered, Rank.Jack), Is.False);
+        Assert.That(ContainsOffer(offers, face, Rank.Ten), Is.False);
+        Assert.That(ContainsOffer(offers, face, Rank.Jack), Is.True);
+        Assert.That(ContainsOffer(offers, face, Rank.Queen), Is.True);
+        Assert.That(ContainsOffer(offers, face, Rank.King), Is.True);
+
+        UnityEngine.Object.DestroyImmediate(numbered);
+        UnityEngine.Object.DestroyImmediate(face);
+    }
+
+    [Test]
     public void ActiveItems_AreCountedConsumables()
     {
         var run = new RunState(1, startingGold: 100);
@@ -364,6 +408,42 @@ public sealed class ShopSystemTests
             CardModifierResolver.RankToSpades => Suit.Spades,
             _ => default
         };
+    }
+
+    private static CardUpgradeDefinition CreateUpgrade(CardUpgradeAssignmentType assignmentType, string id = "upgrade")
+    {
+        CardUpgradeDefinition definition = UnityEngine.ScriptableObject.CreateInstance<CardUpgradeDefinition>();
+        definition.Initialize(id, id, id, 10, assignmentType);
+        return definition;
+    }
+
+    private static IEnumerable<Rank> AllRanks()
+    {
+        yield return Rank.Ace;
+        yield return Rank.Two;
+        yield return Rank.Three;
+        yield return Rank.Four;
+        yield return Rank.Five;
+        yield return Rank.Six;
+        yield return Rank.Seven;
+        yield return Rank.Eight;
+        yield return Rank.Nine;
+        yield return Rank.Ten;
+        yield return Rank.Jack;
+        yield return Rank.Queen;
+        yield return Rank.King;
+    }
+
+    private static bool ContainsOffer(IReadOnlyList<CardUpgradeOffer> offers, CardUpgradeDefinition definition, Rank rank)
+    {
+        for (int i = 0; i < offers.Count; i++)
+        {
+            CardUpgradeOffer offer = offers[i];
+            if (offer.Definition == definition && offer.Rank == rank)
+                return true;
+        }
+
+        return false;
     }
 }
 #endif

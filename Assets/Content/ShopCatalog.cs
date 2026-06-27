@@ -48,10 +48,10 @@ public sealed class ShopCatalog : ScriptableObject
         catalog.activeItems.Add(Create<ActiveItemDefinition>(ActiveItemResolver.DrawThree, "특근 지시서", "덱에서 카드 3장을 즉시 드로우합니다. 손패가 3장을 넘어갈 수 있습니다.", 10));
         catalog.activeItems.Add(Create<ActiveItemDefinition>(ActiveItemResolver.DoubleWager, "레버리지", "이번 라운드의 판돈을 2배로 계산합니다. 획득과 손실 모두 적용됩니다.", 10));
         catalog.relics.Add(Create<RelicDefinition>(RelicRuleResolver.BurstTwentyTwo, "Twenty-Two", "Raise your burst threshold to 22.", 50));
-        catalog.cardUpgrades.Add(Create<CardUpgradeDefinition>(CardModifierResolver.RankToHearts, "Heart Imprint", "Cards of the selected rank become Hearts when played.", 25));
-        catalog.cardUpgrades.Add(Create<CardUpgradeDefinition>(CardModifierResolver.RankToDiamonds, "Diamond Imprint", "Cards of the selected rank become Diamonds when played.", 25));
-        catalog.cardUpgrades.Add(Create<CardUpgradeDefinition>(CardModifierResolver.RankToClubs, "Club Imprint", "Cards of the selected rank become Clubs when played.", 25));
-        catalog.cardUpgrades.Add(Create<CardUpgradeDefinition>(CardModifierResolver.RankToSpades, "Spade Imprint", "Cards of the selected rank become Spades when played.", 25));
+        catalog.cardUpgrades.Add(CreateCardUpgrade(CardModifierResolver.RankToHearts, "Heart Imprint", "Cards of the selected rank become Hearts when played.", 25, CardUpgradeAssignmentType.NumberedCards));
+        catalog.cardUpgrades.Add(CreateCardUpgrade(CardModifierResolver.RankToDiamonds, "Diamond Imprint", "Cards of the selected rank become Diamonds when played.", 25, CardUpgradeAssignmentType.NumberedCards));
+        catalog.cardUpgrades.Add(CreateCardUpgrade(CardModifierResolver.RankToClubs, "Club Imprint", "Cards of the selected rank become Clubs when played.", 25, CardUpgradeAssignmentType.NumberedCards));
+        catalog.cardUpgrades.Add(CreateCardUpgrade(CardModifierResolver.RankToSpades, "Spade Imprint", "Cards of the selected rank become Spades when played.", 25, CardUpgradeAssignmentType.NumberedCards));
         return catalog;
     }
 
@@ -60,6 +60,14 @@ public sealed class ShopCatalog : ScriptableObject
         T definition = CreateInstance<T>();
         definition.hideFlags = HideFlags.DontSave;
         definition.Initialize(id, displayName, description, price);
+        return definition;
+    }
+
+    private static CardUpgradeDefinition CreateCardUpgrade(string id, string displayName, string description, int price, CardUpgradeAssignmentType assignmentType)
+    {
+        CardUpgradeDefinition definition = CreateInstance<CardUpgradeDefinition>();
+        definition.hideFlags = HideFlags.DontSave;
+        definition.Initialize(id, displayName, description, price, assignmentType);
         return definition;
     }
 

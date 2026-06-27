@@ -1,4 +1,3 @@
-using System;
 using System.Collections.Generic;
 using TMPro;
 using UnityEngine;
@@ -64,15 +63,7 @@ public sealed class ShopUi : MonoBehaviour
         }
         List<RelicDefinition> relics = ShopOfferGenerator.TakeRandom(eligibleRelics, relicOfferCount, random);
 
-        var upgradePool = new List<CardUpgradeOffer>();
-        for (int i = 0; i < catalog.CardUpgrades.Count; i++)
-        {
-            CardUpgradeDefinition definition = catalog.CardUpgrades[i];
-            if (definition == null)
-                continue;
-            foreach (Rank rank in Enum.GetValues(typeof(Rank)))
-                upgradePool.Add(new CardUpgradeOffer(definition, rank));
-        }
+        List<CardUpgradeOffer> upgradePool = ShopOfferGenerator.CreateCardUpgradeOfferPool(catalog.CardUpgrades);
         List<CardUpgradeOffer> upgrades = ShopOfferGenerator.TakeRandom(upgradePool, upgradeOfferCount, random);
 
         BindItems(items, run);
