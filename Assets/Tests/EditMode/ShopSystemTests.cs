@@ -264,6 +264,159 @@ public sealed class ShopSystemTests
     }
 
     [Test]
+    public void NegativeRank_ContributesNegativeBlackjackValue()
+    {
+        ScoreResult score = ScoreResolver.Resolve(
+            new[] { new Card(Suit.Clubs, Rank.Seven, CardModifierResolver.NegativeRank), new Card(Suit.Hearts, Rank.Five) },
+            null,
+            21,
+            21);
+
+        Assert.That(score.BlackjackScore, Is.EqualTo(-2));
+        Assert.That(score.FinalScore, Is.EqualTo(0));
+    }
+
+    [Test]
+    public void NegativeRank_AceScoresNegativeEleven()
+    {
+        ScoreResult score = ScoreResolver.Resolve(
+            new[] { new Card(Suit.Clubs, Rank.Ace, CardModifierResolver.NegativeRank), new Card(Suit.Hearts, Rank.Five) },
+            null,
+            21,
+            21);
+
+        Assert.That(score.BlackjackScore, Is.EqualTo(-6));
+    }
+
+    [Test]
+    public void UnmodifiedAce_StillUsesSoftAceReduction()
+    {
+        ScoreResult score = ScoreResolver.Resolve(
+            new[] { new Card(Suit.Clubs, Rank.Ace), new Card(Suit.Hearts, Rank.King), new Card(Suit.Spades, Rank.Five) },
+            null,
+            21,
+            21);
+
+        Assert.That(score.BlackjackScore, Is.EqualTo(16));
+    }
+
+    [Test]
+    public void HitLower_PlaysRandomLowerRankFromPlayerHand()
+    {
+        RunState run = CreateRunWithDeck(
+            CardData(Suit.Clubs, Rank.Six, CardModifierResolver.HitLower),
+            CardData(Suit.Diamonds, Rank.Two),
+            CardData(Suit.Hearts, Rank.Seven));
+        var battle = new BattleState(run, new BattleConfig("test", 100));
+        battle.StartRound();
+
+        Assert.That(battle.TryPlayPlayerHandCardForEffect(IndexOfRank(battle.CurrentRound.PlayerHand, Rank.Six)), Is.True);
+
+        Assert.That(ContainsRank(battle.CurrentRound.PlayerPlayedCards, Rank.Six), Is.True);
+        Assert.That(ContainsRank(battle.CurrentRound.PlayerPlayedCards, Rank.Two), Is.True);
+        Assert.That(ContainsRank(battle.CurrentRound.PlayerPlayedCards, Rank.Seven), Is.False);
+
+        battle.Dispose();
+    }
+
+    [Test]
+    public void HitLower_DoesNothingWhenNoLowerRankExists()
+    {
+        RunState run = CreateRunWithDeck(CardData(Suit.Clubs, Rank.Six, CardModifierResolver.HitLower));
+        var battle = new BattleState(run, new BattleConfig("test", 100));
+        battle.StartRound();
+
+        Assert.That(battle.TryPlayPlayerHandCardForEffect(IndexOfRank(battle.CurrentRound.PlayerHand, Rank.Six)), Is.True);
+
+        Assert.That(battle.CurrentRound.PlayerPlayedCards.Count, Is.EqualTo(1));
+        Assert.That(battle.CurrentRound.PlayerPlayedCards[0].Rank, Is.EqualTo(Rank.Six));
+
+        battle.Dispose();
+    }
+
+    [Test]
+    public void HitLower_EffectPlayedCardPublishesCardPlayedEvent()
+    {
+        RunState run = CreateRunWithDeck(
+            CardData(Suit.Clubs, Rank.Six, CardModifierResolver.HitLower),
+            CardData(Suit.Diamonds, Rank.Four, CardModifierResolver.HitLower));
+        var battle = new BattleState(run, new BattleConfig("test", 100));
+        battle.StartRound();
+        int playedEvents = 0;
+        battle.EventBus.Subscribe<CardPlayedEvent>(_ => playedEvents++);
+
+        Assert.That(battle.TryPlayPlayerHandCardForEffect(IndexOfRank(battle.CurrentRound.PlayerHand, Rank.Six)), Is.True);
+
+        Assert.That(playedEvents, Is.EqualTo(2));
+        Assert.That(ContainsModifier(battle.CurrentRound.PlayerPlayedCards, Rank.Four, CardModifierResolver.HitLower), Is.True);
+
+        battle.Dispose();
+    }
+
+    [Test]
+    public void DrawSuit_DrawsMatchingSuitFromPlayerDrawPile()
+    {
+        var run = new RunState(1, startingGold: 100);
+        var battle = new BattleState(run, new BattleConfig("test", 100));
+        battle.StartRound();
+        Card trigger = new(Suit.Hearts, Rank.Four, CardModifierResolver.DrawSuit);
+        int heartsBefore = CountSuit(battle.PlayerDrawPile, Suit.Hearts);
+        int handBefore = battle.CurrentRound.PlayerHand.Count;
+
+        battle.CurrentRound.TryPlayHitCard(trigger);
+        battle.EventBus.Publish(new CardPlayedEvent(Combatant.Player, trigger));
+
+        Assert.That(CountSuit(battle.PlayerDrawPile, Suit.Hearts), Is.EqualTo(heartsBefore - 1));
+        Assert.That(battle.CurrentRound.PlayerHand.Count, Is.EqualTo(handBefore + 1));
+        Assert.That(ContainsSuit(battle.CurrentRound.PlayerHand, Suit.Hearts), Is.True);
+
+        battle.Dispose();
+    }
+
+    [Test]
+    public void DrawSuit_DoesNotReshuffleDiscardWhenNoDrawPileMatchExists()
+    {
+        RunState run = CreateRunWithDeck(
+            CardData(Suit.Spades, Rank.Two),
+            CardData(Suit.Spades, Rank.Three),
+            CardData(Suit.Spades, Rank.Four),
+            CardData(Suit.Spades, Rank.Five),
+            CardData(Suit.Spades, Rank.Six),
+            CardData(Suit.Spades, Rank.Seven));
+        var battle = new BattleState(run, new BattleConfig("test", 100));
+        battle.StartRound();
+        battle.CurrentRound.TryPlayHitCard(new Card(Suit.Hearts, Rank.Two));
+        battle.ClearField(Combatant.Player);
+        Card trigger = new(Suit.Hearts, Rank.Four, CardModifierResolver.DrawSuit);
+        int handBefore = battle.CurrentRound.PlayerHand.Count;
+        int discardBefore = battle.PlayerDiscardPile.Count;
+
+        battle.CurrentRound.TryPlayHitCard(trigger);
+        battle.EventBus.Publish(new CardPlayedEvent(Combatant.Player, trigger));
+
+        Assert.That(battle.CurrentRound.PlayerHand.Count, Is.EqualTo(handBefore));
+        Assert.That(battle.PlayerDiscardPile.Count, Is.EqualTo(discardBefore));
+
+        battle.Dispose();
+    }
+
+    [Test]
+    public void PlayerCanManuallyPlayMultipleCardsInSameTurn()
+    {
+        RunState run = CreateRunWithDeck(CardData(Suit.Clubs, Rank.Two), CardData(Suit.Hearts, Rank.Three));
+        var battle = new BattleState(run, new BattleConfig("test", 100));
+        battle.StartRound();
+        Assert.That(battle.CommitWagerAndBeginRound(1, false), Is.True);
+
+        Assert.That(battle.TryPlayCard(0), Is.True);
+        Assert.That(battle.TryPlayCard(0), Is.True);
+
+        Assert.That(battle.CurrentRound.PlayerPlayedCards.Count, Is.EqualTo(2));
+
+        battle.Dispose();
+    }
+
+    [Test]
     public void RankUpgradePurchase_ImmediatelyTransformsPlayerBattleCards()
     {
         var run = new RunState(1, startingGold: 100);
@@ -398,6 +551,51 @@ public sealed class ShopSystemTests
         return false;
     }
 
+    private static bool ContainsRank(IReadOnlyList<Card> cards, Rank rank)
+    {
+        for (int i = 0; i < cards.Count; i++)
+        {
+            if (cards[i].Rank == rank)
+                return true;
+        }
+
+        return false;
+    }
+
+    private static bool ContainsSuit(IReadOnlyList<Card> cards, Suit suit)
+    {
+        for (int i = 0; i < cards.Count; i++)
+        {
+            if (cards[i].Suit == suit)
+                return true;
+        }
+
+        return false;
+    }
+
+    private static int CountSuit(IReadOnlyList<Card> cards, Suit suit)
+    {
+        int count = 0;
+        for (int i = 0; i < cards.Count; i++)
+        {
+            if (cards[i].Suit == suit)
+                count++;
+        }
+
+        return count;
+    }
+
+    private static int IndexOfRank(IReadOnlyList<Card> cards, Rank rank)
+    {
+        for (int i = 0; i < cards.Count; i++)
+        {
+            if (cards[i].Rank == rank)
+                return i;
+        }
+
+        return -1;
+    }
+
     private static Suit SuitForModifier(string modifierId)
     {
         return modifierId switch
@@ -444,6 +642,31 @@ public sealed class ShopSystemTests
         }
 
         return false;
+    }
+
+    private static RunState CreateRunWithDeck(params RunCardData[] cards)
+    {
+        var data = new RunStateData
+        {
+            seed = 1,
+            gold = 100,
+            maxPlayerHp = 100,
+            maxActiveItemSlots = RunState.DefaultMaxActiveItemSlots
+        };
+
+        data.deck.AddRange(cards);
+        return RunState.FromData(data);
+    }
+
+    private static RunCardData CardData(Suit suit, Rank rank, string modifierId = null)
+    {
+        return new RunCardData
+        {
+            instanceId = RunCard.CreateInstanceId(suit, rank),
+            suit = suit,
+            rank = rank,
+            modifierId = modifierId
+        };
     }
 }
 #endif

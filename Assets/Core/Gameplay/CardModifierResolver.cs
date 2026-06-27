@@ -4,6 +4,9 @@ public static class CardModifierResolver
     public const string RankToDiamonds = "rank_to_diamonds";
     public const string RankToClubs = "rank_to_clubs";
     public const string RankToSpades = "rank_to_spades";
+    public const string NegativeRank = "negative_rank";
+    public const string HitLower = "hit_lower";
+    public const string DrawSuit = "draw_suit";
 
     public static Card Apply(RunCard runCard, string modifierId)
     {

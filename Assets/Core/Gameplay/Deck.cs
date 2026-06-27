@@ -40,6 +40,34 @@ public sealed class Deck
         return true;
     }
 
+    public bool TryDrawWhere(Predicate<Card> predicate, Random random, out Card card)
+    {
+        if (predicate == null)
+        {
+            card = default;
+            return false;
+        }
+
+        var matchingIndices = new List<int>();
+        for (int i = 0; i < _drawPile.Count; i++)
+        {
+            if (predicate(_drawPile[i]))
+                matchingIndices.Add(i);
+        }
+
+        if (matchingIndices.Count == 0)
+        {
+            card = default;
+            return false;
+        }
+
+        random ??= new Random(0);
+        int drawIndex = matchingIndices[random.Next(matchingIndices.Count)];
+        card = _drawPile[drawIndex];
+        _drawPile.RemoveAt(drawIndex);
+        return true;
+    }
+
     public void Discard(Card card)
     {
         _discardPile.Add(card);

@@ -26,9 +26,10 @@ public static class ScoreResolver
 
         foreach (Card card in cards)
         {
-            score += card.BlackjackValue;
+            bool negativeRank = string.Equals(card.ModifierId, CardModifierResolver.NegativeRank, StringComparison.Ordinal);
+            score += negativeRank ? -card.BlackjackValue : card.BlackjackValue;
 
-            if (card.Rank == Rank.Ace)
+            if (card.Rank == Rank.Ace && !negativeRank)
                 aces++;
         }
 

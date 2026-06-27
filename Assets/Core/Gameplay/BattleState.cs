@@ -20,6 +20,7 @@ public sealed class BattleState
         Config = config ?? throw new ArgumentNullException(nameof(config));
         EventBus = new ScopedEventBus();
         global::EventBus.Subscribe<RankUpgradeChangedEvent>(OnRankUpgradeChanged);
+        _effectRuntime = new BattleEffectRuntime(this);
         EventBus.Subscribe<CardPlayedEvent>(OnCardPlayedForRefill);
         EventBus.Subscribe<CardDiscardedEvent>(OnCardDiscardedForRefill);
         CommandQueue = new CommandQueue();
@@ -31,7 +32,6 @@ public sealed class BattleState
         _activeModifiers.AddRange(config.InitialModifiers);
         _activeModifiers.AddRange(config.DevilStrategy.GetGlobalModifiers(runState));
         config.DevilStrategy.RegisterAffinityHooks(this);
-        _effectRuntime = new BattleEffectRuntime(this);
         PlayerDrawValue = config.StartingHandSize;
     }
 
@@ -123,14 +123,10 @@ public sealed class BattleState
         if (Phase != BattlePhase.PlayerPhase || CurrentRound == null)
             return false;
 
-        if (CurrentRound.PlayerPlayedThisTurn)      // WARNING: If in the future items or modifiers that allow multiple plays per turn are added, this check will need to be updated to account for that
-            return false;
-
         if (!CurrentRound.TryPlayCard(handIndex, ApplyPlayerCardUpgrade, out Card card))
             return false;
 
-        EventBus.Publish(new CardPlayedEvent(Combatant.Player, card));
-        CommandQueue.Enqueue(new VisualCommand(VisualCommandType.CardsPlayed, card.ToString()));
+        PublishPlayerCardPlayed(card);
         RefillPlayerHandIfEmpty();
         return true;
     }
@@ -148,8 +144,7 @@ public sealed class BattleState
             return false;
 
         EventBus.Publish(new CardDrawnEvent(Combatant.Player, card, _playerDeck.RemainingCards));
-        EventBus.Publish(new CardPlayedEvent(Combatant.Player, card));
-        CommandQueue.Enqueue(new VisualCommand(VisualCommandType.CardsPlayed, card.ToString()));
+        PublishPlayerCardPlayed(card);
         return CompletePlayerTurn();
     }
 
@@ -217,6 +212,52 @@ public sealed class BattleState
     {
         _activeModifiers.Add(modifier);
         EventBus.Publish(new ModifierAddedEvent(modifier));
+    }
+
+    public bool TryPlayPlayerHandCardForEffect(int handIndex)
+    {
+        if (CurrentRound == null)
+            return false;
+
+        if (!CurrentRound.TryPlayCard(handIndex, ApplyPlayerCardUpgrade, out Card card))
+            return false;
+
+        PublishPlayerCardPlayed(card);
+        return true;
+    }
+
+    public bool TryPlayRandomLowerRankPlayerHandCard(Rank rank)
+    {
+        if (CurrentRound == null)
+            return false;
+
+        var matchingIndices = new List<int>();
+        for (int i = 0; i < CurrentRound.PlayerHand.Count; i++)
+        {
+            if ((int)CurrentRound.PlayerHand[i].Rank < (int)rank)
+                matchingIndices.Add(i);
+        }
+
+        if (matchingIndices.Count == 0)
+            return false;
+
+        int selected = matchingIndices[_random.Next(matchingIndices.Count)];
+        return TryPlayPlayerHandCardForEffect(selected);
+    }
+
+    public bool TryDrawRandomPlayerCardOfSuitToHand(Suit suit)
+    {
+        if (CurrentRound == null)
+            return false;
+
+        if (!_playerDeck.TryDrawWhere(card => card.Suit == suit, _random, out Card card))
+            return false;
+
+        CurrentRound.AddToHand(card);
+        EventBus.Publish(new CardDrawnEvent(Combatant.Player, card, _playerDeck.RemainingCards));
+        EventBus.Publish(new HandRefilledEvent(CurrentRound.PlayerHand.Count));
+        CommandQueue.Enqueue(new VisualCommand(VisualCommandType.CardsDrawn, CurrentRound.PlayerHand.Count.ToString()));
+        return true;
     }
 
     private Card ApplyPlayerCardUpgrade(Card card)
@@ -711,6 +752,12 @@ public sealed class BattleState
         }
 
         return deck.TryDraw(out card);
+    }
+
+    private void PublishPlayerCardPlayed(Card card)
+    {
+        EventBus.Publish(new CardPlayedEvent(Combatant.Player, card));
+        CommandQueue.Enqueue(new VisualCommand(VisualCommandType.CardsPlayed, card.ToString()));
     }
 
     private void PublishScoreEvents(Combatant combatant, ScoreResult score)

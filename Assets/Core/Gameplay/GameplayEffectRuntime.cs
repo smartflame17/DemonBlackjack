@@ -29,6 +29,18 @@ public sealed class BattleEffectRuntime : IDisposable
     // Central extension points for future event-driven relic and upgrade effects.
     private void OnCardPlayed(CardPlayedEvent eventData)
     {
+        if (eventData.Owner != Combatant.Player)
+            return;
+
+        switch (eventData.Card.ModifierId)
+        {
+            case CardModifierResolver.HitLower:
+                _battle.TryPlayRandomLowerRankPlayerHandCard(eventData.Card.Rank);
+                break;
+            case CardModifierResolver.DrawSuit:
+                _battle.TryDrawRandomPlayerCardOfSuitToHand(eventData.Card.Suit);
+                break;
+        }
     }
 
     private void OnItemUsed(ItemUsedEvent eventData)
