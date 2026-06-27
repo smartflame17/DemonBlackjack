@@ -214,7 +214,7 @@ public sealed class TopMenuBarController : MonoBehaviour
 
     private Vector2 GetRelicIconSize()
     {
-        return _slots.Count > 0 && _slots[0].Root != null ? _slots[0].Root.sizeDelta : new Vector2(30f, 30f);
+        return _slots.Count > 0 && _slots[0].Root != null ? _slots[0].Root.sizeDelta : new Vector2(40f, 40f);
     }
 
     private void BindRelic(RelicBinding relic, string relicId)
