@@ -467,7 +467,7 @@ MonoBehaviour:
   m_enableAutoSizing: 0
   m_fontSizeMin: 18
   m_fontSizeMax: 72
-  m_fontStyle: 1
+  m_fontStyle: 0
   m_HorizontalAlignment: 2
   m_VerticalAlignment: 256
   m_textAlignment: 65535
@@ -4630,7 +4630,7 @@ MonoBehaviour:
   m_enableAutoSizing: 0
   m_fontSizeMin: 18
   m_fontSizeMax: 72
-  m_fontStyle: 1
+  m_fontStyle: 0
   m_HorizontalAlignment: 2
   m_VerticalAlignment: 256
   m_textAlignment: 65535
@@ -15993,6 +15993,8 @@ MonoBehaviour:
   devilImage: {fileID: 1697461681}
   playerScoreText: {fileID: 44889464}
   devilScoreText: {fileID: 1834147683}
+  playerBurstThresholdText: {fileID: 2128601222}
+  devilBurstThresholdText: {fileID: 1227002412}
   roundWagerText: {fileID: 1187651866}
   devilMoneyText: {fileID: 647403622}
   playerHandRoot: {fileID: 1092893230}

@@ -100,7 +100,18 @@ public sealed class BattleRelicRuntime : IDisposable
         }
 
         _battle.RunState.IncreasePlayerBurstThreshold(1);
-        _battle.CurrentRound?.SetPlayerBurstThreshold(RelicRuleResolver.ResolvePlayerBurstThreshold(_battle.RunState, _battle.Config.BurstThreshold));
+
+        RoundState round = _battle.CurrentRound;
+        if (round != null)
+        {
+            int threshold = RelicRuleResolver.ResolvePlayerBurstThreshold(_battle.RunState, _battle.Config.BurstThreshold);
+            int previousThreshold = round.PlayerBurstThreshold;
+            round.SetPlayerBurstThreshold(threshold);
+
+            if (round.PlayerBurstThreshold != previousThreshold)
+                EventBus.Publish(new BurstThresholdChangedEvent(Combatant.Player, round.PlayerBurstThreshold));
+        }
+
         _burstExtendHitCount = 0;
         PublishCounter(RelicRuleResolver.BurstExtend, 0);
     }
