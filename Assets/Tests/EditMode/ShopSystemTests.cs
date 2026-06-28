@@ -110,7 +110,7 @@ public sealed class ShopSystemTests
     [Test]
     public void ActiveItems_AreCountedConsumables()
     {
-        var run = new RunState(1, startingGold: 100);
+        var run = new RunState(1, startingMoney: 100);
 
         Assert.That(run.TryPurchaseActiveItem("item", 10).Succeeded, Is.True);
         Assert.That(run.TryPurchaseActiveItem("item", 10).Succeeded, Is.True);
@@ -163,7 +163,7 @@ public sealed class ShopSystemTests
     [Test]
     public void ActiveItems_DefaultCapacityRejectsThirdPurchaseWithoutCharging()
     {
-        var run = new RunState(1, startingGold: 100);
+        var run = new RunState(1, startingMoney: 100);
 
         Assert.That(run.MaxActiveItemSlots, Is.EqualTo(2));
         Assert.That(run.TryPurchaseActiveItem("first", 10).Succeeded, Is.True);
@@ -180,7 +180,7 @@ public sealed class ShopSystemTests
     [Test]
     public void ActiveItemCapacity_PersistsThroughSaveAndLoad()
     {
-        var run = new RunState(1, startingGold: 100, maxActiveItemSlots: 4);
+        var run = new RunState(1, startingMoney: 100, maxActiveItemSlots: 4);
         run.AddActiveItem("item");
 
         RunState loaded = RunState.FromData(run.ToData());
@@ -209,7 +209,7 @@ public sealed class ShopSystemTests
         var data = new RunStateData
         {
             seed = 1,
-            gold = 100,
+            money = 100,
             maxActiveItemSlots = 0,
             activeItemIds = new List<string> { "one", "two", "three" }
         };
@@ -238,7 +238,7 @@ public sealed class ShopSystemTests
     [Test]
     public void Relics_AreUnique()
     {
-        var run = new RunState(1, startingGold: 100);
+        var run = new RunState(1, startingMoney: 100);
 
         Assert.That(run.TryPurchaseRelic("relic", 10).Succeeded, Is.True);
         ShopPurchaseResult duplicate = run.TryPurchaseRelic("relic", 10);
@@ -428,7 +428,7 @@ public sealed class ShopSystemTests
     [Test]
     public void RankReplacement_UsesFlooredRefundTowardNetCost()
     {
-        var run = new RunState(1, startingGold: 30);
+        var run = new RunState(1, startingMoney: 30);
         Assert.That(run.TryPurchaseRankUpgrade(Rank.Ace, "old", 21).Succeeded, Is.True);
 
         ShopPurchaseResult replacement = run.TryPurchaseRankUpgrade(Rank.Ace, "new", 19);
@@ -445,7 +445,7 @@ public sealed class ShopSystemTests
     [Test]
     public void OwnedUpgrade_PersistsPaidPrice()
     {
-        var run = new RunState(1, startingGold: 100);
+        var run = new RunState(1, startingMoney: 100);
         run.TryPurchaseRankUpgrade(Rank.King, CardModifierResolver.RankToHearts, 25);
 
         RunState loaded = RunState.FromData(run.ToData());
@@ -458,7 +458,7 @@ public sealed class ShopSystemTests
     [Test]
     public void RankUpgradePurchase_ImmediatelyTransformsRunDeck()
     {
-        var run = new RunState(1, startingGold: 100);
+        var run = new RunState(1, startingMoney: 100);
 
         ShopPurchaseResult result = run.TryPurchaseRankUpgrade(Rank.Five, CardModifierResolver.RankToSpades, 10);
 
@@ -470,7 +470,7 @@ public sealed class ShopSystemTests
     [Test]
     public void RankUpgradeReplacement_RewritesRunDeckToNewModifier()
     {
-        var run = new RunState(1, startingGold: 100);
+        var run = new RunState(1, startingMoney: 100);
 
         Assert.That(run.TryPurchaseRankUpgrade(Rank.Queen, CardModifierResolver.RankToHearts, 10).Succeeded, Is.True);
         Assert.That(run.TryPurchaseRankUpgrade(Rank.Queen, CardModifierResolver.RankToDiamonds, 10).Succeeded, Is.True);
@@ -485,7 +485,7 @@ public sealed class ShopSystemTests
         var data = new RunStateData
         {
             seed = 1,
-            gold = 100,
+            money = 100,
             maxActiveItemSlots = RunState.DefaultMaxActiveItemSlots
         };
         data.deck.Add(CardData(Suit.Clubs, Rank.Seven));
@@ -715,7 +715,7 @@ public sealed class ShopSystemTests
     [Test]
     public void DrawSuit_DrawsMatchingSuitFromPlayerDrawPile()
     {
-        var run = new RunState(1, startingGold: 100);
+        var run = new RunState(1, startingMoney: 100);
         var battle = new BattleState(run, new BattleConfig("test", 100));
         battle.StartRound();
         Card trigger = new(Suit.Hearts, Rank.Four, CardModifierResolver.DrawSuit);
@@ -778,7 +778,7 @@ public sealed class ShopSystemTests
     [Test]
     public void RankUpgradePurchase_ImmediatelyTransformsPlayerBattleCards()
     {
-        var run = new RunState(1, startingGold: 100);
+        var run = new RunState(1, startingMoney: 100);
         var battle = new BattleState(run, new BattleConfig("test", 100));
         battle.StartRound();
         battle.CurrentRound.AddToHand(new Card(Suit.Clubs, Rank.Five));
@@ -804,7 +804,7 @@ public sealed class ShopSystemTests
     [Test]
     public void RankUpgradeReplacement_RewritesActiveBattleCardsToNewModifier()
     {
-        var run = new RunState(1, startingGold: 100);
+        var run = new RunState(1, startingMoney: 100);
         var battle = new BattleState(run, new BattleConfig("test", 100));
         battle.StartRound();
         battle.CurrentRound.AddToHand(new Card(Suit.Clubs, Rank.Queen));
@@ -821,7 +821,7 @@ public sealed class ShopSystemTests
     [Test]
     public void RankUpgradePurchase_TransformsPlayerHandCarryover()
     {
-        var run = new RunState(1, startingGold: 100);
+        var run = new RunState(1, startingMoney: 100);
         var battle = new BattleState(run, new BattleConfig("test", 100));
         battle.StartRound();
         battle.CurrentRound.AddToHand(new Card(Suit.Clubs, Rank.Jack));
@@ -871,7 +871,7 @@ public sealed class ShopSystemTests
     [Test]
     public void DoubleWager_AddsMatchingExtraStakes()
     {
-        var run = new RunState(1, startingGold: 100);
+        var run = new RunState(1, startingMoney: 100);
         run.AddActiveItem(ActiveItemResolver.DoubleWager);
         var battle = new BattleState(run, new BattleConfig("test", 100));
         battle.StartRound();
@@ -1045,8 +1045,7 @@ public sealed class ShopSystemTests
         var data = new RunStateData
         {
             seed = 1,
-            gold = 100,
-            maxPlayerHp = 100,
+            money = 100,
             maxActiveItemSlots = RunState.DefaultMaxActiveItemSlots
         };
 

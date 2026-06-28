@@ -20,8 +20,7 @@ public sealed class RunStateData
 {
     public int seed;
     public RunPhase phase;
-    public int gold;
-    public int maxPlayerHp;
+    public int money;
     public int encounterIndex;
     public int difficultyLevel;
     public int devilProgression;
@@ -52,8 +51,6 @@ public sealed class BattleResultData
     public int roundCount;
     public int playerMoneyAfterBattle;
     public int opponentMoneyAfterBattle;
-    public int playerHpAfterBattle;
-    public int opponentHpAfterBattle;
 }
 
 [Serializable]

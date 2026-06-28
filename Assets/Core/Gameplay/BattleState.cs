@@ -44,10 +44,6 @@ public sealed class BattleState
     public BattlePhase Phase { get; private set; } = BattlePhase.Inactive;
     public int PlayerMoney => RunState.Money;
     public int OpponentMoney { get; private set; }
-    public int PlayerHp => PlayerMoney;
-    public int PlayerMaxHp => Math.Max(RunState.MaxPlayerHp, PlayerMoney);
-    public int OpponentHp => OpponentMoney;
-    public int OpponentMaxHp => Config.OpponentStartingMoney;
     public int RoundNumber { get; private set; }
     public int PlayerDrawValue { get; }
     public int ReshuffleCount { get; private set; }
@@ -371,7 +367,7 @@ public sealed class BattleState
             return 0;
 
         RunState.AddMoney(-finalAmount);
-        EventBus.Publish(new DamageTakenEvent(Combatant.Player, finalAmount, PlayerMoney));
+        EventBus.Publish(new MoneyChangedEvent(Combatant.Player, PlayerMoney, -finalAmount));
         CommandQueue.Enqueue(new VisualCommand(VisualCommandType.MoneyChanged, $"{Combatant.Player}:{PlayerMoney}"));
 
         if (PlayerMoney <= 0)

@@ -75,7 +75,6 @@ public enum VisualCommandType
     CardsDrawn,
     CardsPlayed,
     ScoresResolved,
-    HealthChanged,
     MoneyChanged,
     RoundEnded,
     BattleEnded

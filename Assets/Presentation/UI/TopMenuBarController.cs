@@ -35,7 +35,7 @@ public sealed class TopMenuBarController : MonoBehaviour
         EventBus.Subscribe<RelicAddedEvent>(OnRelicAdded);
         EventBus.Subscribe<RelicCounterChangedEvent>(OnRelicCounterChanged);
         EventBus.Subscribe<RunPhaseChangedEvent>(OnRunPhaseChanged);
-        EventBus.Subscribe<GoldChangedEvent>(OnGoldChanged);
+        EventBus.Subscribe<MoneyChangedEvent>(OnMoneyChanged);
         if (viewFullDeckButton != null)
             viewFullDeckButton.onClick.AddListener(ShowFullDeck);
         Refresh();
@@ -54,7 +54,7 @@ public sealed class TopMenuBarController : MonoBehaviour
         EventBus.Unsubscribe<RelicAddedEvent>(OnRelicAdded);
         EventBus.Unsubscribe<RelicCounterChangedEvent>(OnRelicCounterChanged);
         EventBus.Unsubscribe<RunPhaseChangedEvent>(OnRunPhaseChanged);
-        EventBus.Unsubscribe<GoldChangedEvent>(OnGoldChanged);
+        EventBus.Unsubscribe<MoneyChangedEvent>(OnMoneyChanged);
         if (viewFullDeckButton != null)
             viewFullDeckButton.onClick.RemoveListener(ShowFullDeck);
     }
@@ -351,11 +351,15 @@ public sealed class TopMenuBarController : MonoBehaviour
         }
     }
     private void OnRunPhaseChanged(RunPhaseChangedEvent eventData) => Refresh();
-    private void OnGoldChanged(GoldChangedEvent eventData) => SetPlayerMoney(eventData.CurrentGold);
+    private void OnMoneyChanged(MoneyChangedEvent eventData)
+    {
+        if (eventData.Owner == Combatant.Player)
+            SetPlayerMoney(eventData.CurrentMoney);
+    }
 
     private void RefreshPlayerMoney()
     {
-        SetPlayerMoney(runManager != null && runManager.RunState != null ? runManager.RunState.Gold : 0);
+        SetPlayerMoney(runManager != null && runManager.RunState != null ? runManager.RunState.Money : 0);
     }
 
     private void RefreshFullDeckButton(RunState run)

@@ -7441,9 +7441,8 @@ MonoBehaviour:
   battleController: {fileID: 1399201285}
   startRunOnAwake: 1
   debugSeed: 6767
-  playerMaxHp: 100
-  startingGold: 0
-  defaultOpponentHp: 1000
+  startingMoney: 100
+  defaultOpponentStartingMoney: 1000
 --- !u!4 &562614338
 Transform:
   m_ObjectHideFlags: 0

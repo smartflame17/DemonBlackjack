@@ -5,9 +5,8 @@ public class RunManager : MonoBehaviour, IDataPersistence
     [SerializeField] private BattleController battleController;
     [SerializeField] private bool startRunOnAwake = true;
     [SerializeField] private int debugSeed = 12345;
-    [SerializeField] private int playerMaxHp = 100;     // deprecated
-    [SerializeField] private int startingGold = 100;
-    [SerializeField] private int defaultOpponentHp = 100;   // deprecated
+    [SerializeField] private int startingMoney = 100;
+    [SerializeField] private int defaultOpponentStartingMoney = 100;
 
     public RunState RunState { get; private set; }
 
@@ -35,8 +34,8 @@ public class RunManager : MonoBehaviour, IDataPersistence
 
     public void StartRun(int seed)
     {
-        int runStartingMoney = startingGold <= 0 ? 100 : startingGold;
-        RunState = new RunState(seed, playerMaxHp, runStartingMoney);
+        int runStartingMoney = startingMoney <= 0 ? 100 : startingMoney;
+        RunState = new RunState(seed, runStartingMoney);
         Debug.Log("Run started with seed: " + seed);
         SetPhase(RunPhase.Init);
         SetPhase(RunPhase.Map);
@@ -65,11 +64,11 @@ public class RunManager : MonoBehaviour, IDataPersistence
             return;
         }
 
-        int opponentStartingMoney = defaultOpponentHp <= 0 ? 100 : defaultOpponentHp;
+        int opponentStartingMoney = defaultOpponentStartingMoney <= 0 ? 100 : defaultOpponentStartingMoney;
         BattleConfig battleConfig = config ?? new BattleConfig($"encounter_{RunState.EncounterIndex + 1}", opponentStartingMoney);
         battleController.InitializeBattle(RunState, battleConfig);
         SetPhase(RunPhase.Battle);
-        EventBus.Publish(new BattleStartedEvent(battleConfig.EncounterId, RunState.CreateBattleSeed(), RunState.PlayerHp, battleConfig.OpponentMaxHp));
+        EventBus.Publish(new BattleStartedEvent(battleConfig.EncounterId, RunState.CreateBattleSeed(), RunState.Money, battleConfig.OpponentStartingMoney));
         Debug.Log("Battle started against " + battleConfig.EncounterId + ", event published");
     }
 
@@ -87,7 +86,7 @@ public class RunManager : MonoBehaviour, IDataPersistence
             return;
 
         SetPhase(RunPhase.Map);
-        Debug.Log($"Returning to map. Gold: {RunState.Gold}, Encounter Index: {RunState.EncounterIndex}");
+        Debug.Log($"Returning to map. Money: {RunState.Money}, Encounter Index: {RunState.EncounterIndex}");
     }
 
     public bool OpenShop()
@@ -131,7 +130,7 @@ public class RunManager : MonoBehaviour, IDataPersistence
 
     public void LoadData(GameData data)
     {
-        RunState loadedRunState = data != null ? RunState.FromData(data.runState, playerMaxHp, startingGold) : null;
+        RunState loadedRunState = data != null ? RunState.FromData(data.runState, startingMoney) : null;
         if (loadedRunState != null)
             ApplyLoadedRunState(loadedRunState);
     }

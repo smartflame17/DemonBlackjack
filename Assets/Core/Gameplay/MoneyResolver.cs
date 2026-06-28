@@ -69,28 +69,16 @@ public static class MoneyResolver
     }
 }
 
-public static class HealthResolver
-{
-    public static RoundResolution ResolveRound(BattleState battle, RoundState round)
-    {
-        return MoneyResolver.ResolveRound(battle, round);
-    }
-}
-
 public readonly struct RoundResolution
 {
-    public RoundResolution(Combatant? winner, int opponentDamage, int playerDamage)
+    public RoundResolution(Combatant? winner, int opponentMoneyLost, int playerMoneyLost)
     {
         Winner = winner;
-        OpponentDamage = opponentDamage;
-        PlayerDamage = playerDamage;
-        OpponentMoneyLost = opponentDamage;
-        PlayerMoneyLost = playerDamage;
+        OpponentMoneyLost = opponentMoneyLost;
+        PlayerMoneyLost = playerMoneyLost;
     }
 
     public Combatant? Winner { get; }
-    public int OpponentDamage { get; }
-    public int PlayerDamage { get; }
     public int OpponentMoneyLost { get; }
     public int PlayerMoneyLost { get; }
 }
