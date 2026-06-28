@@ -799,6 +799,8 @@ GameObject:
   - component: {fileID: 44889463}
   - component: {fileID: 44889465}
   - component: {fileID: 44889464}
+  - component: {fileID: 44889467}
+  - component: {fileID: 44889466}
   m_Layer: 5
   m_Name: PlayerScore
   m_TagString: Untagged
@@ -925,6 +927,48 @@ CanvasRenderer:
   m_PrefabAsset: {fileID: 0}
   m_GameObject: {fileID: 44889462}
   m_CullTransparentMesh: 1
+--- !u!114 &44889466
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 44889462}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 6875d4488c5463e45aa1d7cc8ae032f5, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: Assembly-CSharp::ScoreThresholdAnimator
+  _scoreText: {fileID: 44889464}
+  _scoreThresholdText: {fileID: 2128601222}
+  battleController: {fileID: 1399201285}
+  combatant: 0
+  burstColor: {r: 1, g: 0, b: 0, a: 1}
+  textEffect: {fileID: 44889467}
+--- !u!114 &44889467
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 44889462}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 9840f87219df84505803024c796e739d, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: EasyTextEffects::EasyTextEffects.TextEffect
+  text: {fileID: 44889464}
+  usePreset: 0
+  preset: {fileID: 0}
+  tagEffects: []
+  globalEffects:
+  - triggerWhen: 1
+    effect: {fileID: 11400000, guid: b02a25b1901fdd543b5a2ed7deb9c4bd, type: 2}
+    onEffectCompleted:
+      m_PersistentCalls:
+        m_Calls: []
+    overrideTagEffects: 1
+  updatesPerSecond: 30
 --- !u!1 &45971760
 GameObject:
   m_ObjectHideFlags: 0
