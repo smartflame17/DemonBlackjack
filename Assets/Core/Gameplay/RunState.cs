@@ -36,6 +36,7 @@ public sealed class RunState
     public int DifficultyLevel { get; private set; } = 1;
     public int DevilProgression { get; private set; }
     public int MaxActiveItemSlots { get; private set; }
+    public int PlayerBurstThresholdBonus { get; private set; }
     public bool AreActiveItemSlotsFull => FindEmptyActiveItemSlot() < 0;
     public IReadOnlyList<RunCard> RunDeck => _runDeck;
     public IReadOnlyList<Card> Deck => _deck;
@@ -86,6 +87,14 @@ public sealed class RunState
             return;
 
         _devilAffinities[devilId] = Math.Clamp(GetDevilAffinity(devilId) + amount, 0, 100);
+    }
+
+    public void IncreasePlayerBurstThreshold(int amount)
+    {
+        if (amount <= 0)
+            return;
+
+        PlayerBurstThresholdBonus += amount;
     }
 
     public void AddRelic(string relicId)
@@ -296,7 +305,8 @@ public sealed class RunState
             encounterIndex = EncounterIndex,
             difficultyLevel = DifficultyLevel,
             devilProgression = DevilProgression,
-            maxActiveItemSlots = MaxActiveItemSlots
+            maxActiveItemSlots = MaxActiveItemSlots,
+            playerBurstThresholdBonus = PlayerBurstThresholdBonus
         };
 
         for (int i = 0; i < _runDeck.Count; i++)
@@ -367,6 +377,7 @@ public sealed class RunState
         state.EncounterIndex = Math.Max(0, data.encounterIndex);
         state.DifficultyLevel = Math.Max(1, data.difficultyLevel);
         state.DevilProgression = Math.Max(0, data.devilProgression);
+        state.PlayerBurstThresholdBonus = Math.Max(0, data.playerBurstThresholdBonus);
 
         state._runDeck.Clear();
         if (data.deck != null && data.deck.Count > 0)

@@ -4,9 +4,9 @@ using System.Linq;
 
 public static class ScoreResolver
 {
-    public static ScoreResult Resolve(IReadOnlyList<Card> cards, IReadOnlyList<Modifier> modifiers, int targetScore, int burstThreshold)
+    public static ScoreResult Resolve(IReadOnlyList<Card> cards, IReadOnlyList<Modifier> modifiers, int targetScore, int burstThreshold, int blackjackBonus = 0)
     {
-        int blackjackScore = ResolveBlackjackScore(cards);
+        int blackjackScore = Math.Max(0, ResolveBlackjackScore(cards) + blackjackBonus);
         bool isBurst = blackjackScore > burstThreshold;
 
         PokerHandRank pokerRank = ResolvePokerRank(cards);

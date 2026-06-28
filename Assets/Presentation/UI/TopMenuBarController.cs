@@ -18,6 +18,7 @@ public sealed class TopMenuBarController : MonoBehaviour
 
     private readonly List<SlotBinding> _slots = new();
     private readonly List<RelicBinding> _relics = new();
+    private readonly Dictionary<string, int> _relicCounterValues = new();
 
     private void Awake()
     {
@@ -32,6 +33,7 @@ public sealed class TopMenuBarController : MonoBehaviour
         EventBus.Subscribe<ActiveItemRemovedEvent>(OnActiveItemRemoved);
         EventBus.Subscribe<ActiveItemCapacityChangedEvent>(OnActiveItemCapacityChanged);
         EventBus.Subscribe<RelicAddedEvent>(OnRelicAdded);
+        EventBus.Subscribe<RelicCounterChangedEvent>(OnRelicCounterChanged);
         EventBus.Subscribe<RunPhaseChangedEvent>(OnRunPhaseChanged);
         EventBus.Subscribe<GoldChangedEvent>(OnGoldChanged);
         if (viewFullDeckButton != null)
@@ -50,6 +52,7 @@ public sealed class TopMenuBarController : MonoBehaviour
         EventBus.Unsubscribe<ActiveItemRemovedEvent>(OnActiveItemRemoved);
         EventBus.Unsubscribe<ActiveItemCapacityChangedEvent>(OnActiveItemCapacityChanged);
         EventBus.Unsubscribe<RelicAddedEvent>(OnRelicAdded);
+        EventBus.Unsubscribe<RelicCounterChangedEvent>(OnRelicCounterChanged);
         EventBus.Unsubscribe<RunPhaseChangedEvent>(OnRunPhaseChanged);
         EventBus.Unsubscribe<GoldChangedEvent>(OnGoldChanged);
         if (viewFullDeckButton != null)
@@ -167,6 +170,7 @@ public sealed class TopMenuBarController : MonoBehaviour
             relic.Root.gameObject.SetActive(visible);
             if (!visible)
             {
+                relic.RelicId = null;
                 relic.TooltipTrigger.Clear();
                 continue;
             }
@@ -222,8 +226,10 @@ public sealed class TopMenuBarController : MonoBehaviour
     {
         bool occupied = !string.IsNullOrWhiteSpace(relicId);
         relic.Root.gameObject.SetActive(occupied);
+        relic.RelicId = occupied ? relicId : null;
         RelicDefinition definition = GetRelicDefinition(relicId);
-        relic.View.Bind(occupied && assetRegistry != null ? assetRegistry.GetRelicSprite(relicId) : null, relicId, definition != null && definition.HasCounter);
+        int counterValue = _relicCounterValues.TryGetValue(relicId, out int value) ? value : 0;
+        relic.View.Bind(occupied && assetRegistry != null ? assetRegistry.GetRelicSprite(relicId) : null, relicId, definition != null && definition.HasCounter, counterValue);
         if (occupied)
             relic.TooltipTrigger.Bind(relicId);
         else
@@ -326,6 +332,24 @@ public sealed class TopMenuBarController : MonoBehaviour
     private void OnActiveItemRemoved(ActiveItemRemovedEvent eventData) => Refresh();
     private void OnActiveItemCapacityChanged(ActiveItemCapacityChangedEvent eventData) => Refresh();
     private void OnRelicAdded(RelicAddedEvent eventData) => Refresh();
+    private void OnRelicCounterChanged(RelicCounterChangedEvent eventData)
+    {
+        if (string.IsNullOrWhiteSpace(eventData.RelicId))
+            return;
+
+        _relicCounterValues[eventData.RelicId] = Mathf.Max(0, eventData.Value);
+
+        for (int i = 0; i < _relics.Count; i++)
+        {
+            RelicBinding relic = _relics[i];
+            if (!string.Equals(relic.RelicId, eventData.RelicId, System.StringComparison.Ordinal))
+                continue;
+
+            RelicDefinition definition = GetRelicDefinition(eventData.RelicId);
+            if (definition != null && definition.HasCounter)
+                relic.View.SetCounter(true, _relicCounterValues[eventData.RelicId]);
+        }
+    }
     private void OnRunPhaseChanged(RunPhaseChangedEvent eventData) => Refresh();
     private void OnGoldChanged(GoldChangedEvent eventData) => SetPlayerMoney(eventData.CurrentGold);
 
@@ -376,5 +400,6 @@ public sealed class TopMenuBarController : MonoBehaviour
         public RectTransform Root { get; }
         public RelicUiView View { get; }
         public TooltipTrigger TooltipTrigger { get; }
+        public string RelicId { get; set; }
     }
 }

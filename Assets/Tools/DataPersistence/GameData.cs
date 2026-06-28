@@ -26,6 +26,7 @@ public sealed class RunStateData
     public int difficultyLevel;
     public int devilProgression;
     public int maxActiveItemSlots;
+    public int playerBurstThresholdBonus;
     public List<RunCardData> deck = new();
     public List<string> relicIds = new();
     public List<string> globalModifierIds = new();

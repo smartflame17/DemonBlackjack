@@ -12,6 +12,7 @@ public sealed class BattleState
     private readonly List<Card> _opponentHandCarryover = new();
     private int? _pendingOpponentWagerOffer;
     private readonly BattleEffectRuntime _effectRuntime;
+    private readonly BattleRelicRuntime _relicRuntime;
     private bool _disposed;
 
     public BattleState(RunState runState, BattleConfig config)
@@ -20,6 +21,7 @@ public sealed class BattleState
         Config = config ?? throw new ArgumentNullException(nameof(config));
         EventBus = new ScopedEventBus();
         global::EventBus.Subscribe<RankUpgradeChangedEvent>(OnRankUpgradeChanged);
+        _relicRuntime = new BattleRelicRuntime(this);
         _effectRuntime = new BattleEffectRuntime(this);
         EventBus.Subscribe<CardPlayedEvent>(OnCardPlayedForRefill);
         EventBus.Subscribe<CardDiscardedEvent>(OnCardDiscardedForRefill);
@@ -87,8 +89,9 @@ public sealed class BattleState
         SetPhase(BattlePhase.PreRound);
         RoundNumber++;
         int targetScore = RelicRuleResolver.ResolveTargetScore(RunState, Config.TargetScore);
-        int burstThreshold = RelicRuleResolver.ResolveBurstThreshold(RunState, Config.BurstThreshold);
-        CurrentRound = new RoundState(RoundNumber, targetScore, burstThreshold, 0, 0, playerActsFirst);
+        int playerBurstThreshold = RelicRuleResolver.ResolvePlayerBurstThreshold(RunState, Config.BurstThreshold);
+        int opponentBurstThreshold = RelicRuleResolver.ResolveOpponentBurstThreshold(RunState, Config.BurstThreshold);
+        CurrentRound = new RoundState(RoundNumber, targetScore, playerBurstThreshold, opponentBurstThreshold, 0, 0, playerActsFirst);
         RestoreCarryoverHands();
         RefillHandsForRoundStart(playerActsFirst);
         return true;
@@ -123,7 +126,7 @@ public sealed class BattleState
         if (Phase != BattlePhase.PlayerPhase || CurrentRound == null)
             return false;
 
-        if (!CurrentRound.TryPlayCard(handIndex, ApplyPlayerCardUpgrade, out Card card))
+        if (!CurrentRound.TryPlayCard(handIndex, ApplyPlayerCardForPlay, out Card card))
             return false;
 
         PublishPlayerCardPlayed(card);
@@ -139,11 +142,12 @@ public sealed class BattleState
         if (!TryDrawCard(Combatant.Player, out Card card))
             return false;
 
-        card = ApplyPlayerCardUpgrade(card);
+        card = ApplyPlayerCardForPlay(card);
         if (!CurrentRound.TryPlayHitCard(card))
             return false;
 
         EventBus.Publish(new CardDrawnEvent(Combatant.Player, card, _playerDeck.RemainingCards));
+        EventBus.Publish(new PlayerHitUsedEvent(RoundNumber, card));
         PublishPlayerCardPlayed(card);
         return CompletePlayerTurn();
     }
@@ -206,6 +210,7 @@ public sealed class BattleState
 
         Config.DevilStrategy.UnregisterAffinityHooks(this);
         _effectRuntime.Dispose();
+        _relicRuntime.Dispose();
         global::EventBus.Unsubscribe<RankUpgradeChangedEvent>(OnRankUpgradeChanged);
         EventBus.Clear();
         _disposed = true;
@@ -222,7 +227,7 @@ public sealed class BattleState
         if (CurrentRound == null)
             return false;
 
-        if (!CurrentRound.TryPlayCard(handIndex, ApplyPlayerCardUpgrade, out Card card))
+        if (!CurrentRound.TryPlayCard(handIndex, ApplyPlayerCardForPlay, out Card card))
             return false;
 
         PublishPlayerCardPlayed(card);
@@ -322,6 +327,11 @@ public sealed class BattleState
         return RunState.TryGetRankUpgrade(card.Rank, out OwnedRankUpgrade upgrade)
             ? CardModifierResolver.Apply(card, upgrade.UpgradeId)
             : card;
+    }
+
+    private Card ApplyPlayerCardForPlay(Card card)
+    {
+        return _relicRuntime.TransformPlayerPlayedCard(ApplyPlayerCardUpgrade(card));
     }
 
     public void ApplyRankUpgradeToPlayerBattleCards(Rank rank, string upgradeId)
@@ -776,8 +786,8 @@ public sealed class BattleState
 
     private void ResolveScores()
     {
-        ScoreResult playerScore = ScoreResolver.Resolve(CurrentRound.PlayerPlayedCards, CurrentRound.ScoringModifiers, CurrentRound.TargetScore, CurrentRound.BurstThreshold);
-        ScoreResult opponentScore = ScoreResolver.Resolve(CurrentRound.OpponentVisibleCards, CurrentRound.ScoringModifiers, CurrentRound.TargetScore, CurrentRound.BurstThreshold);
+        ScoreResult playerScore = ScoreResolver.Resolve(CurrentRound.PlayerPlayedCards, CurrentRound.ScoringModifiers, CurrentRound.TargetScore, CurrentRound.PlayerBurstThreshold);
+        ScoreResult opponentScore = ScoreResolver.Resolve(CurrentRound.OpponentVisibleCards, CurrentRound.ScoringModifiers, CurrentRound.TargetScore, CurrentRound.OpponentBurstThreshold, _relicRuntime.OpponentBlackjackBonus);
         CurrentRound.SetScores(playerScore, opponentScore);
 
         PublishScoreEvents(Combatant.Player, playerScore);
@@ -844,9 +854,10 @@ public sealed class BattleState
     {
         EventBus.Publish(new ScoreCalculatedEvent(combatant, score));
 
-        if (score.FinalScore > CurrentRound.BurstThreshold)
+        int burstThreshold = CurrentRound.GetBurstThreshold(combatant);
+        if (score.FinalScore > burstThreshold)
         {
-            EventBus.Publish(new BurstAttemptedEvent(combatant, score.FinalScore, CurrentRound.BurstThreshold, true));
+            EventBus.Publish(new BurstAttemptedEvent(combatant, score.FinalScore, burstThreshold, true));
             EventBus.Publish(new BurstOccurredEvent(combatant, score.FinalScore));
         }
 
