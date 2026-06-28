@@ -110,7 +110,7 @@ public sealed class ShopSystemTests
     [Test]
     public void ActiveItems_AreCountedConsumables()
     {
-        var run = new RunState(1, startingGold: 100);
+        var run = new RunState(1, startingMoney: 100);
 
         Assert.That(run.TryPurchaseActiveItem("item", 10).Succeeded, Is.True);
         Assert.That(run.TryPurchaseActiveItem("item", 10).Succeeded, Is.True);
@@ -163,7 +163,7 @@ public sealed class ShopSystemTests
     [Test]
     public void ActiveItems_DefaultCapacityRejectsThirdPurchaseWithoutCharging()
     {
-        var run = new RunState(1, startingGold: 100);
+        var run = new RunState(1, startingMoney: 100);
 
         Assert.That(run.MaxActiveItemSlots, Is.EqualTo(2));
         Assert.That(run.TryPurchaseActiveItem("first", 10).Succeeded, Is.True);
@@ -180,7 +180,7 @@ public sealed class ShopSystemTests
     [Test]
     public void ActiveItemCapacity_PersistsThroughSaveAndLoad()
     {
-        var run = new RunState(1, startingGold: 100, maxActiveItemSlots: 4);
+        var run = new RunState(1, startingMoney: 100, maxActiveItemSlots: 4);
         run.AddActiveItem("item");
 
         RunState loaded = RunState.FromData(run.ToData());
@@ -209,7 +209,7 @@ public sealed class ShopSystemTests
         var data = new RunStateData
         {
             seed = 1,
-            gold = 100,
+            money = 100,
             maxActiveItemSlots = 0,
             activeItemIds = new List<string> { "one", "two", "three" }
         };
@@ -238,7 +238,7 @@ public sealed class ShopSystemTests
     [Test]
     public void Relics_AreUnique()
     {
-        var run = new RunState(1, startingGold: 100);
+        var run = new RunState(1, startingMoney: 100);
 
         Assert.That(run.TryPurchaseRelic("relic", 10).Succeeded, Is.True);
         ShopPurchaseResult duplicate = run.TryPurchaseRelic("relic", 10);
@@ -247,9 +247,188 @@ public sealed class ShopSystemTests
     }
 
     [Test]
+    public void AddJqk_AddsOpponentScoreBonusAndCounterForFaceCardsOnly()
+    {
+        RunState run = CreateRunWithRelicDeck(RelicRuleResolver.AddJqk, CardData(Suit.Clubs, Rank.Two));
+        var battle = new BattleState(run, TestBattleConfig());
+        battle.StartRound();
+        Assert.That(battle.CommitWagerAndBeginRound(1, true), Is.True);
+        var counterValues = new List<int>();
+        EventBus.Subscribe<RelicCounterChangedEvent>(evt =>
+        {
+            if (evt.RelicId == RelicRuleResolver.AddJqk)
+                counterValues.Add(evt.Value);
+        });
+
+        battle.CurrentRound.AddToOpponentHand(new Card(Suit.Spades, Rank.Ten));
+        Assert.That(battle.CurrentRound.TryPlayOpponentCard(0, out Card ten), Is.True);
+        battle.EventBus.Publish(new CardPlayedEvent(Combatant.Opponent, ten));
+        battle.CurrentRound.AddToOpponentHand(new Card(Suit.Hearts, Rank.King));
+        Assert.That(battle.CurrentRound.TryPlayOpponentCard(0, out Card king), Is.True);
+        battle.EventBus.Publish(new CardPlayedEvent(Combatant.Opponent, king));
+        battle.CurrentRound.MarkOpponentStood();
+
+        Assert.That(battle.TryStand(), Is.True);
+
+        Assert.That(battle.CurrentRound.OpponentScore.BlackjackScore, Is.EqualTo(21));
+        CollectionAssert.Contains(counterValues, 1);
+        battle.Dispose();
+    }
+
+    [Test]
+    public void AddJqk_ResetsCounterAndBonusNextRound()
+    {
+        RunState run = CreateRunWithRelicDeck(RelicRuleResolver.AddJqk, CardData(Suit.Clubs, Rank.Two));
+        var battle = new BattleState(run, TestBattleConfig());
+        var counterValues = new List<int>();
+        EventBus.Subscribe<RelicCounterChangedEvent>(evt =>
+        {
+            if (evt.RelicId == RelicRuleResolver.AddJqk)
+                counterValues.Add(evt.Value);
+        });
+        battle.StartRound();
+        battle.CommitWagerAndBeginRound(1, true);
+        battle.CurrentRound.AddToOpponentHand(new Card(Suit.Hearts, Rank.Queen));
+        battle.CurrentRound.TryPlayOpponentCard(0, out Card queen);
+        battle.EventBus.Publish(new CardPlayedEvent(Combatant.Opponent, queen));
+        battle.CurrentRound.MarkOpponentStood();
+        battle.TryStand();
+
+        battle.CleanupRound();
+        Assert.That(battle.StartRound(), Is.True);
+        Assert.That(battle.CommitWagerAndBeginRound(1, true), Is.True);
+        battle.CurrentRound.AddToOpponentHand(new Card(Suit.Spades, Rank.Ten));
+        battle.CurrentRound.TryPlayOpponentCard(0, out Card ten);
+        battle.EventBus.Publish(new CardPlayedEvent(Combatant.Opponent, ten));
+        battle.CurrentRound.MarkOpponentStood();
+        battle.TryStand();
+
+        Assert.That(battle.CurrentRound.OpponentScore.BlackjackScore, Is.EqualTo(10));
+        Assert.That(counterValues[counterValues.Count - 1], Is.EqualTo(0));
+        battle.Dispose();
+    }
+
+    [Test]
+    public void BurstExtend_IncreasesPersistedPlayerBurstThresholdEveryFiveHits()
+    {
+        RunState run = CreateRunWithRelicDeck(RelicRuleResolver.BurstExtend, TenTwos());
+        var battle = new BattleState(run, TestBattleConfig(startingHandSize: 1));
+        battle.StartRound();
+        Assert.That(battle.CommitWagerAndBeginRound(1, true), Is.True);
+        var counterValues = new List<int>();
+        EventBus.Subscribe<RelicCounterChangedEvent>(evt =>
+        {
+            if (evt.RelicId == RelicRuleResolver.BurstExtend)
+                counterValues.Add(evt.Value);
+        });
+
+        for (int i = 0; i < 10; i++)
+            Assert.That(battle.TryHit(), Is.True, $"Hit {i + 1}");
+
+        Assert.That(run.PlayerBurstThresholdBonus, Is.EqualTo(2));
+        Assert.That(battle.CurrentRound.PlayerBurstThreshold, Is.EqualTo(23));
+        Assert.That(counterValues.FindAll(value => value == 0).Count, Is.GreaterThanOrEqualTo(2));
+        battle.Dispose();
+    }
+
+    [Test]
+    public void BurstExtend_FifthHitAppliesThresholdBeforeBurstResolution()
+    {
+        RunState run = CreateRunWithRelicDeck(RelicRuleResolver.BurstExtend, RepeatCardData(Suit.Clubs, Rank.Two, 6));
+        var battle = new BattleState(run, TestBattleConfig(startingHandSize: 1));
+        battle.StartRound();
+        Assert.That(battle.CommitWagerAndBeginRound(1, true), Is.True);
+
+        for (int i = 0; i < 5; i++)
+            Assert.That(battle.TryHit(), Is.True, $"Hit {i + 1}");
+
+        Assert.That(battle.Phase, Is.Not.EqualTo(BattlePhase.Cleanup));
+        Assert.That(battle.CurrentRound.PlayerScore.BlackjackScore, Is.EqualTo(10));
+        Assert.That(battle.CurrentRound.PlayerBurstThreshold, Is.EqualTo(22));
+        battle.Dispose();
+    }
+
+    [Test]
+    public void BurstExtend_CounterResetsWhenBattleEnds()
+    {
+        RunState run = CreateRunWithRelicDeck(RelicRuleResolver.BurstExtend, TenTwos());
+        var battle = new BattleState(run, TestBattleConfig(startingHandSize: 1));
+        battle.StartRound();
+        battle.CommitWagerAndBeginRound(1, true);
+        var counterValues = new List<int>();
+        EventBus.Subscribe<RelicCounterChangedEvent>(evt =>
+        {
+            if (evt.RelicId == RelicRuleResolver.BurstExtend)
+                counterValues.Add(evt.Value);
+        });
+        Assert.That(battle.TryHit(), Is.True);
+        Assert.That(battle.TryHit(), Is.True);
+
+        battle.EndBattle();
+
+        Assert.That(counterValues[counterValues.Count - 1], Is.EqualTo(0));
+    }
+
+    [Test]
+    public void SuitOverride_TransformsLaterMatchingRankToFirstPlayedSuit()
+    {
+        RunState run = CreateRunWithRelicDeck(
+            RelicRuleResolver.SuitOverride,
+            CardData(Suit.Hearts, Rank.Seven),
+            CardData(Suit.Spades, Rank.Seven),
+            CardData(Suit.Clubs, Rank.Eight),
+            CardData(Suit.Diamonds, Rank.Seven));
+        var battle = new BattleState(run, TestBattleConfig(startingHandSize: 4));
+        battle.StartRound();
+        battle.CommitWagerAndBeginRound(1, true);
+
+        Assert.That(battle.TryPlayPlayerHandCardForEffect(IndexOfRankAndSuit(battle.CurrentRound.PlayerHand, Rank.Seven, Suit.Hearts)), Is.True);
+        Assert.That(battle.TryPlayPlayerHandCardForEffect(IndexOfRankAndSuit(battle.CurrentRound.PlayerHand, Rank.Seven, Suit.Spades)), Is.True);
+        Assert.That(battle.TryPlayPlayerHandCardForEffect(IndexOfRankAndSuit(battle.CurrentRound.PlayerHand, Rank.Eight, Suit.Clubs)), Is.True);
+
+        Assert.That(battle.CurrentRound.PlayerPlayedCards[1].Suit, Is.EqualTo(Suit.Hearts));
+        Assert.That(battle.CurrentRound.PlayerPlayedCards[2].Suit, Is.EqualTo(Suit.Clubs));
+        battle.Dispose();
+    }
+
+    [Test]
+    public void SuitOverride_ResetsEachRound()
+    {
+        RunState run = CreateRunWithRelicDeck(
+            RelicRuleResolver.SuitOverride,
+            CardData(Suit.Hearts, Rank.Seven),
+            CardData(Suit.Spades, Rank.Seven),
+            CardData(Suit.Clubs, Rank.Seven));
+        var battle = new BattleState(run, TestBattleConfig(startingHandSize: 3));
+        battle.StartRound();
+        battle.CommitWagerAndBeginRound(1, true);
+        battle.TryPlayPlayerHandCardForEffect(IndexOfRankAndSuit(battle.CurrentRound.PlayerHand, Rank.Seven, Suit.Hearts));
+        battle.CleanupRound();
+
+        Assert.That(battle.StartRound(), Is.True);
+        battle.CommitWagerAndBeginRound(1, true);
+        battle.CurrentRound.AddToHand(new Card(Suit.Clubs, Rank.Seven));
+        Assert.That(battle.TryPlayPlayerHandCardForEffect(IndexOfRankAndSuit(battle.CurrentRound.PlayerHand, Rank.Seven, Suit.Clubs)), Is.True);
+
+        Assert.That(battle.CurrentRound.PlayerPlayedCards[0].Suit, Is.EqualTo(Suit.Clubs));
+        battle.Dispose();
+    }
+
+    [Test]
+    public void RunState_PreservesPlayerBurstThresholdBonus()
+    {
+        var run = new RunState(1);
+        run.IncreasePlayerBurstThreshold(2);
+
+        RunState loaded = RunState.FromData(run.ToData());
+
+        Assert.That(loaded.PlayerBurstThresholdBonus, Is.EqualTo(2));
+    }
+
+    [Test]
     public void RankReplacement_UsesFlooredRefundTowardNetCost()
     {
-        var run = new RunState(1, startingGold: 30);
+        var run = new RunState(1, startingMoney: 30);
         Assert.That(run.TryPurchaseRankUpgrade(Rank.Ace, "old", 21).Succeeded, Is.True);
 
         ShopPurchaseResult replacement = run.TryPurchaseRankUpgrade(Rank.Ace, "new", 19);
@@ -266,7 +445,7 @@ public sealed class ShopSystemTests
     [Test]
     public void OwnedUpgrade_PersistsPaidPrice()
     {
-        var run = new RunState(1, startingGold: 100);
+        var run = new RunState(1, startingMoney: 100);
         run.TryPurchaseRankUpgrade(Rank.King, CardModifierResolver.RankToHearts, 25);
 
         RunState loaded = RunState.FromData(run.ToData());
@@ -279,7 +458,7 @@ public sealed class ShopSystemTests
     [Test]
     public void RankUpgradePurchase_ImmediatelyTransformsRunDeck()
     {
-        var run = new RunState(1, startingGold: 100);
+        var run = new RunState(1, startingMoney: 100);
 
         ShopPurchaseResult result = run.TryPurchaseRankUpgrade(Rank.Five, CardModifierResolver.RankToSpades, 10);
 
@@ -291,7 +470,7 @@ public sealed class ShopSystemTests
     [Test]
     public void RankUpgradeReplacement_RewritesRunDeckToNewModifier()
     {
-        var run = new RunState(1, startingGold: 100);
+        var run = new RunState(1, startingMoney: 100);
 
         Assert.That(run.TryPurchaseRankUpgrade(Rank.Queen, CardModifierResolver.RankToHearts, 10).Succeeded, Is.True);
         Assert.That(run.TryPurchaseRankUpgrade(Rank.Queen, CardModifierResolver.RankToDiamonds, 10).Succeeded, Is.True);
@@ -306,7 +485,7 @@ public sealed class ShopSystemTests
         var data = new RunStateData
         {
             seed = 1,
-            gold = 100,
+            money = 100,
             maxActiveItemSlots = RunState.DefaultMaxActiveItemSlots
         };
         data.deck.Add(CardData(Suit.Clubs, Rank.Seven));
@@ -536,7 +715,7 @@ public sealed class ShopSystemTests
     [Test]
     public void DrawSuit_DrawsMatchingSuitFromPlayerDrawPile()
     {
-        var run = new RunState(1, startingGold: 100);
+        var run = new RunState(1, startingMoney: 100);
         var battle = new BattleState(run, new BattleConfig("test", 100));
         battle.StartRound();
         Card trigger = new(Suit.Hearts, Rank.Four, CardModifierResolver.DrawSuit);
@@ -599,7 +778,7 @@ public sealed class ShopSystemTests
     [Test]
     public void RankUpgradePurchase_ImmediatelyTransformsPlayerBattleCards()
     {
-        var run = new RunState(1, startingGold: 100);
+        var run = new RunState(1, startingMoney: 100);
         var battle = new BattleState(run, new BattleConfig("test", 100));
         battle.StartRound();
         battle.CurrentRound.AddToHand(new Card(Suit.Clubs, Rank.Five));
@@ -625,7 +804,7 @@ public sealed class ShopSystemTests
     [Test]
     public void RankUpgradeReplacement_RewritesActiveBattleCardsToNewModifier()
     {
-        var run = new RunState(1, startingGold: 100);
+        var run = new RunState(1, startingMoney: 100);
         var battle = new BattleState(run, new BattleConfig("test", 100));
         battle.StartRound();
         battle.CurrentRound.AddToHand(new Card(Suit.Clubs, Rank.Queen));
@@ -642,7 +821,7 @@ public sealed class ShopSystemTests
     [Test]
     public void RankUpgradePurchase_TransformsPlayerHandCarryover()
     {
-        var run = new RunState(1, startingGold: 100);
+        var run = new RunState(1, startingMoney: 100);
         var battle = new BattleState(run, new BattleConfig("test", 100));
         battle.StartRound();
         battle.CurrentRound.AddToHand(new Card(Suit.Clubs, Rank.Jack));
@@ -692,7 +871,7 @@ public sealed class ShopSystemTests
     [Test]
     public void DoubleWager_AddsMatchingExtraStakes()
     {
-        var run = new RunState(1, startingGold: 100);
+        var run = new RunState(1, startingMoney: 100);
         run.AddActiveItem(ActiveItemResolver.DoubleWager);
         var battle = new BattleState(run, new BattleConfig("test", 100));
         battle.StartRound();
@@ -824,13 +1003,49 @@ public sealed class ShopSystemTests
         return false;
     }
 
+    private static BattleConfig TestBattleConfig(int startingHandSize = 3)
+    {
+        return new BattleConfig("test", 100, new StandingDevilStrategy(), startingHandSize: startingHandSize);
+    }
+
+    private static RunState CreateRunWithRelicDeck(string relicId, params RunCardData[] cards)
+    {
+        RunState run = CreateRunWithDeck(cards);
+        run.AddRelic(relicId);
+        return run;
+    }
+
+    private static RunCardData[] TenTwos()
+    {
+        return RepeatCardData(Suit.Clubs, Rank.Two, 12);
+    }
+
+    private static RunCardData[] RepeatCardData(Suit suit, Rank rank, int count)
+    {
+        var cards = new RunCardData[count];
+        for (int i = 0; i < count; i++)
+            cards[i] = CardData(suit, rank);
+
+        return cards;
+    }
+
+    private static int IndexOfRankAndSuit(IReadOnlyList<Card> cards, Rank rank, Suit suit)
+    {
+        for (int i = 0; i < cards.Count; i++)
+        {
+            if (cards[i].Rank == rank && cards[i].Suit == suit)
+                return i;
+        }
+
+        return -1;
+    }
+
     private static RunState CreateRunWithDeck(params RunCardData[] cards)
     {
         var data = new RunStateData
         {
             seed = 1,
-            gold = 100,
-            maxPlayerHp = 100,
+            money = 100,
             maxActiveItemSlots = RunState.DefaultMaxActiveItemSlots
         };
 
@@ -847,6 +1062,19 @@ public sealed class ShopSystemTests
             rank = rank,
             modifierId = modifierId
         };
+    }
+
+    private sealed class StandingDevilStrategy : IDevilStrategy
+    {
+        public int DrawValue => 0;
+        public int ChooseWager(BattleState battle, RoundState pendingRound, int defaultWager) => defaultWager;
+        public WagerResponse ChoosePlayerWagerResponse(BattleState battle, RoundState pendingRound, int proposedWager) => WagerResponse.Accept;
+        public DevilTurnChoice ChooseTurnAction(BattleState battle, RoundState round) => DevilTurnChoice.Stand;
+        public int ChooseCardIndex(BattleState battle, RoundState round) => 0;
+        public IEnumerable<Card> CreateStartingDeck(RunState runState, BattleConfig config) => new List<Card>();
+        public void RegisterAffinityHooks(BattleState battle) { }
+        public void UnregisterAffinityHooks(BattleState battle) { }
+        public IEnumerable<Modifier> GetGlobalModifiers(RunState runState) => new List<Modifier>();
     }
 }
 #endif

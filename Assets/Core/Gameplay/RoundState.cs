@@ -15,11 +15,12 @@ public sealed class RoundState
     private readonly List<Modifier> _scoringModifiers = new();
     private int _lastPlayerHitCardIndex = -1;
 
-    public RoundState(int roundNumber, int targetScore, int burstThreshold, int playerStake, int opponentStake, bool playerActsFirst)
+    public RoundState(int roundNumber, int targetScore, int playerBurstThreshold, int opponentBurstThreshold, int playerStake, int opponentStake, bool playerActsFirst)
     {
         RoundNumber = roundNumber;
         TargetScore = targetScore;
-        BurstThreshold = burstThreshold;
+        PlayerBurstThreshold = playerBurstThreshold;
+        OpponentBurstThreshold = opponentBurstThreshold;
         PlayerStake = playerStake;
         OpponentStake = opponentStake;
         PlayerActsFirst = playerActsFirst;
@@ -27,7 +28,9 @@ public sealed class RoundState
 
     public int RoundNumber { get; }
     public int TargetScore { get; }
-    public int BurstThreshold { get; }
+    public int PlayerBurstThreshold { get; private set; }
+    public int OpponentBurstThreshold { get; private set; }
+    public int BurstThreshold => PlayerBurstThreshold;
     public int Wager => Math.Min(PlayerStake, OpponentStake);
     public int PlayerStake { get; private set; }
     public int OpponentStake { get; private set; }
@@ -52,6 +55,16 @@ public sealed class RoundState
     public IReadOnlyList<Card> RevealedFutureCards => _revealedFutureCards;
     public IReadOnlyList<string> PendingEffectIds => _pendingEffectIds;
     public IReadOnlyList<Modifier> ScoringModifiers => _scoringModifiers;
+
+    public void SetPlayerBurstThreshold(int threshold)
+    {
+        PlayerBurstThreshold = Math.Max(1, threshold);
+    }
+
+    public int GetBurstThreshold(Combatant combatant)
+    {
+        return combatant == Combatant.Player ? PlayerBurstThreshold : OpponentBurstThreshold;
+    }
 
     public void AddToHand(Card card)
     {

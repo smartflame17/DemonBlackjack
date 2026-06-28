@@ -18,6 +18,8 @@ public sealed class BattleUiPresenter : MonoBehaviour
     [SerializeField] private Image devilImage;
     [SerializeField] private TMP_Text playerScoreText;
     [SerializeField] private TMP_Text devilScoreText;
+    [SerializeField] private TMP_Text playerBurstThresholdText;
+    [SerializeField] private TMP_Text devilBurstThresholdText;
     [SerializeField] private TMP_Text roundWagerText;
     [SerializeField] private TMP_Text devilMoneyText;
     [SerializeField] private RectTransform playerHandRoot;
@@ -127,6 +129,7 @@ public sealed class BattleUiPresenter : MonoBehaviour
         EventBus.Subscribe<RunPhaseChangedEvent>(OnRunPhaseChanged);
         EventBus.Subscribe<BattleStartedEvent>(OnBattleStarted);
         EventBus.Subscribe<BattleEndedEvent>(OnBattleEnded);
+        EventBus.Subscribe<BurstThresholdChangedEvent>(OnBurstThresholdChanged);
 
         AddListeners();
         Refresh();
@@ -138,6 +141,7 @@ public sealed class BattleUiPresenter : MonoBehaviour
         EventBus.Unsubscribe<RunPhaseChangedEvent>(OnRunPhaseChanged);
         EventBus.Unsubscribe<BattleStartedEvent>(OnBattleStarted);
         EventBus.Unsubscribe<BattleEndedEvent>(OnBattleEnded);
+        EventBus.Unsubscribe<BurstThresholdChangedEvent>(OnBurstThresholdChanged);
 
         RemoveListeners();
     }
@@ -187,6 +191,7 @@ public sealed class BattleUiPresenter : MonoBehaviour
             ClearBattleCardViews();
             SetText(playerScoreText, "-");
             SetText(devilScoreText, "-");
+            SetBurstThresholdText(null);
             SetText(roundWagerText, "0");
             SetText(devilMoneyText, "Devil $0");
             SetPanels(false, false, false);
@@ -206,6 +211,7 @@ public sealed class BattleUiPresenter : MonoBehaviour
 
         SetText(devilMoneyText, $"Devil ${battle.OpponentMoney}");
         SetScoreText(round);
+        SetBurstThresholdText(round);
         SetText(roundWagerText, round != null ? round.Pot.ToString() : "0");
 
         RenderCards(_playerCards, playerHandRoot, round?.PlayerHand.Count ?? 0, round?.PlayerHand, true, CanSelectCards(battle), false);
@@ -435,6 +441,11 @@ public sealed class BattleUiPresenter : MonoBehaviour
     private void OnBattleEnded(BattleEndedEvent eventData)
     {
         ClearBattleCardViews();
+        Refresh();
+    }
+
+    private void OnBurstThresholdChanged(BurstThresholdChangedEvent eventData)
+    {
         Refresh();
     }
 
@@ -835,11 +846,19 @@ public sealed class BattleUiPresenter : MonoBehaviour
         SetText(devilScoreText, round != null && round.OpponentHasPlayed ? round.OpponentScore.BlackjackScore.ToString() : "-");
     }
 
+    private void SetBurstThresholdText(RoundState round)
+    {
+        SetText(playerBurstThresholdText, round != null ? round.PlayerBurstThreshold.ToString() : "-");
+        SetText(devilBurstThresholdText, round != null ? round.OpponentBurstThreshold.ToString() : "-");
+    }
+
     private void AutoBindLayout()
     {
         devilImage ??= FindDescendantComponent<Image>("DevilImage");
         playerScoreText ??= FindDescendantComponent<TMP_Text>("PlayerScore");
         devilScoreText ??= FindDescendantComponent<TMP_Text>("DevilScore");
+        playerBurstThresholdText ??= FindDescendantComponent<TMP_Text>("PlayerThreshold");
+        devilBurstThresholdText ??= FindDescendantComponent<TMP_Text>("DevilThreshold");
         roundWagerText ??= FindDescendantComponent<TMP_Text>("RoundWagerAmount");
         devilMoneyText ??= FindDescendantComponent<TMP_Text>("DevilMoney");
         playerHandRoot ??= FindDescendantRect("PlayerHand");

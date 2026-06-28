@@ -348,6 +348,7 @@ GameObject:
   - component: {fileID: 885584748510948076}
   - component: {fileID: 7602269838714400112}
   - component: {fileID: 1909042555248093567}
+  - component: {fileID: 1221368587968764743}
   m_Layer: 0
   m_Name: CardPrefab
   m_TagString: Untagged
@@ -427,3 +428,17 @@ MonoBehaviour:
   m_EditorClassIdentifier: Assembly-CSharp::TooltipTrigger
   contentId: 
   tooltipPanel: {fileID: 0}
+--- !u!114 &1221368587968764743
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 7335166825123529215}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 62965248cac0cf44395211853c8e9171, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: Assembly-CSharp::EnlargeOnHover
+  scaleFactor: 1.2
+  transitionDuration: 0.2

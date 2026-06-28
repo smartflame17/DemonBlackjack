@@ -35,7 +35,6 @@ public sealed class BattleConfig
     public string EncounterId { get; }
     public string DevilId { get; }
     public int OpponentStartingMoney { get; }
-    public int OpponentMaxHp => OpponentStartingMoney;
     public IDevilStrategy DevilStrategy { get; }
     public int StartingHandSize { get; }
     public int TargetScore { get; }

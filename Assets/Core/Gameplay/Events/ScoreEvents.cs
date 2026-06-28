@@ -38,6 +38,18 @@ public readonly struct BurstOccurredEvent
     public int Score { get; }
 }
 
+public readonly struct BurstThresholdChangedEvent
+{
+    public BurstThresholdChangedEvent(Combatant combatant, int threshold)
+    {
+        Combatant = combatant;
+        Threshold = threshold;
+    }
+
+    public Combatant Combatant { get; }
+    public int Threshold { get; }
+}
+
 public readonly struct BlackjackAchievedEvent
 {
     public BlackjackAchievedEvent(Combatant combatant, int score)

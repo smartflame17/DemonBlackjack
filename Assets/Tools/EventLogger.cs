@@ -19,17 +19,17 @@ public class EventLogger : MonoBehaviour
         EventBus.Subscribe<BattleStartedEvent>(eventData =>
         {
             if (!logEvents) return;
-            Debug.Log($"<color=green>[Global]</color>Battle Started: EncounterId={eventData.EncounterId}, Seed={eventData.Seed}, PlayerHp={eventData.PlayerHp}, OpponentHp={eventData.OpponentHp}");
+            Debug.Log($"<color=green>[Global]</color>Battle Started: EncounterId={eventData.EncounterId}, Seed={eventData.Seed}, PlayerMoney={eventData.PlayerMoney}, OpponentMoney={eventData.OpponentMoney}");
         });
         EventBus.Subscribe<BattleEndedEvent>(eventData =>
         {
             if (!logEvents) return;
             Debug.Log($"<color=green>[Global]</color>Battle Ended: Result={eventData.Result}");
         });
-        EventBus.Subscribe<GoldChangedEvent>(eventData =>
+        EventBus.Subscribe<MoneyChangedEvent>(eventData =>
         {
             if (!logEvents) return;
-            Debug.Log($"<color=green>[Global]</color>Gold Changed: CurrentGold={eventData.CurrentGold}, Delta={eventData.Delta}");
+            Debug.Log($"<color=green>[Global]</color>Money Changed: Owner={eventData.Owner}, CurrentMoney={eventData.CurrentMoney}, Delta={eventData.Delta}");
         });
         EventBus.Subscribe<RunPhaseChangedEvent>(eventData =>
         {

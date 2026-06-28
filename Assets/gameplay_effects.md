@@ -127,7 +127,7 @@ Choose the extension point based on effect timing:
 - Explicit consumable action: add a case to `ActiveItemResolver.TryApply`.
 - Passive value/rule change: add a query to `RelicRuleResolver` and call it from the relevant lifecycle boundary.
 - Played-card transformation: add a case to `CardModifierResolver.Apply(Card, id)`.
-- Reaction to cards, items, scores, health, phases, or rounds: implement a scoped event handler and register/dispose it through `BattleEffectRuntime`.
+- Reaction to cards, items, scores, money, phases, or rounds: implement a scoped event handler and register/dispose it through `BattleEffectRuntime`.
 
 For a reactive relic, first check `battle.RunState.HasRelic(id)` in the handler. For a rank upgrade reaction, check the event owner and the card's `ModifierId` or query the owned upgrade for the card's rank. Always decide explicitly whether the effect applies to the player, opponent, or both.
 

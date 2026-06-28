@@ -7,6 +7,7 @@ public sealed class ShopSlotView : MonoBehaviour
 {
     private Button _button;
     private Image _image;
+    private RelicUiView _relicView;
     private TMP_Text _priceText;
     private TMP_Text _label;
     private TooltipTrigger _tooltipTrigger;
@@ -14,6 +15,7 @@ public sealed class ShopSlotView : MonoBehaviour
 
     public void Initialize(Button button, TMP_Text priceText)
     {
+        _relicView = null;
         _button = button;
         _image = button != null ? button.GetComponent<Image>() : null;
         _priceText = priceText;
@@ -22,7 +24,18 @@ public sealed class ShopSlotView : MonoBehaviour
         _canvasGroup = GetComponent<CanvasGroup>() ?? gameObject.AddComponent<CanvasGroup>();
     }
 
-    public void Bind(Sprite sprite, int price, string label, string contentId, Action purchase)
+    public void Initialize(RelicUiView relicView, TMP_Text priceText)
+    {
+        _relicView = relicView;
+        _button = relicView != null ? relicView.Button : null;
+        _image = null;
+        _priceText = priceText;
+        _label = null;
+        _tooltipTrigger = GetComponent<TooltipTrigger>() ?? gameObject.AddComponent<TooltipTrigger>();
+        _canvasGroup = GetComponent<CanvasGroup>() ?? gameObject.AddComponent<CanvasGroup>();
+    }
+
+    public void Bind(Sprite sprite, int price, string label, string contentId, Action purchase, bool hasCounter = false, int counterValue = 0)
     {
         //gameObject.SetActive(true);
         if (_canvasGroup != null)
@@ -34,6 +47,8 @@ public sealed class ShopSlotView : MonoBehaviour
 
         _tooltipTrigger ??= GetComponent<TooltipTrigger>() ?? gameObject.AddComponent<TooltipTrigger>();
         _tooltipTrigger.Bind(contentId);
+        if (_relicView != null)
+            _relicView.Bind(sprite, contentId, hasCounter, counterValue);
         if (_image != null)
             _image.sprite = sprite;
         if (_priceText != null)
@@ -51,6 +66,7 @@ public sealed class ShopSlotView : MonoBehaviour
     public void SetUnavailable()
     {
         _tooltipTrigger?.Clear();
+        _relicView?.Clear();
         if (_button != null)
             _button.onClick.RemoveAllListeners();
 

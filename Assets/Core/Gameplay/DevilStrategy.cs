@@ -44,7 +44,7 @@ public sealed class BasicDevilStrategy : IDevilStrategy
         if (battle == null || round == null)
             return DevilTurnChoice.Stand;
 
-        ScoreResult currentScore = ScoreResolver.Resolve(round.OpponentVisibleCards, round.ScoringModifiers, round.TargetScore, round.BurstThreshold);
+        ScoreResult currentScore = ScoreResolver.Resolve(round.OpponentVisibleCards, round.ScoringModifiers, round.TargetScore, round.OpponentBurstThreshold);
         if (currentScore.FinalScore >= round.TargetScore)
             return DevilTurnChoice.Stand;
 
@@ -90,7 +90,7 @@ public sealed class BasicDevilStrategy : IDevilStrategy
         for (int i = 0; i < hand.Count; i++)
         {
             var cards = new List<Card>(visibleCards) { hand[i] };
-            ScoreResult score = ScoreResolver.Resolve(cards, round.ScoringModifiers, round.TargetScore, round.BurstThreshold);
+            ScoreResult score = ScoreResolver.Resolve(cards, round.ScoringModifiers, round.TargetScore, round.OpponentBurstThreshold);
             if (score.IsBurst)
                 continue;
 

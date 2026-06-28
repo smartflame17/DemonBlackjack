@@ -56,6 +56,18 @@ public readonly struct RelicAddedEvent
     public string RelicId { get; }
 }
 
+public readonly struct RelicCounterChangedEvent
+{
+    public RelicCounterChangedEvent(string relicId, int value)
+    {
+        RelicId = relicId;
+        Value = value;
+    }
+
+    public string RelicId { get; }
+    public int Value { get; }
+}
+
 public readonly struct ActiveItemAddedEvent
 {
     public ActiveItemAddedEvent(string itemId, int count)

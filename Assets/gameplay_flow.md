@@ -4,9 +4,9 @@ This document describes the intended MVP gameplay flow for the pure C# layer und
 
 ## 1. Run Resource Model
 
-`RunState` stores one persistent survival resource: money. Health and money are no longer separate systems.
+`RunState` stores one persistent survival resource: money.
 
-The player starts a run with 100 money. The player loses the run when money reaches 0. Legacy HP-facing API may remain temporarily as a presentation compatibility shim, but gameplay logic should read and write money.
+The player starts a run with 100 money. The player loses the run when money reaches 0. Gameplay logic and presentation code should read and write money.
 
 `RunState` also stores persistent run data:
 
@@ -114,7 +114,7 @@ After each turn, `BattleState` resolves current scores with `ScoreResolver`.
 
 If either combatant bursts, the round resolves immediately. A burst means immediate loss of the round. If both combatants burst in the same turn, the round is a draw.
 
-Burst also makes the bursting combatant lose half of their current money. This penalty is applied to money, not HP. If a combatant has only 1 money, the penalty removes that last money so battle end can be reached.
+Burst also makes the bursting combatant lose half of their current money. If a combatant has only 1 money, the penalty removes that last money so battle end can be reached.
 
 ## 7. Round Resolution
 

@@ -15,11 +15,10 @@ public sealed class RunState
     private readonly Dictionary<string, int> _devilAffinities = new();
     private readonly Dictionary<Rank, OwnedRankUpgrade> _rankUpgrades = new();
 
-    public RunState(int seed, int maxPlayerHp = 100, int startingGold = 100, int maxActiveItemSlots = DefaultMaxActiveItemSlots)
+    public RunState(int seed, int startingMoney = 100, int maxActiveItemSlots = DefaultMaxActiveItemSlots)
     {
         Seed = seed;
-        Money = Math.Max(0, startingGold);
-        MaxPlayerHp = Math.Max(1, maxPlayerHp);
+        Money = Math.Max(0, startingMoney);
         MaxActiveItemSlots = maxActiveItemSlots > 0 ? maxActiveItemSlots : DefaultMaxActiveItemSlots;
         AddEmptyActiveItemSlots(MaxActiveItemSlots);
         _runDeck.AddRange(CreateStandardRunDeck());
@@ -28,14 +27,12 @@ public sealed class RunState
 
     public int Seed { get; }
     public RunPhase Phase { get; private set; } = RunPhase.Inactive;
-    public int PlayerHp => Money;
-    public int MaxPlayerHp { get; private set; }
     public int Money { get; private set; }
-    public int Gold => Money;
     public int EncounterIndex { get; private set; }
     public int DifficultyLevel { get; private set; } = 1;
     public int DevilProgression { get; private set; }
     public int MaxActiveItemSlots { get; private set; }
+    public int PlayerBurstThresholdBonus { get; private set; }
     public bool AreActiveItemSlotsFull => FindEmptyActiveItemSlot() < 0;
     public IReadOnlyList<RunCard> RunDeck => _runDeck;
     public IReadOnlyList<Card> Deck => _deck;
@@ -53,14 +50,9 @@ public sealed class RunState
 
     public void AddMoney(int amount)
     {
+        int previous = Money;
         Money = Math.Max(0, Money + amount);
-        EventBus.Publish(new MoneyChangedEvent(Combatant.Player, Money, amount));
-        EventBus.Publish(new GoldChangedEvent(Money, amount));
-    }
-
-    public void SetPlayerHp(int hp)
-    {
-        SetMoney(hp);
+        EventBus.Publish(new MoneyChangedEvent(Combatant.Player, Money, Money - previous));
     }
 
     public void SetMoney(int money)
@@ -69,7 +61,6 @@ public sealed class RunState
         Money = Math.Max(0, money);
         int delta = Money - previous;
         EventBus.Publish(new MoneyChangedEvent(Combatant.Player, Money, delta));
-        EventBus.Publish(new GoldChangedEvent(Money, delta));
     }
 
     public int GetDevilAffinity(string devilId)
@@ -86,6 +77,14 @@ public sealed class RunState
             return;
 
         _devilAffinities[devilId] = Math.Clamp(GetDevilAffinity(devilId) + amount, 0, 100);
+    }
+
+    public void IncreasePlayerBurstThreshold(int amount)
+    {
+        if (amount <= 0)
+            return;
+
+        PlayerBurstThresholdBonus += amount;
     }
 
     public void AddRelic(string relicId)
@@ -291,12 +290,12 @@ public sealed class RunState
         {
             seed = Seed,
             phase = Phase,
-            gold = Gold,
-            maxPlayerHp = MaxPlayerHp,
+            money = Money,
             encounterIndex = EncounterIndex,
             difficultyLevel = DifficultyLevel,
             devilProgression = DevilProgression,
-            maxActiveItemSlots = MaxActiveItemSlots
+            maxActiveItemSlots = MaxActiveItemSlots,
+            playerBurstThresholdBonus = PlayerBurstThresholdBonus
         };
 
         for (int i = 0; i < _runDeck.Count; i++)
@@ -323,9 +322,7 @@ public sealed class RunState
                 playerWon = result.PlayerWon,
                 roundCount = result.RoundCount,
                 playerMoneyAfterBattle = result.PlayerMoneyAfterBattle,
-                opponentMoneyAfterBattle = result.OpponentMoneyAfterBattle,
-                playerHpAfterBattle = result.PlayerHpAfterBattle,
-                opponentHpAfterBattle = result.OpponentHpAfterBattle
+                opponentMoneyAfterBattle = result.OpponentMoneyAfterBattle
             });
         }
 
@@ -351,22 +348,22 @@ public sealed class RunState
         return data;
     }
 
-    public static RunState FromData(RunStateData data, int fallbackMaxPlayerHp = 100, int fallbackStartingGold = 100)
+    public static RunState FromData(RunStateData data, int fallbackStartingMoney = 100)
     {
         if (data == null)
             return null;
 
-        int maxPlayerHp = data.maxPlayerHp > 0 ? data.maxPlayerHp : fallbackMaxPlayerHp;
-        int startingGold = data.gold >= 0 ? data.gold : fallbackStartingGold;
+        int startingMoney = data.money >= 0 ? data.money : fallbackStartingMoney;
         int savedItemSlotCount = data.activeItemIds?.Count ?? 0;
         int maxActiveItemSlots = data.maxActiveItemSlots > 0
             ? Math.Max(data.maxActiveItemSlots, savedItemSlotCount)
             : Math.Max(DefaultMaxActiveItemSlots, savedItemSlotCount);
-        var state = new RunState(data.seed, maxPlayerHp, startingGold, maxActiveItemSlots);
+        var state = new RunState(data.seed, startingMoney, maxActiveItemSlots);
         state.Phase = data.phase;
         state.EncounterIndex = Math.Max(0, data.encounterIndex);
         state.DifficultyLevel = Math.Max(1, data.difficultyLevel);
         state.DevilProgression = Math.Max(0, data.devilProgression);
+        state.PlayerBurstThresholdBonus = Math.Max(0, data.playerBurstThresholdBonus);
 
         state._runDeck.Clear();
         if (data.deck != null && data.deck.Count > 0)
@@ -405,9 +402,7 @@ public sealed class RunState
                     result.playerWon,
                     Math.Max(0, result.roundCount),
                     Math.Max(0, result.playerMoneyAfterBattle),
-                    Math.Max(0, result.opponentMoneyAfterBattle),
-                    Math.Max(0, result.playerHpAfterBattle),
-                    Math.Max(0, result.opponentHpAfterBattle)));
+                    Math.Max(0, result.opponentMoneyAfterBattle)));
             }
         }
 
@@ -539,25 +534,16 @@ public sealed class RunState
 
 public readonly struct BattleResult
 {
-    public BattleResult(bool playerWon, int roundCount, int playerHpAfterBattle, int opponentHpAfterBattle)
-        : this(playerWon, roundCount, playerHpAfterBattle, opponentHpAfterBattle, playerHpAfterBattle, opponentHpAfterBattle)
-    {
-    }
-
-    public BattleResult(bool playerWon, int roundCount, int playerMoneyAfterBattle, int opponentMoneyAfterBattle, int playerHpAfterBattle, int opponentHpAfterBattle)
+    public BattleResult(bool playerWon, int roundCount, int playerMoneyAfterBattle, int opponentMoneyAfterBattle)
     {
         PlayerWon = playerWon;
         RoundCount = roundCount;
         PlayerMoneyAfterBattle = playerMoneyAfterBattle;
         OpponentMoneyAfterBattle = opponentMoneyAfterBattle;
-        PlayerHpAfterBattle = playerHpAfterBattle;
-        OpponentHpAfterBattle = opponentHpAfterBattle;
     }
 
     public bool PlayerWon { get; }
     public int RoundCount { get; }
     public int PlayerMoneyAfterBattle { get; }
     public int OpponentMoneyAfterBattle { get; }
-    public int PlayerHpAfterBattle { get; }
-    public int OpponentHpAfterBattle { get; }
 }
