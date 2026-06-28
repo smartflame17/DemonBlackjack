@@ -285,6 +285,7 @@ public sealed class BattleState
         return CurrentRound.TryMovePreviousPlayerPlayedCardToOpponent(out card);
     }
 
+    // Used by BattleEffectRuntime to immediately play a random card of the same suit as the previous player played card
     public bool TryPlayRandomPlayerHandCardOfSuit(Suit suit)
     {
         if (CurrentRound == null)
@@ -304,6 +305,7 @@ public sealed class BattleState
         return TryPlayPlayerHandCardForEffect(selected);
     }
 
+    // Used by BattleEffectRuntime to add a battle-only card to the player's hand, which will be removed at the end of the round
     public bool AddBattleOnlyCardToPlayerHand(Card card)
     {
         if (CurrentRound == null)

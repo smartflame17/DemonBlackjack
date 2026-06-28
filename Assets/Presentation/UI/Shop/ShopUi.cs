@@ -2,6 +2,7 @@ using System.Collections.Generic;
 using TMPro;
 using UnityEngine;
 using UnityEngine.UI;
+using DG.Tweening;
 
 public sealed class ShopUi : MonoBehaviour
 {
@@ -10,6 +11,9 @@ public sealed class ShopUi : MonoBehaviour
     [SerializeField] private GameplayAssetRegistry assetRegistry;
     [SerializeField] private ShopCatalog catalog;
     [SerializeField] private Button continueButton;
+    [SerializeField] private GameObject shopPanel;
+    [SerializeField] private float shopPanelAnimationDuration = 2.0f;
+    [SerializeField] private Ease shopPanelAnimationEase = Ease.OutBounce;
     [SerializeField] private int activeItemOfferCount = 3;
     [SerializeField] private int relicOfferCount = 3;
     [SerializeField] private int upgradeOfferCount = 5;
@@ -18,6 +22,7 @@ public sealed class ShopUi : MonoBehaviour
     private readonly List<ShopSlotView> _relicSlots = new();
     private readonly List<ShopSlotView> _upgradeSlots = new();
     private bool _generated;
+    private RectTransform shopPanelRectTransform => shopPanel != null ? shopPanel.transform as RectTransform : null;
 
     private void Awake()
     {
@@ -27,11 +32,14 @@ public sealed class ShopUi : MonoBehaviour
         catalog ??= Resources.Load<ShopCatalog>("Shop/ShopCatalog");
         catalog ??= ShopCatalog.CreateRuntimeDefault();
         continueButton ??= FindDescendant("ContinueButton")?.GetComponent<Button>();
+        shopPanel ??= FindDescendant("ShopPanel");
         BindSceneSlots();
     }
 
     private void OnEnable()
     {
+        shopPanel.SetActive(true);
+        shopPanelRectTransform.DOAnchorPos(new Vector2(0, -33), shopPanelAnimationDuration).SetEase(shopPanelAnimationEase);
         if (continueButton != null)
             continueButton.onClick.AddListener(Continue);
         GenerateOffers();
@@ -39,6 +47,8 @@ public sealed class ShopUi : MonoBehaviour
 
     private void OnDisable()
     {
+        shopPanel.SetActive(false);
+        shopPanelRectTransform.DOAnchorPos(new Vector2(0, 1000), shopPanelAnimationDuration).SetEase(shopPanelAnimationEase);
         if (continueButton != null)
             continueButton.onClick.RemoveListener(Continue);
         _generated = false;

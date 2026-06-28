@@ -7,6 +7,8 @@ public sealed class TopMenuBarController : MonoBehaviour
 {
     [SerializeField] private RunManager runManager;
     [SerializeField] private GameplayAssetRegistry assetRegistry;
+    [SerializeField] private ShopCatalog catalog;
+    [SerializeField] private RelicUiView relicPrefab;
     [SerializeField] private RectTransform activeItemSlotRoot;
     [SerializeField] private RectTransform relicRoot;
     [SerializeField] private ItemUseMenu itemUseMenu;
@@ -193,23 +195,22 @@ public sealed class TopMenuBarController : MonoBehaviour
 
     private RelicBinding CreateRelicBinding(int index)
     {
-        GameObject rootObject = new($"RelicButton{index + 1}", typeof(RectTransform), typeof(CanvasRenderer), typeof(Image), typeof(Button), typeof(TooltipTrigger));
-        rootObject.layer = relicRoot.gameObject.layer;
-        RectTransform root = rootObject.GetComponent<RectTransform>();
-        root.SetParent(relicRoot, false);
+        RelicUiView view = ResolveRelicPrefab() != null ? Instantiate(relicPrefab, relicRoot, false) : CreateFallbackRelicView();
+        view.name = $"RelicButton{index + 1}";
+        view.gameObject.layer = relicRoot.gameObject.layer;
+
+        RectTransform root = view.RectTransform;
         root.sizeDelta = GetRelicIconSize();
 
-        Image image = rootObject.GetComponent<Image>();
-        image.preserveAspect = true;
-        image.color = Color.white;
+        Button button = view.Button;
+        if (button != null)
+        {
+            button.interactable = true;
+            button.onClick.RemoveAllListeners();
+        }
 
-        Button button = rootObject.GetComponent<Button>();
-        button.targetGraphic = image;
-        button.interactable = true;
-        button.onClick.RemoveAllListeners();
-
-        TooltipTrigger tooltipTrigger = rootObject.GetComponent<TooltipTrigger>();
-        return new RelicBinding(root, image, tooltipTrigger);
+        TooltipTrigger tooltipTrigger = view.GetComponent<TooltipTrigger>() ?? view.gameObject.AddComponent<TooltipTrigger>();
+        return new RelicBinding(root, view, tooltipTrigger);
     }
 
     private Vector2 GetRelicIconSize()
@@ -221,8 +222,8 @@ public sealed class TopMenuBarController : MonoBehaviour
     {
         bool occupied = !string.IsNullOrWhiteSpace(relicId);
         relic.Root.gameObject.SetActive(occupied);
-        relic.Image.sprite = occupied && assetRegistry != null ? assetRegistry.GetRelicSprite(relicId) : null;
-        relic.Image.color = occupied ? Color.white : Color.clear;
+        RelicDefinition definition = GetRelicDefinition(relicId);
+        relic.View.Bind(occupied && assetRegistry != null ? assetRegistry.GetRelicSprite(relicId) : null, relicId, definition != null && definition.HasCounter);
         if (occupied)
             relic.TooltipTrigger.Bind(relicId);
         else
@@ -233,6 +234,8 @@ public sealed class TopMenuBarController : MonoBehaviour
     {
         runManager ??= FindFirstObjectByType<RunManager>();
         assetRegistry ??= FindLoadedRegistry();
+        catalog ??= Resources.Load<ShopCatalog>("Shop/ShopCatalog");
+        catalog ??= ShopCatalog.CreateRuntimeDefault();
         activeItemSlotRoot ??= FindChildRecursive(transform, "ActiveItemSlotRoot") as RectTransform;
         relicRoot ??= FindChildRecursive(transform, "RelicRoot") as RectTransform;
         playerMoneyText ??= FindChildRecursive(transform, "PlayerMoney")?.GetComponent<TMP_Text>();
@@ -269,6 +272,54 @@ public sealed class TopMenuBarController : MonoBehaviour
     {
         GameplayAssetRegistry[] registries = Resources.FindObjectsOfTypeAll<GameplayAssetRegistry>();
         return registries.Length > 0 ? registries[0] : null;
+    }
+
+    private RelicDefinition GetRelicDefinition(string relicId)
+    {
+        if (catalog != null && catalog.TryGetDefinition(relicId, out ShopContentDefinition definition))
+            return definition as RelicDefinition;
+
+        return null;
+    }
+
+    private RelicUiView ResolveRelicPrefab()
+    {
+        if (relicPrefab != null)
+            return relicPrefab;
+
+        RelicUiView[] candidates = Resources.FindObjectsOfTypeAll<RelicUiView>();
+        for (int i = 0; i < candidates.Length; i++)
+        {
+            RelicUiView candidate = candidates[i];
+            if (candidate != null && candidate.name == "RelicPrefab" && !candidate.gameObject.scene.IsValid())
+            {
+                relicPrefab = candidate;
+                return relicPrefab;
+            }
+        }
+
+        Debug.LogWarning($"{nameof(TopMenuBarController)} is missing a relic prefab reference.", this);
+        return null;
+    }
+
+    private RelicUiView CreateFallbackRelicView()
+    {
+        GameObject rootObject = new("RelicButton", typeof(RectTransform), typeof(CanvasRenderer), typeof(Image), typeof(Button), typeof(TooltipTrigger), typeof(RelicUiView));
+        rootObject.layer = relicRoot.gameObject.layer;
+        RectTransform root = rootObject.GetComponent<RectTransform>();
+        root.SetParent(relicRoot, false);
+        root.sizeDelta = GetRelicIconSize();
+
+        Image image = rootObject.GetComponent<Image>();
+        image.preserveAspect = true;
+        image.color = Color.white;
+
+        Button button = rootObject.GetComponent<Button>();
+        button.targetGraphic = image;
+
+        RelicUiView view = rootObject.GetComponent<RelicUiView>();
+        view.Initialize(image, button, null);
+        return view;
     }
 
     private void OnActiveItemAdded(ActiveItemAddedEvent eventData) => Refresh();
@@ -315,15 +366,15 @@ public sealed class TopMenuBarController : MonoBehaviour
 
     private sealed class RelicBinding
     {
-        public RelicBinding(RectTransform root, Image image, TooltipTrigger tooltipTrigger)
+        public RelicBinding(RectTransform root, RelicUiView view, TooltipTrigger tooltipTrigger)
         {
             Root = root;
-            Image = image;
+            View = view;
             TooltipTrigger = tooltipTrigger;
         }
 
         public RectTransform Root { get; }
-        public Image Image { get; }
+        public RelicUiView View { get; }
         public TooltipTrigger TooltipTrigger { get; }
     }
 }

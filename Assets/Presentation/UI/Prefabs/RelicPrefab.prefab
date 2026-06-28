@@ -14,6 +14,7 @@ GameObject:
   - component: {fileID: 8241982615927947105}
   - component: {fileID: 8426538489749212189}
   - component: {fileID: 1400900459214706406}
+  - component: {fileID: 6313105652152221133}
   m_Layer: 5
   m_Name: RelicPrefab
   m_TagString: Untagged
@@ -59,7 +60,7 @@ MonoBehaviour:
   m_Enabled: 1
   m_EditorHideFlags: 0
   m_Script: {fileID: 11500000, guid: fe87c0e1cc204ed48ad3b37840f39efc, type: 3}
-  m_Name: 
+  m_Name:
   m_EditorClassIdentifier: UnityEngine.UI::UnityEngine.UI.Image
   m_Material: {fileID: 0}
   m_Color: {r: 1, g: 1, b: 1, a: 1}
@@ -151,6 +152,22 @@ MonoBehaviour:
   m_EditorClassIdentifier: Assembly-CSharp::EnlargeOnHover
   scaleFactor: 1.2
   transitionDuration: 0.2
+--- !u!114 &6313105652152221133
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 3775896922753741294}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 2f51f3ae1f2a4cf8b28d0c0f6e4779de, type: 3}
+  m_Name:
+  m_EditorClassIdentifier: Assembly-CSharp::RelicUiView
+  image: {fileID: 4690718159540151523}
+  counterText: {fileID: 2554783803230335045}
+  button: {fileID: 8241982615927947105}
+  tooltipTrigger: {fileID: 8426538489749212189}
 --- !u!1 &8071247821216187428
 GameObject:
   m_ObjectHideFlags: 0
@@ -163,7 +180,7 @@ GameObject:
   - component: {fileID: 3637280290156452072}
   - component: {fileID: 2554783803230335045}
   m_Layer: 5
-  m_Name: Counter
+  m_Name: CounterText
   m_TagString: Untagged
   m_Icon: {fileID: 0}
   m_NavMeshLayer: 0
@@ -243,8 +260,8 @@ MonoBehaviour:
   m_faceColor:
     serializedVersion: 2
     rgba: 4294967295
-  m_fontSize: 18
-  m_fontSizeBase: 18
+  m_fontSize: 20
+  m_fontSizeBase: 20
   m_fontWeight: 400
   m_enableAutoSizing: 0
   m_fontSizeMin: 18
