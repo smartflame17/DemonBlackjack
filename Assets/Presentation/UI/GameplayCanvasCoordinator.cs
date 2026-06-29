@@ -134,8 +134,31 @@ public sealed class GameplayCanvasCoordinator : MonoBehaviour
 
         SetCanvasActive(battleCanvas, phase == RunPhase.Battle || phase == RunPhase.Shop);
         SetCanvasActive(mapCanvas, phase == RunPhase.Map || phase == RunPhase.Encounter || phase == RunPhase.Rewards);
+        // Apply battle init button interactability on map canvas
+        if (runManager.RunState != null)
+            SetBattleButtonsByProgression(runManager.RunState.DevilProgression);
+
         SetCanvasActive(shopCanvas, phase == RunPhase.Shop);
         SetCanvasActive(debugCanvas, keepDebugCanvasVisible);
+    }
+
+    private void SetBattleButtonsByProgression(int DevilProgression)
+    {
+        if (DevilProgression > 1)
+        {
+            devil1BattleButton.interactable = false;
+            devil1BattleButton.GetComponent<Image>().color = new Color(0.0f, 0.0f, 0.0f, 1f);
+        }
+        if (DevilProgression > 2)
+        {
+            devil2BattleButton.interactable = false;
+            devil2BattleButton.GetComponent<Image>().color = new Color(0.0f, 0.0f, 0.0f, 1f);
+        }
+        if (DevilProgression > 3)
+        {
+            devil3BattleButton.interactable = false;
+            devil3BattleButton.GetComponent<Image>().color = new Color(0.0f, 0.0f, 0.0f, 1f);
+        }
     }
 
     private static void SetCanvasActive(Canvas canvas, bool active)

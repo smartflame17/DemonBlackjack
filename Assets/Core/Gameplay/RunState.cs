@@ -30,7 +30,7 @@ public sealed class RunState
     public int Money { get; private set; }
     public int EncounterIndex { get; private set; }
     public int DifficultyLevel { get; private set; } = 1;
-    public int DevilProgression { get; private set; }
+    public int DevilProgression { get; private set; } = 1;
     public int MaxActiveItemSlots { get; private set; }
     public int PlayerBurstThresholdBonus { get; private set; }
     public bool AreActiveItemSlotsFull => FindEmptyActiveItemSlot() < 0;
