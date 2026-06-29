@@ -873,17 +873,129 @@ public sealed class ShopSystemTests
     {
         var run = new RunState(1, startingMoney: 100);
         run.AddActiveItem(ActiveItemResolver.DoubleWager);
-        var battle = new BattleState(run, new BattleConfig("test", 100));
+        var battle = new BattleState(run, new BattleConfig("test", 100, baseWager: 10));
         battle.StartRound();
-        Assert.That(battle.CurrentRound.TryCommitWager(10, 10), Is.True);
+        Assert.That(battle.CommitWagerAndBeginRound(1, true), Is.True);
 
         Assert.That(battle.TryUseActiveItem(ActiveItemResolver.DoubleWager), Is.True);
 
-        Assert.That(battle.CurrentRound.PlayerStake, Is.EqualTo(20));
-        Assert.That(battle.CurrentRound.OpponentStake, Is.EqualTo(20));
+        Assert.That(battle.CurrentRound.BaseWager, Is.EqualTo(10));
+        Assert.That(battle.CurrentRound.WagerMultiplier, Is.EqualTo(2));
+        Assert.That(battle.CurrentRound.EffectiveWager, Is.EqualTo(20));
         Assert.That(battle.CurrentRound.Pot, Is.EqualTo(40));
-        Assert.That(run.Money, Is.EqualTo(90));
-        Assert.That(battle.OpponentMoney, Is.EqualTo(90));
+        Assert.That(run.Money, Is.EqualTo(80));
+        Assert.That(battle.OpponentMoney, Is.EqualTo(80));
+    }
+
+    [Test]
+    public void FixedWager_IgnoresRequestedWagerAndAntesBaseWager()
+    {
+        var run = new RunState(1, startingMoney: 100);
+        var battle = new BattleState(run, new BattleConfig("test", 100, new StandingDevilStrategy(), baseWager: 25));
+        battle.StartRound();
+
+        Assert.That(battle.CommitWagerAndBeginRound(999, false), Is.True);
+
+        Assert.That(battle.CurrentRound.EffectiveWager, Is.EqualTo(25));
+        Assert.That(battle.CurrentRound.PlayerStake, Is.EqualTo(25));
+        Assert.That(battle.CurrentRound.OpponentStake, Is.EqualTo(25));
+        Assert.That(battle.CurrentRound.Pot, Is.EqualTo(50));
+        Assert.That(run.Money, Is.EqualTo(75));
+        Assert.That(battle.OpponentMoney, Is.EqualTo(75));
+    }
+
+    [Test]
+    public void Burst_DoesNotEndRoundUntilBothCombatantsStand()
+    {
+        var run = new RunState(1, startingMoney: 500);
+        var battle = new BattleState(run, TestBattleConfig());
+        battle.StartRound();
+        battle.CommitWagerAndBeginRound(1, true);
+        PlayPlayerCards(battle.CurrentRound, new Card(Suit.Clubs, Rank.King), new Card(Suit.Hearts, Rank.King), new Card(Suit.Spades, Rank.Five));
+
+        Assert.That(battle.EndPlayerPhase().Winner, Is.Null);
+
+        Assert.That(battle.CurrentRound.PlayerScore.IsBurst, Is.True);
+        Assert.That(battle.Phase, Is.EqualTo(BattlePhase.PlayerPhase));
+        Assert.That(battle.CurrentRound, Is.Not.Null);
+    }
+
+    [Test]
+    public void BurstPayout_UsesOffsetTimesEffectiveWager()
+    {
+        var run = new RunState(1, startingMoney: 1000);
+        var battle = new BattleState(run, new BattleConfig("test", 1000, new StandingDevilStrategy(), baseWager: 100));
+        battle.StartRound();
+        battle.CommitWagerAndBeginRound(1, true);
+        PlayPlayerCards(battle.CurrentRound, new Card(Suit.Clubs, Rank.Nine), new Card(Suit.Hearts, Rank.Eight), new Card(Suit.Spades, Rank.Eight));
+        PlayOpponentCards(battle.CurrentRound, new Card(Suit.Diamonds, Rank.Two));
+        battle.CurrentRound.MarkOpponentStood();
+
+        Assert.That(battle.TryStand(), Is.True);
+
+        RoundResolution resolution = battle.CombatHistory[^1];
+        Assert.That(resolution.PlayerMoneyLost, Is.EqualTo(400));
+    }
+
+    [Test]
+    public void BlackjackWinner_TransfersOneEffectiveWagerBeforePoker()
+    {
+        var run = new RunState(1, startingMoney: 500);
+        var battle = new BattleState(run, new BattleConfig("test", 500, new StandingDevilStrategy(), baseWager: 10));
+        battle.StartRound();
+        battle.CommitWagerAndBeginRound(1, true);
+        PlayPlayerCards(battle.CurrentRound, new Card(Suit.Clubs, Rank.King), new Card(Suit.Hearts, Rank.Nine));
+        PlayOpponentCards(battle.CurrentRound, new Card(Suit.Diamonds, Rank.Eight), new Card(Suit.Spades, Rank.Seven));
+        battle.CurrentRound.MarkOpponentStood();
+
+        Assert.That(battle.TryStand(), Is.True);
+
+        Assert.That(battle.CombatHistory[^1].Winner, Is.EqualTo(Combatant.Player));
+        Assert.That(battle.CombatHistory[^1].OpponentMoneyLost, Is.EqualTo(10)); // High-card poker after blackjack pot settlement.
+        Assert.That(run.Money, Is.EqualTo(520));
+        Assert.That(battle.OpponentMoney, Is.EqualTo(480));
+    }
+
+    [Test]
+    public void PokerPayout_UsesCombinedPlayedOpponentAndSharedCards()
+    {
+        var run = new RunState(1, startingMoney: 500);
+        var battle = new BattleState(run, new BattleConfig("test", 500, new StandingDevilStrategy(), baseWager: 10));
+        battle.StartRound();
+        battle.CommitWagerAndBeginRound(1, true);
+        PlayPlayerCards(battle.CurrentRound, new Card(Suit.Clubs, Rank.Two), new Card(Suit.Hearts, Rank.Three));
+        PlayOpponentCards(battle.CurrentRound, new Card(Suit.Diamonds, Rank.Nine), new Card(Suit.Spades, Rank.Nine));
+        battle.CurrentRound.AddSharedVisibleCard(new Card(Suit.Clubs, Rank.Four));
+        battle.CurrentRound.AddSharedVisibleCard(new Card(Suit.Hearts, Rank.Five));
+        battle.CurrentRound.AddSharedVisibleCard(new Card(Suit.Diamonds, Rank.Six));
+        battle.CurrentRound.MarkOpponentStood();
+
+        Assert.That(battle.TryStand(), Is.True);
+
+        Assert.That(ScoreResolver.ResolvePoker(battle.CurrentRound.GetPokerCardsForPlayerPayout()).Rank, Is.EqualTo(PokerHandRank.Straight));
+        Assert.That(battle.CombatHistory[^1].OpponentMoneyLost, Is.EqualTo(40)); // Poker payout is outside the blackjack pot.
+        Assert.That(battle.CombatHistory[^1].PlayerMoneyLost, Is.EqualTo(0));
+        Assert.That(run.Money, Is.EqualTo(530));
+        Assert.That(battle.OpponentMoney, Is.EqualTo(470));
+    }
+
+    [Test]
+    public void PokerPayout_IsSkippedWhenPlayerRunsOutDuringBlackjackResolution()
+    {
+        var run = new RunState(1, startingMoney: 100);
+        var battle = new BattleState(run, new BattleConfig("test", 500, new StandingDevilStrategy(), baseWager: 100));
+        battle.StartRound();
+        battle.CommitWagerAndBeginRound(1, true);
+        PlayPlayerCards(battle.CurrentRound, new Card(Suit.Clubs, Rank.King), new Card(Suit.Hearts, Rank.Queen), new Card(Suit.Spades, Rank.Two));
+        PlayOpponentCards(battle.CurrentRound, new Card(Suit.Diamonds, Rank.Ace), new Card(Suit.Clubs, Rank.King));
+        battle.CurrentRound.MarkOpponentStood();
+
+        Assert.That(battle.TryStand(), Is.True);
+
+        Assert.That(run.Money, Is.EqualTo(0));
+        Assert.That(battle.OpponentMoney, Is.EqualTo(600));
+        Assert.That(battle.CombatHistory[^1].OpponentMoneyLost, Is.EqualTo(0));
+        Assert.That(battle.CombatHistory[^1].PlayerMoneyLost, Is.EqualTo(0));
     }
 
     private static bool ContainsUpgradedRank(IReadOnlyList<Card> cards, Rank rank, string modifierId)
@@ -1064,11 +1176,24 @@ public sealed class ShopSystemTests
         };
     }
 
+    private static void PlayPlayerCards(RoundState round, params Card[] cards)
+    {
+        for (int i = 0; i < cards.Length; i++)
+            Assert.That(round.TryPlayHitCard(cards[i]), Is.True);
+    }
+
+    private static void PlayOpponentCards(RoundState round, params Card[] cards)
+    {
+        for (int i = 0; i < cards.Length; i++)
+        {
+            round.AddToOpponentHand(cards[i]);
+            Assert.That(round.TryPlayOpponentCard(round.OpponentHand.Count - 1, out _), Is.True);
+        }
+    }
+
     private sealed class StandingDevilStrategy : IDevilStrategy
     {
         public int DrawValue => 0;
-        public int ChooseWager(BattleState battle, RoundState pendingRound, int defaultWager) => defaultWager;
-        public WagerResponse ChoosePlayerWagerResponse(BattleState battle, RoundState pendingRound, int proposedWager) => WagerResponse.Accept;
         public DevilTurnChoice ChooseTurnAction(BattleState battle, RoundState round) => DevilTurnChoice.Stand;
         public int ChooseCardIndex(BattleState battle, RoundState round) => 0;
         public IEnumerable<Card> CreateStartingDeck(RunState runState, BattleConfig config) => new List<Card>();

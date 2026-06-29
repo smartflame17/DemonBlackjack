@@ -15,14 +15,13 @@ public sealed class RoundState
     private readonly List<Modifier> _scoringModifiers = new();
     private int _lastPlayerHitCardIndex = -1;
 
-    public RoundState(int roundNumber, int targetScore, int playerBurstThreshold, int opponentBurstThreshold, int playerStake, int opponentStake, bool playerActsFirst)
+    public RoundState(int roundNumber, int targetScore, int playerBurstThreshold, int opponentBurstThreshold, int baseWager, bool playerActsFirst)
     {
         RoundNumber = roundNumber;
         TargetScore = targetScore;
         PlayerBurstThreshold = playerBurstThreshold;
         OpponentBurstThreshold = opponentBurstThreshold;
-        PlayerStake = playerStake;
-        OpponentStake = opponentStake;
+        BaseWager = Math.Max(0, baseWager);
         PlayerActsFirst = playerActsFirst;
     }
 
@@ -31,7 +30,10 @@ public sealed class RoundState
     public int PlayerBurstThreshold { get; private set; }
     public int OpponentBurstThreshold { get; private set; }
     public int BurstThreshold => PlayerBurstThreshold;
-    public int Wager => Math.Min(PlayerStake, OpponentStake);
+    public int BaseWager { get; private set; }
+    public int WagerMultiplier { get; private set; } = 1;
+    public int EffectiveWager => WagerCommitted ? BaseWager * WagerMultiplier : 0;
+    public int Wager => EffectiveWager;
     public int PlayerStake { get; private set; }
     public int OpponentStake { get; private set; }
     public bool PlayerActsFirst { get; }
@@ -78,7 +80,10 @@ public sealed class RoundState
 
     public bool TryCommitWager(int playerStake, int opponentStake)
     {
-        if (WagerCommitted || playerStake <= 0 || opponentStake <= 0)
+        if (WagerCommitted)
+            return false;
+
+        if (playerStake <= 0 || opponentStake <= 0)
             return false;
 
         PlayerStake = playerStake;
@@ -94,6 +99,7 @@ public sealed class RoundState
 
         PlayerStake += playerStakeDelta;
         OpponentStake += opponentStakeDelta;
+        WagerMultiplier++;
         return true;
     }
 
@@ -279,6 +285,15 @@ public sealed class RoundState
     {
         PlayerScore = playerScore;
         OpponentScore = opponentScore;
+    }
+
+    public IReadOnlyList<Card> GetPokerCardsForPlayerPayout()
+    {
+        var cards = new List<Card>();
+        cards.AddRange(_playerPlayedCards);
+        cards.AddRange(_opponentVisibleCards);
+        cards.AddRange(_sharedVisibleCards);
+        return cards;
     }
 
     public void MoveHandsTo(ICollection<Card> playerHand, ICollection<Card> opponentHand)

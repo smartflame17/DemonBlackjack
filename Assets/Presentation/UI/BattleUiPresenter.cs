@@ -344,7 +344,7 @@ public sealed class BattleUiPresenter : MonoBehaviour
         if (battle == null)
             return;
 
-        _pendingWager = Mathf.Min(GetMaxProposal(battle), _pendingWager + GetWagerStep(battle));
+        _pendingWager = battle.GetDefaultWager();
         Refresh();
     }
 
@@ -354,8 +354,7 @@ public sealed class BattleUiPresenter : MonoBehaviour
         if (battle == null)
             return;
 
-        int minimum = GetMinProposal(battle);
-        _pendingWager = Mathf.Max(minimum, _pendingWager - GetWagerStep(battle));
+        _pendingWager = battle.GetDefaultWager();
         Refresh();
     }
 
@@ -463,7 +462,7 @@ public sealed class BattleUiPresenter : MonoBehaviour
             return;
 
         _wagerOpen = true;
-        _pendingWager = Mathf.Clamp(battle.GetDefaultWager(), GetMinProposal(battle), GetMaxProposal(battle));
+        _pendingWager = battle.GetDefaultWager();
     }
 
     private void RefreshWagerPanel(BattleState battle)
@@ -471,22 +470,16 @@ public sealed class BattleUiPresenter : MonoBehaviour
         if (wagerPanel == null || !wagerPanel.activeSelf || battle == null)
             return;
 
-        bool playerActsFirst = battle.CurrentRound == null || battle.CurrentRound.PlayerActsFirst;
-        SetActive(playerProposalRoot, playerActsFirst);
-        SetActive(devilOfferRoot, !playerActsFirst);
+        SetActive(playerProposalRoot, true);
+        SetActive(devilOfferRoot, false);
 
-        int maxProposal = GetMaxProposal(battle);
-        int minProposal = GetMinProposal(battle);
-        _pendingWager = Mathf.Clamp(_pendingWager, minProposal, maxProposal);
+        _pendingWager = battle.GetDefaultWager();
         SetText(proposalAmountText, _pendingWager.ToString());
-        //SetText(devilOfferAmountText, "Devil offer");
-        if (!playerActsFirst)
-            SetText(devilOfferAmountText, battle.GetOpponentWagerOffer().ToString());
 
         if (incrementWagerButton != null)
-            incrementWagerButton.interactable = _pendingWager < maxProposal;
+            incrementWagerButton.interactable = false;
         if (decrementWagerButton != null)
-            decrementWagerButton.interactable = _pendingWager > minProposal;
+            decrementWagerButton.interactable = false;
     }
 
     private void RefreshRoundResult(BattleState battle)
@@ -509,8 +502,7 @@ public sealed class BattleUiPresenter : MonoBehaviour
 
     private int GetMaxProposal(BattleState battle)
     {
-        //return Mathf.Max(GetMinProposal(battle), battle.GetDefaultWager() * (int)DevilHandLevel.VeryHigh);
-        return Mathf.Max(GetMinProposal(battle), battle.PlayerMoney);
+        return Mathf.Max(1, battle.GetDefaultWager());
     }
 
     private int GetMinProposal(BattleState battle)
