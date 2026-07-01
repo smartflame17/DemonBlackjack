@@ -1,3 +1,4 @@
+using System;
 using System.Collections.Generic;
 using TMPro;
 using UnityEngine;
@@ -5,16 +6,25 @@ using UnityEngine.UI;
 
 public sealed class TopMenuBarController : MonoBehaviour
 {
+    [Header("References")]
     [SerializeField] private RunManager runManager;
     [SerializeField] private GameplayAssetRegistry assetRegistry;
     [SerializeField] private ShopCatalog catalog;
     [SerializeField] private RelicUiView relicPrefab;
+    [SerializeField] private TMP_Text playerMoneyText;
+
+    [Header("Items & Relics")]
     [SerializeField] private RectTransform activeItemSlotRoot;
     [SerializeField] private RectTransform relicRoot;
     [SerializeField] private ItemUseMenu itemUseMenu;
-    [SerializeField] private TMP_Text playerMoneyText;
+
+    [Header("Deck")]
     [SerializeField] private Button viewFullDeckButton;
     [SerializeField] private DeckViewPanel deckViewPanel;
+
+    [Header("Menu")]
+    [SerializeField] private Button settingMenuButton;
+    [SerializeField] private SettingMenuController settingMenuController;
 
     private readonly List<SlotBinding> _slots = new();
     private readonly List<RelicBinding> _relics = new();
@@ -38,6 +48,8 @@ public sealed class TopMenuBarController : MonoBehaviour
         EventBus.Subscribe<MoneyChangedEvent>(OnMoneyChanged);
         if (viewFullDeckButton != null)
             viewFullDeckButton.onClick.AddListener(ShowFullDeck);
+        if (settingMenuButton != null)
+            settingMenuButton.onClick.AddListener(ShowSettingMenu);
         Refresh();
     }
 
@@ -247,6 +259,8 @@ public sealed class TopMenuBarController : MonoBehaviour
         playerMoneyText ??= FindChildRecursive(transform, "PlayerMoney")?.GetComponent<TMP_Text>();
         viewFullDeckButton ??= FindChildRecursive(transform, "ViewFullDeckButton")?.GetComponent<Button>();
         deckViewPanel ??= FindFirstObjectByType<DeckViewPanel>(FindObjectsInactive.Include);
+        settingMenuButton ??= FindChildRecursive(transform, "SettingMenuButton")?.GetComponent<Button>();
+        settingMenuController ??= FindFirstObjectByType<SettingMenuController>(FindObjectsInactive.Include);
 
         if (itemUseMenu == null)
         {
@@ -372,6 +386,11 @@ public sealed class TopMenuBarController : MonoBehaviour
     {
         if (playerMoneyText != null)
             playerMoneyText.text = $"${Mathf.Max(0, amount)}";
+    }
+
+    private void ShowSettingMenu()
+    {
+        settingMenuController.gameObject.SetActive(true);
     }
 
     private sealed class SlotBinding
