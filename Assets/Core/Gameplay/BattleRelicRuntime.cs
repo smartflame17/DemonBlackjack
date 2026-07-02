@@ -52,6 +52,11 @@ public abstract class BattleRelicRuntime : IDisposable
         EventBus.Publish(new RelicCounterChangedEvent(RelicId, Math.Max(0, value)));
     }
 
+    protected void PublishActivation()
+    {
+        EventBus.Publish(new RelicActivatedEvent(RelicId));
+    }
+
     protected bool RefreshCurrentRoundPlayerBurstThreshold()
     {
         RoundState round = Battle.CurrentRound;
@@ -143,6 +148,7 @@ public sealed class AddJqkRelicRuntime : BattleRelicRuntime
 
         _bonus++;
         PublishCounter(_bonus);
+        PublishActivation();
     }
 
     private void ResetRoundState()
@@ -179,6 +185,7 @@ public sealed class BurstExtendRelicRuntime : BattleRelicRuntime
 
         _hitCount = 0;
         PublishCounter(0);
+        PublishActivation();
     }
 
     private void OnBattleEnded(BattleEndedEvent eventData)

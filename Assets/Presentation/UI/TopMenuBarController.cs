@@ -12,6 +12,9 @@ public sealed class TopMenuBarController : MonoBehaviour
     [SerializeField] private ShopCatalog catalog;
     [SerializeField] private RelicUiView relicPrefab;
     [SerializeField] private TMP_Text playerMoneyText;
+    [SerializeField] private ParticleSystem relicActivationEffect;
+
+    [SerializeField] private RectTransform relicEffectRectTransform;
 
     [Header("Items & Relics")]
     [SerializeField] private RectTransform activeItemSlotRoot;
@@ -46,6 +49,7 @@ public sealed class TopMenuBarController : MonoBehaviour
         EventBus.Subscribe<RelicCounterChangedEvent>(OnRelicCounterChanged);
         EventBus.Subscribe<RunPhaseChangedEvent>(OnRunPhaseChanged);
         EventBus.Subscribe<MoneyChangedEvent>(OnMoneyChanged);
+        EventBus.Subscribe<RelicActivatedEvent>(OnRelicActivated);
         if (viewFullDeckButton != null)
             viewFullDeckButton.onClick.AddListener(ShowFullDeck);
         if (settingMenuButton != null)
@@ -67,6 +71,7 @@ public sealed class TopMenuBarController : MonoBehaviour
         EventBus.Unsubscribe<RelicCounterChangedEvent>(OnRelicCounterChanged);
         EventBus.Unsubscribe<RunPhaseChangedEvent>(OnRunPhaseChanged);
         EventBus.Unsubscribe<MoneyChangedEvent>(OnMoneyChanged);
+        EventBus.Unsubscribe<RelicActivatedEvent>(OnRelicActivated);
         if (viewFullDeckButton != null)
             viewFullDeckButton.onClick.RemoveListener(ShowFullDeck);
     }
@@ -261,7 +266,7 @@ public sealed class TopMenuBarController : MonoBehaviour
         deckViewPanel ??= FindFirstObjectByType<DeckViewPanel>(FindObjectsInactive.Include);
         settingMenuButton ??= FindChildRecursive(transform, "SettingMenuButton")?.GetComponent<Button>();
         settingMenuController ??= FindFirstObjectByType<SettingMenuController>(FindObjectsInactive.Include);
-
+        relicActivationEffect ??= FindFirstObjectByType<ParticleSystem>(FindObjectsInactive.Include);
         if (itemUseMenu == null)
         {
             ItemUseMenu[] menus = Resources.FindObjectsOfTypeAll<ItemUseMenu>();
@@ -362,6 +367,24 @@ public sealed class TopMenuBarController : MonoBehaviour
             RelicDefinition definition = GetRelicDefinition(eventData.RelicId);
             if (definition != null && definition.HasCounter)
                 relic.View.SetCounter(true, _relicCounterValues[eventData.RelicId]);
+        }
+    }
+    
+    private void OnRelicActivated(RelicActivatedEvent eventData)
+    {
+        for (int i = 0; i < _relics.Count; i++)
+        {
+            RelicBinding relic = _relics[i];
+            if (!string.Equals(relic.RelicId, eventData.RelicId, System.StringComparison.Ordinal))
+                continue;
+
+            relicActivationEffect.textureSheetAnimation.SetSprite(0, relic.View.Button.image.sprite);
+
+            relicEffectRectTransform.position = relic.View.RectTransform.position;
+ 
+            relicActivationEffect.Play();
+            Debug.Log($"Relic activated: {eventData.RelicId}");
+            break;
         }
     }
     private void OnRunPhaseChanged(RunPhaseChangedEvent eventData) => Refresh();

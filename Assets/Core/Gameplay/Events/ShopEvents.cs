@@ -1,3 +1,5 @@
+// All events here are broadcasted through the global event bus.
+
 public readonly struct ShopOpenedEvent
 {
     public ShopOpenedEvent(int encounterIndex, int roundNumber)
@@ -50,6 +52,8 @@ public readonly struct ShopPurchaseFailedEvent
     public ShopPurchaseFailure Failure { get; }
 }
 
+// Relic related events
+
 public readonly struct RelicAddedEvent
 {
     public RelicAddedEvent(string relicId) => RelicId = relicId;
@@ -67,6 +71,14 @@ public readonly struct RelicCounterChangedEvent
     public string RelicId { get; }
     public int Value { get; }
 }
+
+public readonly struct RelicActivatedEvent
+{
+    public RelicActivatedEvent(string relicId) => RelicId = relicId;
+    public string RelicId { get; }
+}
+
+// Active item related events
 
 public readonly struct ActiveItemAddedEvent
 {
@@ -96,6 +108,8 @@ public readonly struct ActiveItemCapacityChangedEvent
     public ActiveItemCapacityChangedEvent(int capacity) => Capacity = capacity;
     public int Capacity { get; }
 }
+
+// Card upgrade related events
 
 public readonly struct RankUpgradeChangedEvent
 {

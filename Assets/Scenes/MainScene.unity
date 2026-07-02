@@ -15623,9 +15623,9 @@ ParticleSystem:
   ringBufferMode: 0
   ringBufferLoopRange: {x: 0, y: 1}
   emitterVelocityMode: 1
-  looping: 1
+  looping: 0
   prewarm: 0
-  playOnAwake: 1
+  playOnAwake: 0
   useUnscaledTime: 0
   autoRandomSeed: 1
   startDelay:
@@ -26903,10 +26903,10 @@ RectTransform:
   - {fileID: 1213781902}
   m_Father: {fileID: 970734544}
   m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
-  m_AnchorMin: {x: 0.5, y: 0.5}
-  m_AnchorMax: {x: 0.5, y: 0.5}
-  m_AnchoredPosition: {x: -557.6826, y: 377.60458}
-  m_SizeDelta: {x: 0, y: 0}
+  m_AnchorMin: {x: 0, y: 1}
+  m_AnchorMax: {x: 1, y: 1}
+  m_AnchoredPosition: {x: -900, y: -67}
+  m_SizeDelta: {x: -1600, y: 0}
   m_Pivot: {x: 0.5, y: 0.5}
 --- !u!114 &2016895322
 MonoBehaviour:
@@ -27977,6 +27977,8 @@ MonoBehaviour:
   catalog: {fileID: 11400000, guid: e0c9c811fc78ee442864ce546964af65, type: 2}
   relicPrefab: {fileID: 6313105652152221133, guid: 4e6c5e2a4fe7d494a9e8da2046e6ec8a, type: 3}
   playerMoneyText: {fileID: 506044665}
+  relicActivationEffect: {fileID: 1213781904}
+  relicEffectRectTransform: {fileID: 2016895321}
   activeItemSlotRoot: {fileID: 1313127641}
   relicRoot: {fileID: 2081250086}
   itemUseMenu: {fileID: 2100000001}
