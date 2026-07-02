@@ -10,8 +10,8 @@ public sealed class BattleState
     private readonly List<RoundResolution> _combatHistory = new();
     private readonly List<Card> _playerHandCarryover = new();
     private readonly List<Card> _opponentHandCarryover = new();
+    private readonly List<BattleRelicRuntime> _relicRuntimes;
     private readonly BattleEffectRuntime _effectRuntime;
-    private readonly BattleRelicRuntime _relicRuntime;
     private bool _disposed;
 
     public BattleState(RunState runState, BattleConfig config)
@@ -20,7 +20,8 @@ public sealed class BattleState
         Config = config ?? throw new ArgumentNullException(nameof(config));
         EventBus = new ScopedEventBus();
         global::EventBus.Subscribe<RankUpgradeChangedEvent>(OnRankUpgradeChanged);
-        _relicRuntime = new BattleRelicRuntime(this);
+        global::EventBus.Subscribe<RelicAddedEvent>(OnRelicAdded);
+        _relicRuntimes = BattleRelicRuntimeFactory.CreateAll(runState.RelicIds, this);
         _effectRuntime = new BattleEffectRuntime(this);
         EventBus.Subscribe<CardPlayedEvent>(OnCardPlayedForRefill);
         EventBus.Subscribe<CardDiscardedEvent>(OnCardDiscardedForRefill);
@@ -51,6 +52,7 @@ public sealed class BattleState
     public RoundState CurrentRound { get; private set; }
     public IReadOnlyList<Modifier> ActiveModifiers => _activeModifiers;
     public IReadOnlyList<RoundResolution> CombatHistory => _combatHistory;
+    public IReadOnlyList<BattleRelicRuntime> RelicRuntimes => _relicRuntimes;
     public IReadOnlyList<Card> PlayerDrawPile => _playerDeck.DrawPile;
     public IReadOnlyList<Card> PlayerDiscardPile => _playerDeck.DiscardPile;
     public IReadOnlyList<Card> OpponentDrawPile => _opponentDeck.DrawPile;
@@ -207,7 +209,9 @@ public sealed class BattleState
 
         Config.DevilStrategy.UnregisterAffinityHooks(this);
         _effectRuntime.Dispose();
-        _relicRuntime.Dispose();
+        for (int i = 0; i < _relicRuntimes.Count; i++)
+            _relicRuntimes[i].Dispose();
+        global::EventBus.Unsubscribe<RelicAddedEvent>(OnRelicAdded);
         global::EventBus.Unsubscribe<RankUpgradeChangedEvent>(OnRankUpgradeChanged);
         EventBus.Clear();
         _disposed = true;
@@ -328,7 +332,11 @@ public sealed class BattleState
 
     private Card ApplyPlayerCardForPlay(Card card)
     {
-        return _relicRuntime.TransformPlayerPlayedCard(ApplyPlayerCardUpgrade(card));
+        Card transformed = ApplyPlayerCardUpgrade(card);
+        for (int i = 0; i < _relicRuntimes.Count; i++)
+            transformed = _relicRuntimes[i].TransformPlayerPlayedCard(transformed);
+
+        return transformed;
     }
 
     public void ApplyRankUpgradeToPlayerBattleCards(Rank rank, string upgradeId)
@@ -735,12 +743,21 @@ public sealed class BattleState
     private void ResolveScores()
     {
         ScoreResult playerScore = ScoreResolver.Resolve(CurrentRound.PlayerPlayedCards, CurrentRound.ScoringModifiers, CurrentRound.TargetScore, CurrentRound.PlayerBurstThreshold);
-        ScoreResult opponentScore = ScoreResolver.Resolve(CurrentRound.OpponentVisibleCards, CurrentRound.ScoringModifiers, CurrentRound.TargetScore, CurrentRound.OpponentBurstThreshold, _relicRuntime.OpponentBlackjackBonus);
+        ScoreResult opponentScore = ScoreResolver.Resolve(CurrentRound.OpponentVisibleCards, CurrentRound.ScoringModifiers, CurrentRound.TargetScore, CurrentRound.OpponentBurstThreshold, GetOpponentBlackjackBonus());
         CurrentRound.SetScores(playerScore, opponentScore);
 
         PublishScoreEvents(Combatant.Player, playerScore);
         PublishScoreEvents(Combatant.Opponent, opponentScore);
         CommandQueue.Enqueue(new VisualCommand(VisualCommandType.ScoresResolved, $"{playerScore.FinalScore}:{opponentScore.FinalScore}"));
+    }
+
+    private int GetOpponentBlackjackBonus()
+    {
+        int bonus = 0;
+        for (int i = 0; i < _relicRuntimes.Count; i++)
+            bonus += _relicRuntimes[i].OpponentBlackjackBonus;
+
+        return bonus;
     }
 
     private void ResolveRound(RoundResolution baseResolution, bool applyBurstPenalty)
@@ -815,6 +832,30 @@ public sealed class BattleState
             return;
 
         ApplyRankUpgradeToPlayerBattleCards(eventData.Rank, eventData.UpgradeId);
+    }
+
+    private void OnRelicAdded(RelicAddedEvent eventData)
+    {
+        AddRelicRuntimeIfMissing(eventData.RelicId);
+    }
+
+    private bool AddRelicRuntimeIfMissing(string relicId)
+    {
+        if (string.IsNullOrWhiteSpace(relicId) || !RunState.HasRelic(relicId))
+            return false;
+
+        for (int i = 0; i < _relicRuntimes.Count; i++)
+        {
+            if (_relicRuntimes[i].RelicId == relicId)
+                return false;
+        }
+
+        BattleRelicRuntime runtime = BattleRelicRuntimeFactory.Create(relicId, this);
+        if (runtime == null)
+            return false;
+
+        _relicRuntimes.Add(runtime);
+        return true;
     }
 
     private void RefillHandIfEmpty(Combatant owner)

@@ -247,6 +247,108 @@ public sealed class ShopSystemTests
     }
 
     [Test]
+    public void BattleState_CreatesKnownRelicRuntimesAndIgnoresUnknownIds()
+    {
+        var data = new RunStateData
+        {
+            seed = 1,
+            money = 100,
+            maxActiveItemSlots = RunState.DefaultMaxActiveItemSlots
+        };
+        data.deck.Add(CardData(Suit.Clubs, Rank.Two));
+        data.relicIds.Add(RelicRuleResolver.SuitOverride);
+        data.relicIds.Add("retired_relic");
+        data.relicIds.Add(RelicRuleResolver.AddJqk);
+        data.relicIds.Add(RelicRuleResolver.AddJqk);
+        data.relicIds.Add(RelicRuleResolver.BurstTwentyTwo);
+        RunState run = RunState.FromData(data);
+
+        var battle = new BattleState(run, TestBattleConfig());
+
+        Assert.That(battle.RelicRuntimes.Count, Is.EqualTo(2));
+        Assert.That(battle.RelicRuntimes[0], Is.TypeOf<SuitOverrideRelicRuntime>());
+        Assert.That(battle.RelicRuntimes[0].RelicId, Is.EqualTo(RelicRuleResolver.SuitOverride));
+        Assert.That(battle.RelicRuntimes[1], Is.TypeOf<AddJqkRelicRuntime>());
+        Assert.That(battle.RelicRuntimes[1].RelicId, Is.EqualTo(RelicRuleResolver.AddJqk));
+
+        Assert.That(battle.StartRound(), Is.True);
+        Assert.That(battle.CurrentRound.PlayerBurstThreshold, Is.EqualTo(22));
+        battle.Dispose();
+    }
+
+    [Test]
+    public void BattleState_AddsRuntimeForRelicPurchasedAfterConstruction()
+    {
+        RunState run = CreateRunWithDeck(
+            CardData(Suit.Hearts, Rank.Seven),
+            CardData(Suit.Spades, Rank.Seven),
+            CardData(Suit.Clubs, Rank.Two));
+        var battle = new BattleState(run, TestBattleConfig(startingHandSize: 3));
+        battle.StartRound();
+        Assert.That(battle.CommitWagerAndBeginRound(1, true), Is.True);
+
+        Assert.That(battle.RelicRuntimes.Count, Is.EqualTo(0));
+        Assert.That(run.TryPurchaseRelic(RelicRuleResolver.SuitOverride, 0).Succeeded, Is.True);
+
+        Assert.That(battle.RelicRuntimes.Count, Is.EqualTo(1));
+        Assert.That(battle.RelicRuntimes[0], Is.TypeOf<SuitOverrideRelicRuntime>());
+        Assert.That(battle.TryPlayPlayerHandCardForEffect(IndexOfRankAndSuit(battle.CurrentRound.PlayerHand, Rank.Seven, Suit.Hearts)), Is.True);
+        Assert.That(battle.TryPlayPlayerHandCardForEffect(IndexOfRankAndSuit(battle.CurrentRound.PlayerHand, Rank.Seven, Suit.Spades)), Is.True);
+        Assert.That(battle.CurrentRound.PlayerPlayedCards[1].Suit, Is.EqualTo(Suit.Hearts));
+        battle.Dispose();
+    }
+
+    [Test]
+    public void BattleState_RetainsExistingRelicRuntimeStateWhenAddingNewRelic()
+    {
+        RunState run = CreateRunWithRelicDeck(RelicRuleResolver.BurstExtend, TenTwos());
+        var battle = new BattleState(run, TestBattleConfig(startingHandSize: 1));
+        battle.StartRound();
+        Assert.That(battle.CommitWagerAndBeginRound(1, true), Is.True);
+
+        Assert.That(battle.TryHit(), Is.True);
+        Assert.That(battle.TryHit(), Is.True);
+        Assert.That(run.TryPurchaseRelic(RelicRuleResolver.AddJqk, 0).Succeeded, Is.True);
+        for (int i = 0; i < 3; i++)
+            Assert.That(battle.TryHit(), Is.True, $"Hit after purchase {i + 1}");
+
+        Assert.That(run.PlayerBurstThresholdBonus, Is.EqualTo(1));
+        Assert.That(battle.CurrentRound.PlayerBurstThreshold, Is.EqualTo(22));
+        Assert.That(battle.RelicRuntimes.Count, Is.EqualTo(2));
+        battle.Dispose();
+    }
+
+    [Test]
+    public void RelicRuntimes_CanCombineTransformsAndScoreBonuses()
+    {
+        RunState run = CreateRunWithDeck(
+            CardData(Suit.Hearts, Rank.Seven),
+            CardData(Suit.Spades, Rank.Seven),
+            CardData(Suit.Clubs, Rank.Two));
+        run.AddRelic(RelicRuleResolver.SuitOverride);
+        run.AddRelic(RelicRuleResolver.AddJqk);
+        var battle = new BattleState(run, TestBattleConfig(startingHandSize: 3));
+        battle.StartRound();
+        Assert.That(battle.CommitWagerAndBeginRound(1, true), Is.True);
+
+        Assert.That(battle.TryPlayPlayerHandCardForEffect(IndexOfRankAndSuit(battle.CurrentRound.PlayerHand, Rank.Seven, Suit.Hearts)), Is.True);
+        Assert.That(battle.TryPlayPlayerHandCardForEffect(IndexOfRankAndSuit(battle.CurrentRound.PlayerHand, Rank.Seven, Suit.Spades)), Is.True);
+        battle.CurrentRound.AddToOpponentHand(new Card(Suit.Spades, Rank.Ten));
+        Assert.That(battle.CurrentRound.TryPlayOpponentCard(0, out Card ten), Is.True);
+        battle.EventBus.Publish(new CardPlayedEvent(Combatant.Opponent, ten));
+        battle.CurrentRound.AddToOpponentHand(new Card(Suit.Hearts, Rank.King));
+        Assert.That(battle.CurrentRound.TryPlayOpponentCard(0, out Card king), Is.True);
+        battle.EventBus.Publish(new CardPlayedEvent(Combatant.Opponent, king));
+        battle.CurrentRound.MarkOpponentStood();
+
+        Assert.That(battle.TryStand(), Is.True);
+
+        Assert.That(battle.CurrentRound.PlayerPlayedCards[1].Suit, Is.EqualTo(Suit.Hearts));
+        Assert.That(battle.CurrentRound.OpponentScore.BlackjackScore, Is.EqualTo(21));
+        battle.Dispose();
+    }
+
+    [Test]
     public void AddJqk_AddsOpponentScoreBonusAndCounterForFaceCardsOnly()
     {
         RunState run = CreateRunWithRelicDeck(RelicRuleResolver.AddJqk, CardData(Suit.Clubs, Rank.Two));
