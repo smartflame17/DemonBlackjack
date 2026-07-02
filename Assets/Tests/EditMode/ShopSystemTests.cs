@@ -247,6 +247,108 @@ public sealed class ShopSystemTests
     }
 
     [Test]
+    public void BattleState_CreatesKnownRelicRuntimesAndIgnoresUnknownIds()
+    {
+        var data = new RunStateData
+        {
+            seed = 1,
+            money = 100,
+            maxActiveItemSlots = RunState.DefaultMaxActiveItemSlots
+        };
+        data.deck.Add(CardData(Suit.Clubs, Rank.Two));
+        data.relicIds.Add(RelicRuleResolver.SuitOverride);
+        data.relicIds.Add("retired_relic");
+        data.relicIds.Add(RelicRuleResolver.AddJqk);
+        data.relicIds.Add(RelicRuleResolver.AddJqk);
+        data.relicIds.Add(RelicRuleResolver.BurstTwentyTwo);
+        RunState run = RunState.FromData(data);
+
+        var battle = new BattleState(run, TestBattleConfig());
+
+        Assert.That(battle.RelicRuntimes.Count, Is.EqualTo(2));
+        Assert.That(battle.RelicRuntimes[0], Is.TypeOf<SuitOverrideRelicRuntime>());
+        Assert.That(battle.RelicRuntimes[0].RelicId, Is.EqualTo(RelicRuleResolver.SuitOverride));
+        Assert.That(battle.RelicRuntimes[1], Is.TypeOf<AddJqkRelicRuntime>());
+        Assert.That(battle.RelicRuntimes[1].RelicId, Is.EqualTo(RelicRuleResolver.AddJqk));
+
+        Assert.That(battle.StartRound(), Is.True);
+        Assert.That(battle.CurrentRound.PlayerBurstThreshold, Is.EqualTo(22));
+        battle.Dispose();
+    }
+
+    [Test]
+    public void BattleState_AddsRuntimeForRelicPurchasedAfterConstruction()
+    {
+        RunState run = CreateRunWithDeck(
+            CardData(Suit.Hearts, Rank.Seven),
+            CardData(Suit.Spades, Rank.Seven),
+            CardData(Suit.Clubs, Rank.Two));
+        var battle = new BattleState(run, TestBattleConfig(startingHandSize: 3));
+        battle.StartRound();
+        Assert.That(battle.CommitWagerAndBeginRound(1, true), Is.True);
+
+        Assert.That(battle.RelicRuntimes.Count, Is.EqualTo(0));
+        Assert.That(run.TryPurchaseRelic(RelicRuleResolver.SuitOverride, 0).Succeeded, Is.True);
+
+        Assert.That(battle.RelicRuntimes.Count, Is.EqualTo(1));
+        Assert.That(battle.RelicRuntimes[0], Is.TypeOf<SuitOverrideRelicRuntime>());
+        Assert.That(battle.TryPlayPlayerHandCardForEffect(IndexOfRankAndSuit(battle.CurrentRound.PlayerHand, Rank.Seven, Suit.Hearts)), Is.True);
+        Assert.That(battle.TryPlayPlayerHandCardForEffect(IndexOfRankAndSuit(battle.CurrentRound.PlayerHand, Rank.Seven, Suit.Spades)), Is.True);
+        Assert.That(battle.CurrentRound.PlayerPlayedCards[1].Suit, Is.EqualTo(Suit.Hearts));
+        battle.Dispose();
+    }
+
+    [Test]
+    public void BattleState_RetainsExistingRelicRuntimeStateWhenAddingNewRelic()
+    {
+        RunState run = CreateRunWithRelicDeck(RelicRuleResolver.BurstExtend, TenTwos());
+        var battle = new BattleState(run, TestBattleConfig(startingHandSize: 1));
+        battle.StartRound();
+        Assert.That(battle.CommitWagerAndBeginRound(1, true), Is.True);
+
+        Assert.That(battle.TryHit(), Is.True);
+        Assert.That(battle.TryHit(), Is.True);
+        Assert.That(run.TryPurchaseRelic(RelicRuleResolver.AddJqk, 0).Succeeded, Is.True);
+        for (int i = 0; i < 3; i++)
+            Assert.That(battle.TryHit(), Is.True, $"Hit after purchase {i + 1}");
+
+        Assert.That(run.PlayerBurstThresholdBonus, Is.EqualTo(1));
+        Assert.That(battle.CurrentRound.PlayerBurstThreshold, Is.EqualTo(22));
+        Assert.That(battle.RelicRuntimes.Count, Is.EqualTo(2));
+        battle.Dispose();
+    }
+
+    [Test]
+    public void RelicRuntimes_CanCombineTransformsAndScoreBonuses()
+    {
+        RunState run = CreateRunWithDeck(
+            CardData(Suit.Hearts, Rank.Seven),
+            CardData(Suit.Spades, Rank.Seven),
+            CardData(Suit.Clubs, Rank.Two));
+        run.AddRelic(RelicRuleResolver.SuitOverride);
+        run.AddRelic(RelicRuleResolver.AddJqk);
+        var battle = new BattleState(run, TestBattleConfig(startingHandSize: 3));
+        battle.StartRound();
+        Assert.That(battle.CommitWagerAndBeginRound(1, true), Is.True);
+
+        Assert.That(battle.TryPlayPlayerHandCardForEffect(IndexOfRankAndSuit(battle.CurrentRound.PlayerHand, Rank.Seven, Suit.Hearts)), Is.True);
+        Assert.That(battle.TryPlayPlayerHandCardForEffect(IndexOfRankAndSuit(battle.CurrentRound.PlayerHand, Rank.Seven, Suit.Spades)), Is.True);
+        battle.CurrentRound.AddToOpponentHand(new Card(Suit.Spades, Rank.Ten));
+        Assert.That(battle.CurrentRound.TryPlayOpponentCard(0, out Card ten), Is.True);
+        battle.EventBus.Publish(new CardPlayedEvent(Combatant.Opponent, ten));
+        battle.CurrentRound.AddToOpponentHand(new Card(Suit.Hearts, Rank.King));
+        Assert.That(battle.CurrentRound.TryPlayOpponentCard(0, out Card king), Is.True);
+        battle.EventBus.Publish(new CardPlayedEvent(Combatant.Opponent, king));
+        battle.CurrentRound.MarkOpponentStood();
+
+        Assert.That(battle.TryStand(), Is.True);
+
+        Assert.That(battle.CurrentRound.PlayerPlayedCards[1].Suit, Is.EqualTo(Suit.Hearts));
+        Assert.That(battle.CurrentRound.OpponentScore.BlackjackScore, Is.EqualTo(21));
+        battle.Dispose();
+    }
+
+    [Test]
     public void AddJqk_AddsOpponentScoreBonusAndCounterForFaceCardsOnly()
     {
         RunState run = CreateRunWithRelicDeck(RelicRuleResolver.AddJqk, CardData(Suit.Clubs, Rank.Two));
@@ -873,17 +975,129 @@ public sealed class ShopSystemTests
     {
         var run = new RunState(1, startingMoney: 100);
         run.AddActiveItem(ActiveItemResolver.DoubleWager);
-        var battle = new BattleState(run, new BattleConfig("test", 100));
+        var battle = new BattleState(run, new BattleConfig("test", 100, baseWager: 10));
         battle.StartRound();
-        Assert.That(battle.CurrentRound.TryCommitWager(10, 10), Is.True);
+        Assert.That(battle.CommitWagerAndBeginRound(1, true), Is.True);
 
         Assert.That(battle.TryUseActiveItem(ActiveItemResolver.DoubleWager), Is.True);
 
-        Assert.That(battle.CurrentRound.PlayerStake, Is.EqualTo(20));
-        Assert.That(battle.CurrentRound.OpponentStake, Is.EqualTo(20));
+        Assert.That(battle.CurrentRound.BaseWager, Is.EqualTo(10));
+        Assert.That(battle.CurrentRound.WagerMultiplier, Is.EqualTo(2));
+        Assert.That(battle.CurrentRound.EffectiveWager, Is.EqualTo(20));
         Assert.That(battle.CurrentRound.Pot, Is.EqualTo(40));
-        Assert.That(run.Money, Is.EqualTo(90));
-        Assert.That(battle.OpponentMoney, Is.EqualTo(90));
+        Assert.That(run.Money, Is.EqualTo(80));
+        Assert.That(battle.OpponentMoney, Is.EqualTo(80));
+    }
+
+    [Test]
+    public void FixedWager_IgnoresRequestedWagerAndAntesBaseWager()
+    {
+        var run = new RunState(1, startingMoney: 100);
+        var battle = new BattleState(run, new BattleConfig("test", 100, new StandingDevilStrategy(), baseWager: 25));
+        battle.StartRound();
+
+        Assert.That(battle.CommitWagerAndBeginRound(999, false), Is.True);
+
+        Assert.That(battle.CurrentRound.EffectiveWager, Is.EqualTo(25));
+        Assert.That(battle.CurrentRound.PlayerStake, Is.EqualTo(25));
+        Assert.That(battle.CurrentRound.OpponentStake, Is.EqualTo(25));
+        Assert.That(battle.CurrentRound.Pot, Is.EqualTo(50));
+        Assert.That(run.Money, Is.EqualTo(75));
+        Assert.That(battle.OpponentMoney, Is.EqualTo(75));
+    }
+
+    [Test]
+    public void Burst_DoesNotEndRoundUntilBothCombatantsStand()
+    {
+        var run = new RunState(1, startingMoney: 500);
+        var battle = new BattleState(run, TestBattleConfig());
+        battle.StartRound();
+        battle.CommitWagerAndBeginRound(1, true);
+        PlayPlayerCards(battle.CurrentRound, new Card(Suit.Clubs, Rank.King), new Card(Suit.Hearts, Rank.King), new Card(Suit.Spades, Rank.Five));
+
+        Assert.That(battle.EndPlayerPhase().Winner, Is.Null);
+
+        Assert.That(battle.CurrentRound.PlayerScore.IsBurst, Is.True);
+        Assert.That(battle.Phase, Is.EqualTo(BattlePhase.PlayerPhase));
+        Assert.That(battle.CurrentRound, Is.Not.Null);
+    }
+
+    [Test]
+    public void BurstPayout_UsesOffsetTimesEffectiveWager()
+    {
+        var run = new RunState(1, startingMoney: 1000);
+        var battle = new BattleState(run, new BattleConfig("test", 1000, new StandingDevilStrategy(), baseWager: 100));
+        battle.StartRound();
+        battle.CommitWagerAndBeginRound(1, true);
+        PlayPlayerCards(battle.CurrentRound, new Card(Suit.Clubs, Rank.Nine), new Card(Suit.Hearts, Rank.Eight), new Card(Suit.Spades, Rank.Eight));
+        PlayOpponentCards(battle.CurrentRound, new Card(Suit.Diamonds, Rank.Two));
+        battle.CurrentRound.MarkOpponentStood();
+
+        Assert.That(battle.TryStand(), Is.True);
+
+        RoundResolution resolution = battle.CombatHistory[^1];
+        Assert.That(resolution.PlayerMoneyLost, Is.EqualTo(400));
+    }
+
+    [Test]
+    public void BlackjackWinner_TransfersOneEffectiveWagerBeforePoker()
+    {
+        var run = new RunState(1, startingMoney: 500);
+        var battle = new BattleState(run, new BattleConfig("test", 500, new StandingDevilStrategy(), baseWager: 10));
+        battle.StartRound();
+        battle.CommitWagerAndBeginRound(1, true);
+        PlayPlayerCards(battle.CurrentRound, new Card(Suit.Clubs, Rank.King), new Card(Suit.Hearts, Rank.Nine));
+        PlayOpponentCards(battle.CurrentRound, new Card(Suit.Diamonds, Rank.Eight), new Card(Suit.Spades, Rank.Seven));
+        battle.CurrentRound.MarkOpponentStood();
+
+        Assert.That(battle.TryStand(), Is.True);
+
+        Assert.That(battle.CombatHistory[^1].Winner, Is.EqualTo(Combatant.Player));
+        Assert.That(battle.CombatHistory[^1].OpponentMoneyLost, Is.EqualTo(10)); // High-card poker after blackjack pot settlement.
+        Assert.That(run.Money, Is.EqualTo(520));
+        Assert.That(battle.OpponentMoney, Is.EqualTo(480));
+    }
+
+    [Test]
+    public void PokerPayout_UsesCombinedPlayedOpponentAndSharedCards()
+    {
+        var run = new RunState(1, startingMoney: 500);
+        var battle = new BattleState(run, new BattleConfig("test", 500, new StandingDevilStrategy(), baseWager: 10));
+        battle.StartRound();
+        battle.CommitWagerAndBeginRound(1, true);
+        PlayPlayerCards(battle.CurrentRound, new Card(Suit.Clubs, Rank.Two), new Card(Suit.Hearts, Rank.Three));
+        PlayOpponentCards(battle.CurrentRound, new Card(Suit.Diamonds, Rank.Nine), new Card(Suit.Spades, Rank.Nine));
+        battle.CurrentRound.AddSharedVisibleCard(new Card(Suit.Clubs, Rank.Four));
+        battle.CurrentRound.AddSharedVisibleCard(new Card(Suit.Hearts, Rank.Five));
+        battle.CurrentRound.AddSharedVisibleCard(new Card(Suit.Diamonds, Rank.Six));
+        battle.CurrentRound.MarkOpponentStood();
+
+        Assert.That(battle.TryStand(), Is.True);
+
+        Assert.That(ScoreResolver.ResolvePoker(battle.CurrentRound.GetPokerCardsForPlayerPayout()).Rank, Is.EqualTo(PokerHandRank.Straight));
+        Assert.That(battle.CombatHistory[^1].OpponentMoneyLost, Is.EqualTo(40)); // Poker payout is outside the blackjack pot.
+        Assert.That(battle.CombatHistory[^1].PlayerMoneyLost, Is.EqualTo(0));
+        Assert.That(run.Money, Is.EqualTo(530));
+        Assert.That(battle.OpponentMoney, Is.EqualTo(470));
+    }
+
+    [Test]
+    public void PokerPayout_IsSkippedWhenPlayerRunsOutDuringBlackjackResolution()
+    {
+        var run = new RunState(1, startingMoney: 100);
+        var battle = new BattleState(run, new BattleConfig("test", 500, new StandingDevilStrategy(), baseWager: 100));
+        battle.StartRound();
+        battle.CommitWagerAndBeginRound(1, true);
+        PlayPlayerCards(battle.CurrentRound, new Card(Suit.Clubs, Rank.King), new Card(Suit.Hearts, Rank.Queen), new Card(Suit.Spades, Rank.Two));
+        PlayOpponentCards(battle.CurrentRound, new Card(Suit.Diamonds, Rank.Ace), new Card(Suit.Clubs, Rank.King));
+        battle.CurrentRound.MarkOpponentStood();
+
+        Assert.That(battle.TryStand(), Is.True);
+
+        Assert.That(run.Money, Is.EqualTo(0));
+        Assert.That(battle.OpponentMoney, Is.EqualTo(600));
+        Assert.That(battle.CombatHistory[^1].OpponentMoneyLost, Is.EqualTo(0));
+        Assert.That(battle.CombatHistory[^1].PlayerMoneyLost, Is.EqualTo(0));
     }
 
     private static bool ContainsUpgradedRank(IReadOnlyList<Card> cards, Rank rank, string modifierId)
@@ -1064,11 +1278,24 @@ public sealed class ShopSystemTests
         };
     }
 
+    private static void PlayPlayerCards(RoundState round, params Card[] cards)
+    {
+        for (int i = 0; i < cards.Length; i++)
+            Assert.That(round.TryPlayHitCard(cards[i]), Is.True);
+    }
+
+    private static void PlayOpponentCards(RoundState round, params Card[] cards)
+    {
+        for (int i = 0; i < cards.Length; i++)
+        {
+            round.AddToOpponentHand(cards[i]);
+            Assert.That(round.TryPlayOpponentCard(round.OpponentHand.Count - 1, out _), Is.True);
+        }
+    }
+
     private sealed class StandingDevilStrategy : IDevilStrategy
     {
         public int DrawValue => 0;
-        public int ChooseWager(BattleState battle, RoundState pendingRound, int defaultWager) => defaultWager;
-        public WagerResponse ChoosePlayerWagerResponse(BattleState battle, RoundState pendingRound, int proposedWager) => WagerResponse.Accept;
         public DevilTurnChoice ChooseTurnAction(BattleState battle, RoundState round) => DevilTurnChoice.Stand;
         public int ChooseCardIndex(BattleState battle, RoundState round) => 0;
         public IEnumerable<Card> CreateStartingDeck(RunState runState, BattleConfig config) => new List<Card>();

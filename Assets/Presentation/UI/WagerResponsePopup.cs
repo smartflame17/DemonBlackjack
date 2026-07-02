@@ -39,20 +39,11 @@ public class WagerResponsePopup : MonoBehaviour
 
     private void OnWagerCommitted(WagerCommittedEvent evt)
     {
-        if (evt.IsPlayerWager)
-        {
-            if (evt.Response == WagerResponse.Accept)
-                messageText.text = "Accepted";                
-            else messageText.text = "Declined";
-            
-            Sequence _popupSequence = DOTween.Sequence().SetAutoKill(false)
-            .OnStart(() =>_rectTransform.DOAnchorPos(new Vector2(-200f, _rectTransform.anchoredPosition.y), 0.5f).SetEase(Ease.OutQuart))
+        messageText.text = $"Wager {evt.WagerAmount}";
+
+        Sequence _popupSequence = DOTween.Sequence().SetAutoKill(false)
+            .OnStart(() => _rectTransform.DOAnchorPos(new Vector2(-200f, _rectTransform.anchoredPosition.y), 0.5f).SetEase(Ease.OutQuart))
             .AppendInterval(2.0f)
             .Append(_rectTransform.DOAnchorPos(new Vector2(200f, _rectTransform.anchoredPosition.y), 0.5f).SetEase(Ease.InQuart));
-        }
-        else
-        {
-            // Ignore opponent wagers for now
-        }
     }
 }

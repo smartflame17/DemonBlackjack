@@ -1,45 +1,29 @@
 using System;
+using System.Collections.Generic;
 
-public sealed class BattleRelicRuntime : IDisposable
+public abstract class BattleRelicRuntime : IDisposable
 {
-    private const int BurstExtendHitTarget = 5;
-
-    private readonly BattleState _battle;
-    private int _addJqkBonus;
-    private int _burstExtendHitCount;
-    private bool _hasSuitOverrideAnchor;
-    private Rank _suitOverrideRank;
-    private Suit _suitOverrideSuit;
+    private readonly List<Action> _unsubscribeActions = new();
     private bool _disposed;
 
-    public BattleRelicRuntime(BattleState battle)
+    protected BattleRelicRuntime(string relicId, BattleState battle)
     {
-        _battle = battle ?? throw new ArgumentNullException(nameof(battle));
-        _battle.EventBus.Subscribe<RoundStartedEvent>(OnRoundStarted);
-        _battle.EventBus.Subscribe<RoundEndedEvent>(OnRoundEnded);
-        _battle.EventBus.Subscribe<CardPlayedEvent>(OnCardPlayed);
-        _battle.EventBus.Subscribe<PlayerHitUsedEvent>(OnPlayerHitUsed);
-        _battle.EventBus.Subscribe<BattleEndedEvent>(OnBattleEnded);
+        if (string.IsNullOrWhiteSpace(relicId))
+            throw new ArgumentException("Relic id cannot be blank.", nameof(relicId));
+
+        RelicId = relicId;
+        Battle = battle ?? throw new ArgumentNullException(nameof(battle));
     }
 
-    public int OpponentBlackjackBonus => Owns(RelicRuleResolver.AddJqk) ? _addJqkBonus : 0;
+    public string RelicId { get; }
+    protected BattleState Battle { get; }
+    protected RunState RunState => Battle.RunState;
+    protected BattleConfig Config => Battle.Config;
+    public virtual int OpponentBlackjackBonus => 0;
 
-    public Card TransformPlayerPlayedCard(Card card)
+    public virtual Card TransformPlayerPlayedCard(Card card)
     {
-        if (!Owns(RelicRuleResolver.SuitOverride))
-            return card;
-
-        if (!_hasSuitOverrideAnchor)
-        {
-            _suitOverrideRank = card.Rank;
-            _suitOverrideSuit = card.Suit;
-            _hasSuitOverrideAnchor = true;
-            return card;
-        }
-
-        return card.Rank == _suitOverrideRank
-            ? new Card(_suitOverrideSuit, card.Rank, card.ModifierId)
-            : card;
+        return card;
     }
 
     public void Dispose()
@@ -47,12 +31,196 @@ public sealed class BattleRelicRuntime : IDisposable
         if (_disposed)
             return;
 
-        _battle.EventBus.Unsubscribe<RoundStartedEvent>(OnRoundStarted);
-        _battle.EventBus.Unsubscribe<RoundEndedEvent>(OnRoundEnded);
-        _battle.EventBus.Unsubscribe<CardPlayedEvent>(OnCardPlayed);
-        _battle.EventBus.Unsubscribe<PlayerHitUsedEvent>(OnPlayerHitUsed);
-        _battle.EventBus.Unsubscribe<BattleEndedEvent>(OnBattleEnded);
+        for (int i = _unsubscribeActions.Count - 1; i >= 0; i--)
+            _unsubscribeActions[i]();
+
+        _unsubscribeActions.Clear();
         _disposed = true;
+    }
+
+    protected void Subscribe<T>(Action<T> callback)
+    {
+        if (callback == null)
+            throw new ArgumentNullException(nameof(callback));
+
+        Battle.EventBus.Subscribe(callback);
+        _unsubscribeActions.Add(() => Battle.EventBus.Unsubscribe(callback));
+    }
+
+    protected void PublishCounter(int value)
+    {
+        EventBus.Publish(new RelicCounterChangedEvent(RelicId, Math.Max(0, value)));
+    }
+
+    protected void PublishActivation()
+    {
+        EventBus.Publish(new RelicActivatedEvent(RelicId));
+    }
+
+    protected bool RefreshCurrentRoundPlayerBurstThreshold()
+    {
+        RoundState round = Battle.CurrentRound;
+        if (round == null)
+            return false;
+
+        int threshold = RelicRuleResolver.ResolvePlayerBurstThreshold(RunState, Config.BurstThreshold);
+        int previousThreshold = round.PlayerBurstThreshold;
+        round.SetPlayerBurstThreshold(threshold);
+
+        if (round.PlayerBurstThreshold == previousThreshold)
+            return false;
+
+        EventBus.Publish(new BurstThresholdChangedEvent(Combatant.Player, round.PlayerBurstThreshold));
+        return true;
+    }
+
+    protected static bool IsFaceCard(Rank rank)
+    {
+        return rank == Rank.Jack || rank == Rank.Queen || rank == Rank.King;
+    }
+}
+
+public static class BattleRelicRuntimeFactory
+{
+    public static List<BattleRelicRuntime> CreateAll(IEnumerable<string> relicIds, BattleState battle)
+    {
+        var runtimes = new List<BattleRelicRuntime>();
+        var createdIds = new HashSet<string>();
+        if (relicIds == null)
+            return runtimes;
+
+        foreach (string relicId in relicIds)
+        {
+            if (string.IsNullOrWhiteSpace(relicId) || !createdIds.Add(relicId))
+                continue;
+
+            BattleRelicRuntime runtime = Create(relicId, battle);
+            if (runtime != null)
+                runtimes.Add(runtime);
+        }
+
+        return runtimes;
+    }
+
+    public static BattleRelicRuntime Create(string relicId, BattleState battle)
+    {
+        if (string.IsNullOrWhiteSpace(relicId))
+            return null;
+
+        return relicId switch
+        {
+            RelicRuleResolver.AddJqk => new AddJqkRelicRuntime(battle),
+            RelicRuleResolver.BurstExtend => new BurstExtendRelicRuntime(battle),
+            RelicRuleResolver.SuitOverride => new SuitOverrideRelicRuntime(battle),
+            _ => null
+        };
+    }
+}
+
+public sealed class AddJqkRelicRuntime : BattleRelicRuntime
+{
+    private int _bonus;
+
+    public AddJqkRelicRuntime(BattleState battle)
+        : base(RelicRuleResolver.AddJqk, battle)
+    {
+        Subscribe<RoundStartedEvent>(OnRoundStarted);
+        Subscribe<RoundEndedEvent>(OnRoundEnded);
+        Subscribe<CardPlayedEvent>(OnCardPlayed);
+    }
+
+    public override int OpponentBlackjackBonus => _bonus;
+
+    private void OnRoundStarted(RoundStartedEvent eventData)
+    {
+        ResetRoundState();
+    }
+
+    private void OnRoundEnded(RoundEndedEvent eventData)
+    {
+        ResetRoundState();
+    }
+
+    private void OnCardPlayed(CardPlayedEvent eventData)
+    {
+        if (eventData.Owner != Combatant.Opponent || !IsFaceCard(eventData.Card.Rank))
+            return;
+
+        _bonus++;
+        PublishCounter(_bonus);
+        PublishActivation();
+    }
+
+    private void ResetRoundState()
+    {
+        _bonus = 0;
+        PublishCounter(0);
+    }
+}
+
+public sealed class BurstExtendRelicRuntime : BattleRelicRuntime
+{
+    private const int HitTarget = 5;
+
+    private int _hitCount;
+
+    public BurstExtendRelicRuntime(BattleState battle)
+        : base(RelicRuleResolver.BurstExtend, battle)
+    {
+        Subscribe<PlayerHitUsedEvent>(OnPlayerHitUsed);
+        Subscribe<BattleEndedEvent>(OnBattleEnded);
+    }
+
+    private void OnPlayerHitUsed(PlayerHitUsedEvent eventData)
+    {
+        _hitCount++;
+        if (_hitCount < HitTarget)
+        {
+            PublishCounter(_hitCount);
+            return;
+        }
+
+        RunState.IncreasePlayerBurstThreshold(1);
+        RefreshCurrentRoundPlayerBurstThreshold();
+
+        _hitCount = 0;
+        PublishCounter(0);
+        PublishActivation();
+    }
+
+    private void OnBattleEnded(BattleEndedEvent eventData)
+    {
+        _hitCount = 0;
+        PublishCounter(0);
+    }
+}
+
+public sealed class SuitOverrideRelicRuntime : BattleRelicRuntime
+{
+    private bool _hasAnchor;
+    private Rank _anchorRank;
+    private Suit _anchorSuit;
+
+    public SuitOverrideRelicRuntime(BattleState battle)
+        : base(RelicRuleResolver.SuitOverride, battle)
+    {
+        Subscribe<RoundStartedEvent>(OnRoundStarted);
+        Subscribe<RoundEndedEvent>(OnRoundEnded);
+    }
+
+    public override Card TransformPlayerPlayedCard(Card card)
+    {
+        if (!_hasAnchor)
+        {
+            _anchorRank = card.Rank;
+            _anchorSuit = card.Suit;
+            _hasAnchor = true;
+            return card;
+        }
+
+        return card.Rank == _anchorRank
+            ? new Card(_anchorSuit, card.Rank, card.ModifierId)
+            : card;
     }
 
     private void OnRoundStarted(RoundStartedEvent eventData)
@@ -65,80 +233,8 @@ public sealed class BattleRelicRuntime : IDisposable
         ResetRoundState();
     }
 
-    private void OnBattleEnded(BattleEndedEvent eventData)
-    {
-        if (Owns(RelicRuleResolver.BurstExtend))
-        {
-            _burstExtendHitCount = 0;
-            PublishCounter(RelicRuleResolver.BurstExtend, 0);
-        }
-    }
-
-    private void OnCardPlayed(CardPlayedEvent eventData)
-    {
-        if (!Owns(RelicRuleResolver.AddJqk)
-            || eventData.Owner != Combatant.Opponent
-            || !IsFaceCard(eventData.Card.Rank))
-        {
-            return;
-        }
-
-        _addJqkBonus++;
-        PublishCounter(RelicRuleResolver.AddJqk, _addJqkBonus);
-    }
-
-    private void OnPlayerHitUsed(PlayerHitUsedEvent eventData)
-    {
-        if (!Owns(RelicRuleResolver.BurstExtend))
-            return;
-
-        _burstExtendHitCount++;
-        if (_burstExtendHitCount < BurstExtendHitTarget)
-        {
-            PublishCounter(RelicRuleResolver.BurstExtend, _burstExtendHitCount);
-            return;
-        }
-
-        _battle.RunState.IncreasePlayerBurstThreshold(1);
-
-        RoundState round = _battle.CurrentRound;
-        if (round != null)
-        {
-            int threshold = RelicRuleResolver.ResolvePlayerBurstThreshold(_battle.RunState, _battle.Config.BurstThreshold);
-            int previousThreshold = round.PlayerBurstThreshold;
-            round.SetPlayerBurstThreshold(threshold);
-
-            if (round.PlayerBurstThreshold != previousThreshold)
-                EventBus.Publish(new BurstThresholdChangedEvent(Combatant.Player, round.PlayerBurstThreshold));
-        }
-
-        _burstExtendHitCount = 0;
-        PublishCounter(RelicRuleResolver.BurstExtend, 0);
-    }
-
     private void ResetRoundState()
     {
-        _hasSuitOverrideAnchor = false;
-
-        if (!Owns(RelicRuleResolver.AddJqk))
-            return;
-
-        _addJqkBonus = 0;
-        PublishCounter(RelicRuleResolver.AddJqk, 0);
-    }
-
-    private bool Owns(string relicId)
-    {
-        return _battle.RunState != null && _battle.RunState.HasRelic(relicId);
-    }
-
-    private static bool IsFaceCard(Rank rank)
-    {
-        return rank == Rank.Jack || rank == Rank.Queen || rank == Rank.King;
-    }
-
-    private static void PublishCounter(string relicId, int value)
-    {
-        EventBus.Publish(new RelicCounterChangedEvent(relicId, Math.Max(0, value)));
+        _hasAnchor = false;
     }
 }

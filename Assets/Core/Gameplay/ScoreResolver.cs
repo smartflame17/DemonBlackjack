@@ -10,13 +10,18 @@ public static class ScoreResolver
         bool isBurst = blackjackScore > burstThreshold;
 
         PokerHandRank pokerRank = ResolvePokerRank(cards);
-        //int multiplier = GetPokerMultiplier(pokerRank); //TODO: update poker logic later, set to 1 for now
         int multiplier = 1;
 
         int modifiedScore = ApplyModifiers(blackjackScore, multiplier, modifiers);
         bool isBlackjack = modifiedScore == targetScore;    // fk you codex for adding arbitrary card.Count==2
 
         return new ScoreResult(blackjackScore, modifiedScore, pokerRank, multiplier, isBurst, isBlackjack);
+    }
+
+    public static PokerResult ResolvePoker(IReadOnlyList<Card> cards)
+    {
+        PokerHandRank rank = ResolvePokerRank(cards);
+        return new PokerResult(rank, GetPokerMultiplier(rank));
     }
 
     private static int ResolveBlackjackScore(IReadOnlyList<Card> cards) // TODO: apply any attached modifiers before evaluating
@@ -75,7 +80,7 @@ public static class ScoreResolver
             PokerHandRank.FourOfAKind => 6,
             PokerHandRank.StraightFlush => 8,
             PokerHandRank.RoyalFlush => 10,
-            _ => 1
+            _ => 0
         };
     }
 
@@ -169,4 +174,16 @@ public readonly struct ScoreResult
     public int PokerMultiplier { get; }
     public bool IsBurst { get; }
     public bool IsBlackjack { get; }
+}
+
+public readonly struct PokerResult
+{
+    public PokerResult(PokerHandRank rank, int multiplier)
+    {
+        Rank = rank;
+        Multiplier = multiplier;
+    }
+
+    public PokerHandRank Rank { get; }
+    public int Multiplier { get; }
 }

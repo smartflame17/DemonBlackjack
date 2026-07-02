@@ -2,6 +2,7 @@ using System;
 using TMPro;
 using UnityEngine;
 using UnityEngine.UI;
+using DG.Tweening;
 
 public sealed class ShopSlotView : MonoBehaviour
 {
@@ -72,7 +73,8 @@ public sealed class ShopSlotView : MonoBehaviour
 
         if (_canvasGroup != null)
         {
-            _canvasGroup.alpha = 0.0f;
+            //_canvasGroup.alpha = 0.0f;
+            _canvasGroup.DOFade(0.0f, 0.5f).SetEase(Ease.InOutQuad);
             _canvasGroup.interactable = false;
             _canvasGroup.blocksRaycasts = false;
         }

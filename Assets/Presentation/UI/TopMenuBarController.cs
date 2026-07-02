@@ -1,3 +1,4 @@
+using System;
 using System.Collections.Generic;
 using TMPro;
 using UnityEngine;
@@ -5,16 +6,28 @@ using UnityEngine.UI;
 
 public sealed class TopMenuBarController : MonoBehaviour
 {
+    [Header("References")]
     [SerializeField] private RunManager runManager;
     [SerializeField] private GameplayAssetRegistry assetRegistry;
     [SerializeField] private ShopCatalog catalog;
     [SerializeField] private RelicUiView relicPrefab;
+    [SerializeField] private TMP_Text playerMoneyText;
+    [SerializeField] private ParticleSystem relicActivationEffect;
+
+    [SerializeField] private RectTransform relicEffectRectTransform;
+
+    [Header("Items & Relics")]
     [SerializeField] private RectTransform activeItemSlotRoot;
     [SerializeField] private RectTransform relicRoot;
     [SerializeField] private ItemUseMenu itemUseMenu;
-    [SerializeField] private TMP_Text playerMoneyText;
+
+    [Header("Deck")]
     [SerializeField] private Button viewFullDeckButton;
     [SerializeField] private DeckViewPanel deckViewPanel;
+
+    [Header("Menu")]
+    [SerializeField] private Button settingMenuButton;
+    [SerializeField] private SettingMenuController settingMenuController;
 
     private readonly List<SlotBinding> _slots = new();
     private readonly List<RelicBinding> _relics = new();
@@ -36,8 +49,11 @@ public sealed class TopMenuBarController : MonoBehaviour
         EventBus.Subscribe<RelicCounterChangedEvent>(OnRelicCounterChanged);
         EventBus.Subscribe<RunPhaseChangedEvent>(OnRunPhaseChanged);
         EventBus.Subscribe<MoneyChangedEvent>(OnMoneyChanged);
+        EventBus.Subscribe<RelicActivatedEvent>(OnRelicActivated);
         if (viewFullDeckButton != null)
             viewFullDeckButton.onClick.AddListener(ShowFullDeck);
+        if (settingMenuButton != null)
+            settingMenuButton.onClick.AddListener(ShowSettingMenu);
         Refresh();
     }
 
@@ -55,6 +71,7 @@ public sealed class TopMenuBarController : MonoBehaviour
         EventBus.Unsubscribe<RelicCounterChangedEvent>(OnRelicCounterChanged);
         EventBus.Unsubscribe<RunPhaseChangedEvent>(OnRunPhaseChanged);
         EventBus.Unsubscribe<MoneyChangedEvent>(OnMoneyChanged);
+        EventBus.Unsubscribe<RelicActivatedEvent>(OnRelicActivated);
         if (viewFullDeckButton != null)
             viewFullDeckButton.onClick.RemoveListener(ShowFullDeck);
     }
@@ -247,7 +264,9 @@ public sealed class TopMenuBarController : MonoBehaviour
         playerMoneyText ??= FindChildRecursive(transform, "PlayerMoney")?.GetComponent<TMP_Text>();
         viewFullDeckButton ??= FindChildRecursive(transform, "ViewFullDeckButton")?.GetComponent<Button>();
         deckViewPanel ??= FindFirstObjectByType<DeckViewPanel>(FindObjectsInactive.Include);
-
+        settingMenuButton ??= FindChildRecursive(transform, "SettingMenuButton")?.GetComponent<Button>();
+        settingMenuController ??= FindFirstObjectByType<SettingMenuController>(FindObjectsInactive.Include);
+        relicActivationEffect ??= FindFirstObjectByType<ParticleSystem>(FindObjectsInactive.Include);
         if (itemUseMenu == null)
         {
             ItemUseMenu[] menus = Resources.FindObjectsOfTypeAll<ItemUseMenu>();
@@ -350,6 +369,24 @@ public sealed class TopMenuBarController : MonoBehaviour
                 relic.View.SetCounter(true, _relicCounterValues[eventData.RelicId]);
         }
     }
+    
+    private void OnRelicActivated(RelicActivatedEvent eventData)
+    {
+        for (int i = 0; i < _relics.Count; i++)
+        {
+            RelicBinding relic = _relics[i];
+            if (!string.Equals(relic.RelicId, eventData.RelicId, System.StringComparison.Ordinal))
+                continue;
+
+            relicActivationEffect.textureSheetAnimation.SetSprite(0, relic.View.Button.image.sprite);
+
+            relicEffectRectTransform.position = relic.View.RectTransform.position;
+ 
+            relicActivationEffect.Play();
+            Debug.Log($"Relic activated: {eventData.RelicId}");
+            break;
+        }
+    }
     private void OnRunPhaseChanged(RunPhaseChangedEvent eventData) => Refresh();
     private void OnMoneyChanged(MoneyChangedEvent eventData)
     {
@@ -372,6 +409,11 @@ public sealed class TopMenuBarController : MonoBehaviour
     {
         if (playerMoneyText != null)
             playerMoneyText.text = $"${Mathf.Max(0, amount)}";
+    }
+
+    private void ShowSettingMenu()
+    {
+        settingMenuController.gameObject.SetActive(true);
     }
 
     private sealed class SlotBinding

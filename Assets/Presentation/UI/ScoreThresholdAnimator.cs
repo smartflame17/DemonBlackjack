@@ -133,7 +133,11 @@ public class ScoreThresholdAnimator : MonoBehaviour
             return;
 
         if (overThreshold)
+        {
+            textEffect.Refresh();
             textEffect.StartManualEffect(ScoreTextShakeEffect);
+        }
+            
         else
             textEffect.StopManualEffects();
     }
