@@ -19,8 +19,10 @@ public class SettingMenuController : MonoBehaviour
         if (closeButton == null)
             Debug.LogError("Missing Close Button Reference!");
         
-        returnToMainMenuButton.onClick.AddListener(ReturnToMainMenu);
-        closeButton.onClick.AddListener(CloseMenuPanel);
+        if (returnToMainMenuButton != null)
+            returnToMainMenuButton.onClick.AddListener(ReturnToMainMenu);
+        if (closeButton != null)
+            closeButton.onClick.AddListener(CloseMenuPanel);
     }
 
     private void OnEnable()
