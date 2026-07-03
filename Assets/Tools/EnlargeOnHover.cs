@@ -37,12 +37,13 @@ public class EnlargeOnHover : MonoBehaviour, IPointerEnterHandler, IPointerExitH
 
     private System.Collections.IEnumerator ScaleToTarget(Vector3 target)
     {
+        RectTransform rect = (RectTransform)transform;
         while (transitionProgress < 1f)
         {
-            transitionProgress += Time.deltaTime / transitionDuration;
-            GetComponent<RectTransform>().localScale = Vector3.Lerp(GetComponent<RectTransform>().localScale, target, transitionProgress);
+            transitionProgress += transitionDuration <= 0f ? 1f : Time.deltaTime / transitionDuration;
+            rect.localScale = Vector3.Lerp(rect.localScale, target, transitionProgress);
             yield return null;
         }
-        GetComponent<RectTransform>().localScale = target; // Ensure final scale is set
+        rect.localScale = target; // Ensure final scale is set
     }
 }
