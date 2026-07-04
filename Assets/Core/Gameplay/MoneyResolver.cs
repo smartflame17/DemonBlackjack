@@ -2,17 +2,6 @@ using System;
 
 public static class MoneyResolver
 {
-    public static RoundResolution ResolveRound(BattleState battle, RoundState round)
-    {
-        if (battle == null)
-            throw new ArgumentNullException(nameof(battle));
-
-        if (round == null)
-            throw new ArgumentNullException(nameof(round));
-
-        return ResolveRound(battle, round, true);
-    }
-
     public static RoundResolution ResolveRound(BattleState battle, RoundState round, bool applyBurstPenalty)
     {
         if (battle == null)
