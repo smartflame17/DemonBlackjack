@@ -291,7 +291,7 @@ public sealed class RoundState
     {
         var cards = new List<Card>();
         cards.AddRange(_playerPlayedCards);
-        cards.AddRange(_opponentVisibleCards);
+        //cards.AddRange(_opponentVisibleCards);
         cards.AddRange(_sharedVisibleCards);
         return cards;
     }
