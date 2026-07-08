@@ -8,6 +8,7 @@ public sealed class BattleHandCardDragHandler : MonoBehaviour, IBeginDragHandler
     private RectTransform _parent;
     private CanvasGroup _canvasGroup;
     private Vector2 _startAnchoredPosition;
+    private Vector3 _dragWorldOffset;
     private int _handIndex = -1;
     private bool _dragging;
     private bool _originalBlocksRaycasts = true;
@@ -30,6 +31,9 @@ public sealed class BattleHandCardDragHandler : MonoBehaviour, IBeginDragHandler
             return;
 
         _startAnchoredPosition = _rectTransform.anchoredPosition;
+        _dragWorldOffset = TryGetPointerWorldPosition(eventData, out Vector3 pointerWorldPosition)
+            ? _rectTransform.position - pointerWorldPosition
+            : Vector3.zero;
         _canvasGroup ??= GetComponent<CanvasGroup>() ?? gameObject.AddComponent<CanvasGroup>();
         _originalBlocksRaycasts = _canvasGroup.blocksRaycasts;
         _canvasGroup.blocksRaycasts = false;
@@ -69,8 +73,13 @@ public sealed class BattleHandCardDragHandler : MonoBehaviour, IBeginDragHandler
         if (_rectTransform == null || _parent == null || eventData == null)
             return;
 
-        Camera camera = eventData.pressEventCamera;
-        if (RectTransformUtility.ScreenPointToLocalPointInRectangle(_parent, eventData.position, camera, out Vector2 localPoint))
-            _rectTransform.anchoredPosition = localPoint;
+        if (TryGetPointerWorldPosition(eventData, out Vector3 pointerWorldPosition))
+            _rectTransform.position = pointerWorldPosition + _dragWorldOffset;
+    }
+
+    private bool TryGetPointerWorldPosition(PointerEventData eventData, out Vector3 worldPosition)
+    {
+        Camera camera = eventData.pressEventCamera != null ? eventData.pressEventCamera : eventData.enterEventCamera;
+        return RectTransformUtility.ScreenPointToWorldPointInRectangle(_parent, eventData.position, camera, out worldPosition);
     }
 }

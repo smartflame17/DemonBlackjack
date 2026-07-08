@@ -8,6 +8,7 @@ public sealed class PlayerHandHitDragHandler : MonoBehaviour, IBeginDragHandler,
     private RectTransform _parent;
     private CanvasGroup _canvasGroup;
     private Vector2 _startAnchoredPosition;
+    private Vector3 _centerToPivotWorldOffset;
     private bool _startActive;
     private bool _dragging;
     private bool _originalBlocksRaycasts = true;
@@ -32,6 +33,7 @@ public sealed class PlayerHandHitDragHandler : MonoBehaviour, IBeginDragHandler,
         _startActive = gameObject.activeSelf;
         _startAnchoredPosition = _rectTransform.anchoredPosition;
         gameObject.SetActive(true);
+        _centerToPivotWorldOffset = CalculateCenterToPivotWorldOffset();
 
         _canvasGroup ??= GetComponent<CanvasGroup>() ?? gameObject.AddComponent<CanvasGroup>();
         _originalBlocksRaycasts = _canvasGroup.blocksRaycasts;
@@ -93,8 +95,19 @@ public sealed class PlayerHandHitDragHandler : MonoBehaviour, IBeginDragHandler,
         if (_rectTransform == null || _parent == null || eventData == null)
             return;
 
-        Camera camera = eventData.pressEventCamera;
-        if (RectTransformUtility.ScreenPointToLocalPointInRectangle(_parent, eventData.position, camera, out Vector2 localPoint))
-            _rectTransform.anchoredPosition = localPoint;
+        Camera camera = eventData.pressEventCamera != null ? eventData.pressEventCamera : eventData.enterEventCamera;
+        if (RectTransformUtility.ScreenPointToWorldPointInRectangle(_parent, eventData.position, camera, out Vector3 worldPosition))
+            _rectTransform.position = worldPosition + _centerToPivotWorldOffset;
+    }
+
+    private Vector3 CalculateCenterToPivotWorldOffset()
+    {
+        if (_rectTransform == null)
+            return Vector3.zero;
+
+        var corners = new Vector3[4];
+        _rectTransform.GetWorldCorners(corners);
+        Vector3 center = (corners[0] + corners[2]) * 0.5f;
+        return _rectTransform.position - center;
     }
 }
