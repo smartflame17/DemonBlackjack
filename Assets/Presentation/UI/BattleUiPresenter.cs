@@ -3,6 +3,7 @@ using System.Collections.Generic;
 using DG.Tweening;
 using TMPro;
 using UnityEngine;
+using UnityEngine.EventSystems;
 using UnityEngine.UI;
 using UnityEngine.Serialization;
 
@@ -49,6 +50,10 @@ public sealed class BattleUiPresenter : MonoBehaviour
     [SerializeField] private Button viewDrawPileButton;
     [SerializeField] private Button viewPlayedPileButton;
 
+    [Header("Drag Interactions")]
+    [SerializeField] private RectTransform playerHandImage;
+    [SerializeField] private DevilStandIndicator devilStandIndicator;
+
     [Header("Results")]
     [SerializeField] private GameObject roundResultPanel;
     [SerializeField] private TMP_Text roundResultText;
@@ -84,9 +89,24 @@ public sealed class BattleUiPresenter : MonoBehaviour
     private readonly List<Card> _lastSharedPileCards = new();
     private readonly List<Tween> _cardTweens = new();
 
+    private DeckViewLongPressDragStarter _deckViewDragStarter;
+    private PlayerHandHitDragHandler _playerHandHitDragHandler;
     private int _pendingWager = 10;
     private bool _wagerOpen;
     private bool _suppressRoundPilesUntilNextRound;
+
+    public bool CanPlayerAct
+    {
+        get
+        {
+            BattleState battle = battleController != null ? battleController.BattleState : null;
+            return battleController != null
+                && battle != null
+                && battle.Phase == BattlePhase.PlayerPhase
+                && !battleController.IsWaitingForVisuals
+                && battle.CurrentRound != null;
+        }
+    }
 
     private enum CardAnimationContext
     {
@@ -122,6 +142,7 @@ public sealed class BattleUiPresenter : MonoBehaviour
         ConfigureCardLayout(devilPlayPileRoot);
         ConfigureCardLayout(sharedPlayPileRoot);
         ConfigureCardLayout(playerPlayPileRoot);
+        ConfigureDragInteractionComponents();
     }
 
     private void OnEnable()
@@ -235,14 +256,47 @@ public sealed class BattleUiPresenter : MonoBehaviour
         ClearBattleCardViews();
     }
 
+    public bool TryPlayDraggedHandCard(int handIndex)
+    {
+        if (!CanPlayerAct)
+            return false;
+
+        _selectedHandIndices.Clear();
+        if (!battleController.TryPlayCard(handIndex))
+        {
+            Refresh();
+            return false;
+        }
+
+        battleController.EndPlayerPhase();
+        Refresh();
+        return true;
+    }
+
+    public bool TryHitFromDraggedDeck()
+    {
+        if (!CanPlayerAct)
+            return false;
+
+        _selectedHandIndices.Clear();
+        bool hit = battleController.TryHit();
+        Refresh();
+        return hit;
+    }
+
+    public bool IsPointerOverPlayerPlayPile(PointerEventData eventData)
+    {
+        if (playerPlayPileRoot == null || eventData == null)
+            return false;
+
+        Camera camera = eventData.pressEventCamera != null ? eventData.pressEventCamera : eventData.enterEventCamera;
+        return RectTransformUtility.RectangleContainsScreenPoint(playerPlayPileRoot, eventData.position, camera);
+    }
+
     private void AddListeners()
     {
-        if (playButton != null)
-            playButton.onClick.AddListener(PlaySelectedCards);
         if (standButton != null)
             standButton.onClick.AddListener(Stand);
-        if (hitButton != null)
-            hitButton.onClick.AddListener(Hit);
         if (incrementWagerButton != null)
             incrementWagerButton.onClick.AddListener(IncrementWager);
         if (decrementWagerButton != null)
@@ -253,8 +307,6 @@ public sealed class BattleUiPresenter : MonoBehaviour
             acceptOfferButton.onClick.AddListener(AcceptDevilOffer);
         if (declineOfferButton != null)
             declineOfferButton.onClick.AddListener(DeclineDevilOffer);
-        if (viewDrawPileButton != null)
-            viewDrawPileButton.onClick.AddListener(ShowDrawPile);
         if (viewPlayedPileButton != null)
             viewPlayedPileButton.onClick.AddListener(ShowPlayedPile);
         if (toShopButton != null)
@@ -399,7 +451,7 @@ public sealed class BattleUiPresenter : MonoBehaviour
         Refresh();
     }
 
-    private void ShowDrawPile()
+    public void ShowDrawPile()
     {
         BattleState battle = battleController?.BattleState;
         if (battle == null)
@@ -524,12 +576,8 @@ public sealed class BattleUiPresenter : MonoBehaviour
 
     private void SetTurnButtons(bool playerTurn, bool hasSelectedCard)
     {
-        if (playButton != null)
-            playButton.interactable = playerTurn && hasSelectedCard;
         if (standButton != null)
             standButton.interactable = playerTurn;
-        if (hitButton != null)
-            hitButton.interactable = playerTurn;
     }
 
     private static CardAnimationContext GetAnimationContext(VisualCommandType commandType)
@@ -780,11 +828,19 @@ public sealed class BattleUiPresenter : MonoBehaviour
             return;
 
         view.Button.onClick.RemoveAllListeners();
-        if (interactable && handIndex >= 0)
-        {
-            int capturedIndex = handIndex;
-            view.Button.onClick.AddListener(() => ToggleCardSelection(capturedIndex));
-        }
+        ConfigureHandCardDragHandler(view, interactable, handIndex);
+    }
+
+    private void ConfigureHandCardDragHandler(BattleUiCardView view, bool interactable, int handIndex)
+    {
+        if (view == null)
+            return;
+
+        BattleHandCardDragHandler dragHandler = view.GetComponent<BattleHandCardDragHandler>();
+        if (dragHandler == null)
+            dragHandler = view.gameObject.AddComponent<BattleHandCardDragHandler>();
+
+        dragHandler.Configure(interactable ? this : null, interactable ? handIndex : -1);
     }
 
     private void EnsureCardViews(List<BattleUiCardView> views, RectTransform root, int count, bool withButton)
@@ -878,6 +934,9 @@ public sealed class BattleUiPresenter : MonoBehaviour
         deckViewPanel ??= FindFirstObjectByType<DeckViewPanel>(FindObjectsInactive.Include);
         viewDrawPileButton ??= FindDescendantComponent<Button>("ViewDrawPileButton");
         viewPlayedPileButton ??= FindDescendantComponent<Button>("ViewPlayedPileButton");
+        playerHandImage ??= FindDescendantRect("PlayerHandImage");
+        devilStandIndicator ??= FindOrAddDescendantComponent<DevilStandIndicator>("DevilStandIndicator");
+        ConfigureDragInteractionComponents();
         roundResultPanel ??= FindDescendant("RoundResultPanel");
         roundResultText ??= FindDescendantComponent<TMP_Text>("RoundResultText");
         toShopButton ??= FindDescendantComponent<Button>("ToShopButton");
@@ -885,6 +944,35 @@ public sealed class BattleUiPresenter : MonoBehaviour
         battleResultPanel ??= FindDescendant("BattleResultPanel");
         rewardViewRoot ??= FindDescendantRect("RewardViewRoot");
         backToMapButton ??= FindDescendantComponent<Button>("BackToMapButton");
+    }
+
+    private void ConfigureDragInteractionComponents()
+    {
+        if (playButton != null)
+            playButton.gameObject.SetActive(false);
+
+        if (hitButton != null)
+            hitButton.gameObject.SetActive(false);
+
+        if (playerHandImage != null)
+        {
+            _playerHandHitDragHandler ??= playerHandImage.GetComponent<PlayerHandHitDragHandler>();
+            if (_playerHandHitDragHandler == null)
+                _playerHandHitDragHandler = playerHandImage.gameObject.AddComponent<PlayerHandHitDragHandler>();
+
+            _playerHandHitDragHandler.Configure(this);
+        }
+
+        if (viewDrawPileButton != null)
+        {
+            _deckViewDragStarter ??= viewDrawPileButton.GetComponent<DeckViewLongPressDragStarter>();
+            if (_deckViewDragStarter == null)
+                _deckViewDragStarter = viewDrawPileButton.gameObject.AddComponent<DeckViewLongPressDragStarter>();
+
+            _deckViewDragStarter.Configure(this, _playerHandHitDragHandler);
+        }
+
+        devilStandIndicator?.Configure(battleController);
     }
 
     private GameObject FindDescendant(string objectName)
@@ -907,6 +995,15 @@ public sealed class BattleUiPresenter : MonoBehaviour
     private T FindDescendantComponent<T>(string objectName) where T : Component
     {
         return FindDescendant(objectName)?.GetComponent<T>();
+    }
+
+    private T FindOrAddDescendantComponent<T>(string objectName) where T : Component
+    {
+        GameObject target = FindDescendant(objectName);
+        if (target == null)
+            return null;
+
+        return target.GetComponent<T>() ?? target.AddComponent<T>();
     }
 
     private static TMP_Text FindFirstTextUnder(GameObject root, string preferredName)

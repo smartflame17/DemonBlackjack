@@ -89,3 +89,13 @@ public readonly struct BattlePhaseChangedEvent
 
     public BattlePhase Phase { get; }
 }
+
+public readonly struct DevilTurnChoiceEvent
+{
+    public DevilTurnChoiceEvent(DevilTurnChoice choice)
+    {
+        Choice = choice;
+    }
+
+    public DevilTurnChoice Choice { get; }
+}

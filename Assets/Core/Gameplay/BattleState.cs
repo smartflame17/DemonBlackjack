@@ -660,6 +660,7 @@ public sealed class BattleState
         RefillOpponentHandIfEmpty();
 
         DevilTurnChoice choice = Config.DevilStrategy.ChooseTurnAction(this, CurrentRound);
+        EventBus.Publish(new DevilTurnChoiceEvent(choice));
         if (choice == DevilTurnChoice.Stand)
         {
             CurrentRound.MarkOpponentStood();
