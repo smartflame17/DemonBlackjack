@@ -8,7 +8,8 @@ public enum DeckViewFlags
 {
     None = 0,
     AllowSortModeSwitching = 1 << 0,
-    AllowCardSelection = 1 << 1
+    AllowCardSelection = 1 << 1,
+    ShowDiscardedCards = 1 << 2
 }
 
 public enum DeckViewSortMode
@@ -42,12 +43,27 @@ public sealed class DeckViewPanel : MonoBehaviour
     [SerializeField] private Button viewByRankButton;
     [SerializeField] private Button viewBySuitButton;
     [SerializeField] private Button closeButton;
+    [SerializeField] private Color discardedCardTint = new(0.5f, 0.5f, 0.5f, 0.7f);
 
     private readonly List<BattleUiCardView> _cardViews = new();
     private readonly List<Card> _cards = new();
+    private readonly List<RenderableCard> _renderableCards = new();
+    private List<Card> _discardedCards;
 
     private DeckViewOptions _options;
     private DeckViewSortMode _sortMode;
+
+    private readonly struct RenderableCard
+    {
+        public RenderableCard(Card card, bool isDiscarded)
+        {
+            Card = card;
+            IsDiscarded = isDiscarded;
+        }
+
+        public Card Card { get; }
+        public bool IsDiscarded { get; }
+    }
 
     private void Awake()
     {
@@ -63,9 +79,15 @@ public sealed class DeckViewPanel : MonoBehaviour
     {
         RemoveListeners();
         DestroyCardViews(_cardViews);
+        _discardedCards = null;
     }
 
     public void Show(IReadOnlyList<Card> cards, DeckViewOptions options = default)
+    {
+        Show(cards, null, options);
+    }
+
+    public void Show(IReadOnlyList<Card> cards, IReadOnlyList<Card> discardedCards, DeckViewOptions options = default)
     {
         ResolveReferences();
 
@@ -74,6 +96,16 @@ public sealed class DeckViewPanel : MonoBehaviour
         _cards.Clear();
         if (cards != null)
             _cards.AddRange(cards);
+
+        if (_options.Flags.HasFlag(DeckViewFlags.ShowDiscardedCards) && discardedCards != null)
+        {
+            _discardedCards?.Clear();
+            (_discardedCards ??= new List<Card>()).AddRange(discardedCards);
+        }
+        else
+        {
+            _discardedCards = null;
+        }
 
         if (panelRoot != null)
             panelRoot.SetActive(true);
@@ -87,6 +119,7 @@ public sealed class DeckViewPanel : MonoBehaviour
             panelRoot.SetActive(false);
 
         DestroyCardViews(_cardViews);
+        _discardedCards = null;
     }
 
     private static DeckViewOptions NormalizeOptions(DeckViewOptions options)
@@ -164,12 +197,11 @@ public sealed class DeckViewPanel : MonoBehaviour
             return;
         }
 
-        var sorted = new List<Card>(_cards);
-        sorted.Sort(CompareCardsByRank);
+        List<RenderableCard> sorted = BuildRenderableCards(CompareCardsByRank);
 
         for (int i = 0; i < sorted.Count; i++)
         {
-            Card card = sorted[i];
+            Card card = sorted[i].Card;
             RectTransform group = GetRankGroup(card.Rank);
             if (group == null)
                 continue;
@@ -179,7 +211,7 @@ public sealed class DeckViewPanel : MonoBehaviour
                 continue;
 
             _cardViews.Add(view);
-            BindCard(view, card);
+            BindCard(view, sorted[i]);
         }
 
         RebuildCardLayoutGroups(rankGridViewRoot);
@@ -193,12 +225,11 @@ public sealed class DeckViewPanel : MonoBehaviour
             return;
         }
 
-        var sorted = new List<Card>(_cards);
-        sorted.Sort(CompareCardsBySuit);
+        List<RenderableCard> sorted = BuildRenderableCards(CompareCardsBySuit);
 
         for (int i = 0; i < sorted.Count; i++)
         {
-            Card card = sorted[i];
+            Card card = sorted[i].Card;
             RectTransform group = GetSuitGroup(card.Suit);
             if (group == null)
                 continue;
@@ -208,7 +239,7 @@ public sealed class DeckViewPanel : MonoBehaviour
                 continue;
 
             _cardViews.Add(view);
-            BindCard(view, card);
+            BindCard(view, sorted[i]);
         }
 
         RebuildCardLayoutGroups(suitGridViewRoot);
@@ -216,8 +247,7 @@ public sealed class DeckViewPanel : MonoBehaviour
 
     private void RenderCardsFallback(Comparison<Card> comparison)
     {
-        var sorted = new List<Card>(_cards);
-        sorted.Sort(comparison);
+        List<RenderableCard> sorted = BuildRenderableCards(comparison);
 
         RectTransform fallbackRoot = _sortMode == DeckViewSortMode.Rank ? rankGridViewRoot : suitGridViewRoot;
         fallbackRoot ??= rankGridViewRoot != null ? rankGridViewRoot : suitGridViewRoot;
@@ -238,6 +268,22 @@ public sealed class DeckViewPanel : MonoBehaviour
         }
 
         LayoutRebuilder.ForceRebuildLayoutImmediate(fallbackRoot);
+    }
+
+    private List<RenderableCard> BuildRenderableCards(Comparison<Card> comparison)
+    {
+        _renderableCards.Clear();
+        for (int i = 0; i < _cards.Count; i++)
+            _renderableCards.Add(new RenderableCard(_cards[i], false));
+
+        if (_options.Flags.HasFlag(DeckViewFlags.ShowDiscardedCards) && _discardedCards != null)
+        {
+            for (int i = 0; i < _discardedCards.Count; i++)
+                _renderableCards.Add(new RenderableCard(_discardedCards[i], true));
+        }
+
+        _renderableCards.Sort((x, y) => comparison(x.Card, y.Card));
+        return _renderableCards;
     }
 
     private RectTransform GetRankGroup(Rank rank)
@@ -285,10 +331,12 @@ public sealed class DeckViewPanel : MonoBehaviour
         return string.CompareOrdinal(x.ModifierId, y.ModifierId);
     }
 
-    private void BindCard(BattleUiCardView view, Card card)
+    private void BindCard(BattleUiCardView view, RenderableCard renderableCard)
     {
+        Card card = renderableCard.Card;
         Sprite sprite = assetRegistry != null ? assetRegistry.GetCardFront(card) : null;
         view.Bind(card, sprite, true, false, assetRegistry);
+        view.SetVisualColor(renderableCard.IsDiscarded ? discardedCardTint : Color.white);
 
         if (view.Button != null)
             view.Button.onClick.RemoveAllListeners();

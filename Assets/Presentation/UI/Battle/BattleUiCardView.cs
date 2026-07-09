@@ -89,6 +89,20 @@ public sealed class BattleUiCardView : MonoBehaviour
         tooltipTrigger.Clear();
     }
 
+    public void SetVisualColor(Color color)
+    {
+        EnsureReferences();
+
+        if (image != null)
+            image.color = color;
+
+        if (label != null)
+            label.color = color;
+
+        if (upgradeImage != null)
+            upgradeImage.color = color;
+    }
+
     public void SetSelected(bool selected)
     {
         EnsureReferences();

@@ -47,8 +47,8 @@ public sealed class BattleUiPresenter : MonoBehaviour
 
     [Header("Deck View")]
     [SerializeField] private DeckViewPanel deckViewPanel;
-    [SerializeField] private Button viewDrawPileButton;
-    [SerializeField] private Button viewPlayedPileButton;
+    [FormerlySerializedAs("viewDrawPileButton")]
+    [SerializeField] private Button viewPileButton;
 
     [Header("Drag Interactions")]
     [SerializeField] private RectTransform playerHandImage;
@@ -307,8 +307,6 @@ public sealed class BattleUiPresenter : MonoBehaviour
             acceptOfferButton.onClick.AddListener(AcceptDevilOffer);
         if (declineOfferButton != null)
             declineOfferButton.onClick.AddListener(DeclineDevilOffer);
-        if (viewPlayedPileButton != null)
-            viewPlayedPileButton.onClick.AddListener(ShowPlayedPile);
         if (toShopButton != null)
             toShopButton.onClick.AddListener(OpenShop);
         if (backToMapButton != null)
@@ -325,8 +323,6 @@ public sealed class BattleUiPresenter : MonoBehaviour
         Remove(proposalButton, ProposeWager);
         Remove(acceptOfferButton, AcceptDevilOffer);
         Remove(declineOfferButton, DeclineDevilOffer);
-        Remove(viewDrawPileButton, ShowDrawPile);
-        Remove(viewPlayedPileButton, ShowPlayedPile);
         Remove(toShopButton, OpenShop);
         Remove(backToMapButton, ReturnToMap);
     }
@@ -451,27 +447,20 @@ public sealed class BattleUiPresenter : MonoBehaviour
         Refresh();
     }
 
-    public void ShowDrawPile()
+    public void ShowPile()
     {
         BattleState battle = battleController?.BattleState;
         if (battle == null)
             return;
 
-        deckViewPanel?.Show(battle.PlayerDrawPile, DeckViewOptions.Default);
-    }
-
-    private void ShowPlayedPile()
-    {
-        BattleState battle = battleController?.BattleState;
-        if (battle == null)
-            return;
-
-        var cards = new List<Card>();
-        cards.AddRange(battle.PlayerDiscardPile);
+        var discardedCards = new List<Card>();
+        discardedCards.AddRange(battle.PlayerDiscardPile);
         if (battle.CurrentRound != null)
-            cards.AddRange(battle.CurrentRound.PlayerPlayedCards);
+            discardedCards.AddRange(battle.CurrentRound.PlayerPlayedCards);
 
-        deckViewPanel?.Show(cards, DeckViewOptions.Default);
+        DeckViewOptions options = DeckViewOptions.Default;
+        options.Flags |= DeckViewFlags.ShowDiscardedCards;
+        deckViewPanel?.Show(battle.PlayerDrawPile, discardedCards, options);
     }
 
     private void OnRunPhaseChanged(RunPhaseChangedEvent eventData)
@@ -932,8 +921,8 @@ public sealed class BattleUiPresenter : MonoBehaviour
         proposalAmountText ??= FindFirstTextUnder(playerProposalRoot, "RoundWagerAmount");
         devilOfferAmountText ??= FindFirstTextUnder(devilOfferRoot, "RoundWagerAmount");
         deckViewPanel ??= FindFirstObjectByType<DeckViewPanel>(FindObjectsInactive.Include);
-        viewDrawPileButton ??= FindDescendantComponent<Button>("ViewDrawPileButton");
-        viewPlayedPileButton ??= FindDescendantComponent<Button>("ViewPlayedPileButton");
+        viewPileButton ??= FindDescendantComponent<Button>("ViewPileButton");
+        viewPileButton ??= FindDescendantComponent<Button>("ViewDrawPileButton");
         playerHandImage ??= FindDescendantRect("PlayerHandImage");
         devilStandIndicator ??= FindOrAddDescendantComponent<DevilStandIndicator>("DevilStandIndicator");
         ConfigureDragInteractionComponents();
@@ -963,11 +952,11 @@ public sealed class BattleUiPresenter : MonoBehaviour
             _playerHandHitDragHandler.Configure(this);
         }
 
-        if (viewDrawPileButton != null)
+        if (viewPileButton != null)
         {
-            _deckViewDragStarter ??= viewDrawPileButton.GetComponent<DeckViewLongPressDragStarter>();
+            _deckViewDragStarter ??= viewPileButton.GetComponent<DeckViewLongPressDragStarter>();
             if (_deckViewDragStarter == null)
-                _deckViewDragStarter = viewDrawPileButton.gameObject.AddComponent<DeckViewLongPressDragStarter>();
+                _deckViewDragStarter = viewPileButton.gameObject.AddComponent<DeckViewLongPressDragStarter>();
 
             _deckViewDragStarter.Configure(this, _playerHandHitDragHandler);
         }
