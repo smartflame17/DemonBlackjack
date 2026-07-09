@@ -59,6 +59,6 @@ public sealed class DeckViewLongPressDragStarter : MonoBehaviour, IPointerDownHa
             return;
         }
 
-        presenter?.ShowDrawPile();
+        presenter?.ShowPile();
     }
 }
