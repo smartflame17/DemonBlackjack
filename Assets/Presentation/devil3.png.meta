@@ -115,7 +115,7 @@ TextureImporter:
     serializedVersion: 2
     sprites:
     - serializedVersion: 2
-      name: devil3_0
+      name: devil3_default
       rect:
         serializedVersion: 2
         x: 924
@@ -137,7 +137,7 @@ TextureImporter:
       edges: []
       weights: []
     - serializedVersion: 2
-      name: devil3_1
+      name: devil3_cards
       rect:
         serializedVersion: 2
         x: 3662
@@ -159,11 +159,11 @@ TextureImporter:
       edges: []
       weights: []
     - serializedVersion: 2
-      name: devil3_2
+      name: devil3_smile
       rect:
         serializedVersion: 2
         x: 1049
-        y: 546
+        y: 564
         width: 1349
         height: 1699
       alignment: 9
@@ -181,7 +181,7 @@ TextureImporter:
       edges: []
       weights: []
     - serializedVersion: 2
-      name: devil3_3
+      name: devil3_sweat
       rect:
         serializedVersion: 2
         x: 3081
@@ -225,7 +225,7 @@ TextureImporter:
       edges: []
       weights: []
     - serializedVersion: 2
-      name: devil3_5
+      name: devil3_dissapointed
       rect:
         serializedVersion: 2
         x: 4704
@@ -260,12 +260,12 @@ TextureImporter:
     spriteCustomMetadata:
       entries: []
     nameFileIdTable:
-      devil3_0: 6505366208653593921
-      devil3_1: 7958931428452301495
-      devil3_2: -3239875721402623195
-      devil3_3: -7993800306333399767
       devil3_4: -9017083901611283790
-      devil3_5: -8541855647426209819
+      devil3_cards: 7958931428452301495
+      devil3_default: 6505366208653593921
+      devil3_dissapointed: -8541855647426209819
+      devil3_smile: -3239875721402623195
+      devil3_sweat: -7993800306333399767
   mipmapLimitGroupName: 
   pSDRemoveMatte: 0
   userData: 
