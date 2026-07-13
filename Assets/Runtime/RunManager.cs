@@ -4,6 +4,7 @@ public class RunManager : MonoBehaviour, IDataPersistence
 {
     [SerializeField] private BattleController battleController;
     [SerializeField] private bool startRunOnAwake = true;
+    [SerializeField] private bool setRandomSeed = false;
     [SerializeField] private int debugSeed = 12345;
     [SerializeField] private int startingMoney = 100;
     [SerializeField] private int defaultOpponentStartingMoney = 100;
@@ -29,7 +30,15 @@ public class RunManager : MonoBehaviour, IDataPersistence
     private void Start()
     {
         if (startRunOnAwake)
-            StartOrLoadRun(debugSeed);
+        {
+            int Seed;
+
+            if (setRandomSeed)
+                Seed = System.Environment.TickCount;
+            else Seed = debugSeed;
+
+            StartOrLoadRun(Seed);
+        }
     }
 
     public void StartRun(int seed)

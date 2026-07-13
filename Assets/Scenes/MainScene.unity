@@ -8441,6 +8441,7 @@ MonoBehaviour:
   m_EditorClassIdentifier: Assembly-CSharp::RunManager
   battleController: {fileID: 1399201285}
   startRunOnAwake: 1
+  setRandomSeed: 0
   debugSeed: 6767
   startingMoney: 100
   defaultOpponentStartingMoney: 1000
