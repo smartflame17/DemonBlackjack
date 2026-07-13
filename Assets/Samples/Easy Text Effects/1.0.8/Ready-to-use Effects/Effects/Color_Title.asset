@@ -12,14 +12,14 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: 16860026da54450394f6a38fe250e740, type: 3}
   m_Name: Color_Title
   m_EditorClassIdentifier: 
-  effectName: title
+  effectTag: title
   startCharIndex: 0
   charLength: 132
   animationType: 2
   fixedDuration: 0
   durationPerChar: 2
-  noDelayForChars: 1
   timeBetweenChars: 0.2
+  noDelayForChars: 1
   reverseCharOrder: 0
   easingCurve:
     serializedVersion: 2
@@ -45,14 +45,15 @@ MonoBehaviour:
     m_PreInfinity: 2
     m_PostInfinity: 2
     m_RotationOrder: 4
-  differentForFourVertices: 0
+  clampBetween0And1: 0
+  timeType: 0
   colorType: 0
   startColor: {r: 1, g: 1, b: 1, a: 1}
   endColor: {r: 1, g: 0, b: 0, a: 1}
   gradient:
     serializedVersion: 2
-    key0: {r: 0.59648365, g: 0, b: 0.8584906, a: 1}
-    key1: {r: 0.08317016, g: 0.70673215, b: 0.8396226, a: 1}
+    key0: {r: 0.7, g: 0.7, b: 0.7, a: 1}
+    key1: {r: 0.4666667, g: 0.5333334, b: 0.6, a: 1}
     key2: {r: 1, g: 0.9404255, b: 0, a: 0}
     key3: {r: 0, g: 0, b: 0, a: 0}
     key4: {r: 0, g: 0, b: 0, a: 0}
