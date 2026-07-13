@@ -29756,6 +29756,7 @@ MonoBehaviour:
   runManager: {fileID: 562614337}
   battleController: {fileID: 1399201285}
   assetRegistry: {fileID: 11400000, guid: f571c9f53e8d97f4dab513809a72572c, type: 2}
+  cardPrefab: {fileID: 7602269838714400112, guid: 6d725c9d171616644a487327746db669, type: 3}
   catalog: {fileID: 11400000, guid: e0c9c811fc78ee442864ce546964af65, type: 2}
   continueButton: {fileID: 1147531120}
   shopPanel: {fileID: 308429303}

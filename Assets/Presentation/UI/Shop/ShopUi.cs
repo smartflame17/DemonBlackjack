@@ -9,6 +9,7 @@ public sealed class ShopUi : MonoBehaviour
     [SerializeField] private RunManager runManager;
     [SerializeField] private BattleController battleController;
     [SerializeField] private GameplayAssetRegistry assetRegistry;
+    [SerializeField] private BattleUiCardView cardPrefab;
     [SerializeField] private ShopCatalog catalog;
     [SerializeField] private Button continueButton;
     [SerializeField] private GameObject shopPanel;
@@ -110,8 +111,9 @@ public sealed class ShopUi : MonoBehaviour
             if (i >= offers.Count || offers[i].Definition == null) { _upgradeSlots[i].SetUnavailable(); continue; }
             CardUpgradeOffer offer = offers[i];
             ShopSlotView slot = _upgradeSlots[i];
-            string label = $"{offer.Rank}\n{offer.Definition.DisplayName}";
-            slot.Bind(assetRegistry != null ? assetRegistry.GetCardUpgradeSprite(offer.Definition.Id) : null, offer.Definition.Price, label, offer.Definition.Id, () => PurchaseUpgrade(slot, offer, run, battleController));
+            Card card = new(Suit.Hearts, offer.Rank, offer.Definition.Id);
+            Sprite sprite = assetRegistry != null ? assetRegistry.GetCardFront(card) : null;
+            slot.BindCard(card, sprite, assetRegistry, offer.Definition.Price, offer.Definition.Id, () => PurchaseUpgrade(slot, offer, run, battleController));
         }
     }
 
@@ -159,7 +161,7 @@ public sealed class ShopUi : MonoBehaviour
         _itemSlots.Clear(); _relicSlots.Clear(); _upgradeSlots.Clear();
         AddSlots(_itemSlots, new[] { "item1Slot", "item2Slot ", "item3Slot" }, new[] { "Item1Sprite", "Item2Sprite", "Item3Sprite" }, new[] { "item1PriceText", "item2PriceText", "item3PriceText" });
         AddSlots(_relicSlots, new[] { "Relic1Slot", "Relic2Slot", "Relic3Slot" }, new[] { "Relic1Sprite", "Relic2Sprite", "Relic3Sprite" }, new[] { "Relic1PriceText", "Relic2PriceText", "Relic3PriceText" });
-        AddSlots(_upgradeSlots, new[] { "Upgrade1Slot", "Upgrade2Slot", "Upgrade3Slot", "Upgrade4Slot", "Upgrade5Slot" }, new[] { "Upgrade1Sprite", "Upgrade2Sprite", "Upgrade3Sprite", "Upgrade4Sprite", "Upgrade5Sprite" }, new[] { "Upgrade1PriceText", "Upgrade2PriceText", "Upgrade3PriceText", "Upgrade4PriceText", "Upgrade5PriceText" });
+        AddUpgradeSlots(new[] { "Upgrade1Slot", "Upgrade2Slot", "Upgrade3Slot", "Upgrade4Slot", "Upgrade5Slot" }, new[] { "Upgrade1Sprite", "Upgrade2Sprite", "Upgrade3Sprite", "Upgrade4Sprite", "Upgrade5Sprite" }, new[] { "Upgrade1PriceText", "Upgrade2PriceText", "Upgrade3PriceText", "Upgrade4PriceText", "Upgrade5PriceText" });
     }
 
     private void AddSlots(List<ShopSlotView> target, string[] roots, string[] sprites, string[] prices)
@@ -172,6 +174,65 @@ public sealed class ShopUi : MonoBehaviour
             view.Initialize(FindDescendant(sprites[i])?.GetComponent<Button>(), FindDescendant(prices[i])?.GetComponent<TMP_Text>());
             target.Add(view);
         }
+    }
+
+    private void AddUpgradeSlots(string[] roots, string[] legacySprites, string[] prices)
+    {
+        BattleUiCardView prefab = ResolveCardPrefab();
+        for (int i = 0; i < roots.Length; i++)
+        {
+            GameObject root = FindDescendant(roots[i]);
+            if (root == null)
+                continue;
+
+            ShopSlotView slot = root.GetComponent<ShopSlotView>() ?? root.AddComponent<ShopSlotView>();
+            BattleUiCardView cardView = null;
+            if (prefab != null)
+            {
+                cardView = Instantiate(prefab, root.transform, false);
+                cardView.name = "UpgradeCard";
+                cardView.transform.SetSiblingIndex(0);
+                RectTransform rect = cardView.RectTransform;
+                if (rect != null)
+                {
+                    rect.anchorMin = new Vector2(0.5f, 0.5f);
+                    rect.anchorMax = new Vector2(0.5f, 0.5f);
+                    rect.anchoredPosition = Vector2.zero;
+                    rect.sizeDelta = new Vector2(90f, 126f);
+                }
+
+                EnlargeOnHover cardHover = cardView.GetComponent<EnlargeOnHover>();
+                if (cardHover != null)
+                    cardHover.enabled = false;
+
+                GameObject legacySprite = FindDescendant(legacySprites[i]);
+                if (legacySprite != null)
+                    legacySprite.SetActive(false);
+            }
+
+            slot.Initialize(cardView, FindDescendant(prices[i])?.GetComponent<TMP_Text>());
+            _upgradeSlots.Add(slot);
+        }
+    }
+
+    private BattleUiCardView ResolveCardPrefab()
+    {
+        if (cardPrefab != null)
+            return cardPrefab;
+
+        BattleUiCardView[] candidates = Resources.FindObjectsOfTypeAll<BattleUiCardView>();
+        for (int i = 0; i < candidates.Length; i++)
+        {
+            BattleUiCardView candidate = candidates[i];
+            if (candidate != null && candidate.name == "CardPrefab" && !candidate.gameObject.scene.IsValid())
+            {
+                cardPrefab = candidate;
+                return cardPrefab;
+            }
+        }
+
+        Debug.LogWarning($"{nameof(ShopUi)} is missing a card prefab reference.", this);
+        return null;
     }
 
     private GameObject FindDescendant(string objectName)
