@@ -16,7 +16,6 @@ public sealed class BattleUiPresenter : MonoBehaviour
 
     [Header("Main")]
     [SerializeField] private BattleUiCardView cardPrefab;
-    [SerializeField] private Image devilImage;
     [SerializeField] private TMP_Text playerScoreText;
     [SerializeField] private TMP_Text devilScoreText;
     [SerializeField] private TMP_Text playerBurstThresholdText;
@@ -219,8 +218,6 @@ public sealed class BattleUiPresenter : MonoBehaviour
             return;
         }
 
-        if (devilImage != null && assetRegistry != null)
-            devilImage.sprite = assetRegistry.GetDevilSprite(battle.Config.DevilId);
 
         if (battle.Phase == BattlePhase.PreRound && (battle.CurrentRound == null || !battle.CurrentRound.WagerCommitted) && !_wagerOpen)
         {
@@ -888,7 +885,6 @@ public sealed class BattleUiPresenter : MonoBehaviour
 
     private void AutoBindLayout()
     {
-        devilImage ??= FindDescendantComponent<Image>("DevilImage");
         playerScoreText ??= FindDescendantComponent<TMP_Text>("PlayerScore");
         devilScoreText ??= FindDescendantComponent<TMP_Text>("DevilScore");
         playerBurstThresholdText ??= FindDescendantComponent<TMP_Text>("PlayerThreshold");
