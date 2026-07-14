@@ -13,6 +13,8 @@ public sealed class ShopUi : MonoBehaviour
     [SerializeField] private ShopCatalog catalog;
     [SerializeField] private Button continueButton;
     [SerializeField] private GameObject shopPanel;
+    [SerializeField] private GameObject upgradePreviewRoot;
+    [SerializeField] private GameObject itemPreviewRoot;
     [SerializeField] private float shopPanelAnimationDuration = 2.0f;
     [SerializeField] private Ease shopPanelAnimationEase = Ease.OutBounce;
     [SerializeField] private int activeItemOfferCount = 3;
@@ -34,6 +36,8 @@ public sealed class ShopUi : MonoBehaviour
         catalog ??= ShopCatalog.CreateRuntimeDefault();
         continueButton ??= FindDescendant("ContinueButton")?.GetComponent<Button>();
         shopPanel ??= FindDescendant("ShopPanel");
+        upgradePreviewRoot ??= FindDescendant("UpgradePreviewRoot");
+        itemPreviewRoot ??= FindDescendant("ItemPreviewRoot");
         BindSceneSlots();
     }
 
@@ -77,9 +81,55 @@ public sealed class ShopUi : MonoBehaviour
         List<CardUpgradeOffer> upgradePool = ShopOfferGenerator.CreateCardUpgradeOfferPool(catalog.CardUpgrades);
         List<CardUpgradeOffer> upgrades = ShopOfferGenerator.TakeRandom(upgradePool, upgradeOfferCount, random);
 
+        BindPreviews(items, upgrades);
         BindItems(items, run);
         BindRelics(relics, run);
         BindUpgrades(upgrades, run);
+    }
+
+    private void BindPreviews(IReadOnlyList<ActiveItemDefinition> items, IReadOnlyList<CardUpgradeOffer> upgrades)
+    {
+        if (upgradePreviewRoot != null)
+        {
+            int offerIndex = 0;
+            Transform root = upgradePreviewRoot.transform;
+            for (int i = 0; i < root.childCount; i++)
+            {
+                Transform child = root.GetChild(i);
+                if (!child.TryGetComponent(out Image preview))
+                    continue;
+
+                bool hasOffer = upgrades != null
+                    && offerIndex < upgrades.Count
+                    && upgrades[offerIndex].Definition != null;
+                preview.sprite = hasOffer && assetRegistry != null
+                    ? assetRegistry.GetCardUpgradeSprite(upgrades[offerIndex].Definition.Id)
+                    : null;
+                child.gameObject.SetActive(hasOffer);
+                offerIndex++;
+            }
+        }
+
+        if (itemPreviewRoot != null)
+        {
+            int offerIndex = 0;
+            Transform root = itemPreviewRoot.transform;
+            for (int i = 0; i < root.childCount; i++)
+            {
+                Transform child = root.GetChild(i);
+                if (!child.TryGetComponent(out Image preview))
+                    continue;
+
+                bool hasOffer = items != null
+                    && offerIndex < items.Count
+                    && items[offerIndex] != null;
+                preview.sprite = hasOffer && assetRegistry != null
+                    ? assetRegistry.GetActiveItemSprite(items[offerIndex].Id)
+                    : null;
+                child.gameObject.SetActive(hasOffer);
+                offerIndex++;
+            }
+        }
     }
 
     private void BindItems(IReadOnlyList<ActiveItemDefinition> offers, RunState run)

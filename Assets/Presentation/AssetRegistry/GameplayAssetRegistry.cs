@@ -60,6 +60,9 @@ public sealed class GameplayAssetRegistry : ScriptableObject
             : defaultDevilSprite;
     }
 
+    // TODO: Query devil sprite with additional string parameter for specific emotions
+
+
     public Sprite GetActiveItemSprite(string id) => GetIdSprite(id, activeItemSprites, ref _activeItemLookup, defaultActiveItemSprite != null ? defaultActiveItemSprite : defaultCardFront);
     public Sprite GetRelicSprite(string id) => GetIdSprite(id, relicSprites, ref _relicLookup, defaultRelicSprite != null ? defaultRelicSprite : defaultCardFront);
     public Sprite GetCardUpgradeSprite(string id) => GetIdSprite(id, cardUpgradeSprites, ref _cardUpgradeLookup, defaultCardUpgradeSprite != null ? defaultCardUpgradeSprite : defaultCardFront);
