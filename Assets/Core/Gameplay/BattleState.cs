@@ -111,6 +111,7 @@ public sealed class BattleState
         AddOpponentMoney(-opponentStake);
 
         EventBus.Publish(new WagerCommittedEvent(proposedWager, CurrentRound.PlayerActsFirst, WagerResponse.Accept));
+        global::EventBus.Publish(new MoneyTransferReasonEvent(MoneyTransferReason.InitialWager, playerStake));
         EventBus.Publish(new RoundStartedEvent(RoundNumber));
         CommandQueue.Enqueue(new VisualCommand(VisualCommandType.RoundStarted, $"{RoundNumber}:{proposedWager}"));
 
