@@ -20,7 +20,6 @@ public sealed class BattleUiPresenter : MonoBehaviour
     [SerializeField] private TMP_Text devilScoreText;
     [SerializeField] private TMP_Text playerBurstThresholdText;
     [SerializeField] private TMP_Text devilBurstThresholdText;
-    [SerializeField] private TMP_Text roundWagerText;
     [SerializeField] private RectTransform playerHandRoot;
     [SerializeField] private RectTransform opponentHandRoot;
     [SerializeField] private RectTransform devilPlayPileRoot;
@@ -211,7 +210,6 @@ public sealed class BattleUiPresenter : MonoBehaviour
             SetText(playerScoreText, "-");
             SetText(devilScoreText, "-");
             SetBurstThresholdText(null);
-            SetText(roundWagerText, "0");
             SetPanels(false, false, false);
             SetTurnButtons(false, false);
             RememberRenderedCards(null);
@@ -227,7 +225,6 @@ public sealed class BattleUiPresenter : MonoBehaviour
 
         SetScoreText(round);
         SetBurstThresholdText(round);
-        SetText(roundWagerText, round != null ? round.Pot.ToString() : "0");
 
         RenderCards(_playerCards, playerHandRoot, round?.PlayerHand.Count ?? 0, round?.PlayerHand, true, CanSelectCards(battle), false);
         RenderCards(_opponentCards, opponentHandRoot, round?.OpponentHand.Count ?? 0, round?.OpponentHand, false, false, true);
@@ -889,7 +886,6 @@ public sealed class BattleUiPresenter : MonoBehaviour
         devilScoreText ??= FindDescendantComponent<TMP_Text>("DevilScore");
         playerBurstThresholdText ??= FindDescendantComponent<TMP_Text>("PlayerThreshold");
         devilBurstThresholdText ??= FindDescendantComponent<TMP_Text>("DevilThreshold");
-        roundWagerText ??= FindDescendantComponent<TMP_Text>("RoundWagerAmount");
         playerHandRoot ??= FindDescendantRect("PlayerHand");
         opponentHandRoot ??= FindDescendantRect("DevilHand");
         devilPlayPileRoot ??= FindDescendantRect("DevilPlayPile");
