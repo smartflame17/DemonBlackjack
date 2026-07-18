@@ -3,6 +3,7 @@ using System.Collections.Generic;
 using DG.Tweening;
 using TMPro;
 using UnityEngine;
+using UnityEngine.EventSystems;
 using UnityEngine.UI;
 using UnityEngine.Serialization;
 
@@ -15,13 +16,10 @@ public sealed class BattleUiPresenter : MonoBehaviour
 
     [Header("Main")]
     [SerializeField] private BattleUiCardView cardPrefab;
-    [SerializeField] private Image devilImage;
     [SerializeField] private TMP_Text playerScoreText;
     [SerializeField] private TMP_Text devilScoreText;
     [SerializeField] private TMP_Text playerBurstThresholdText;
     [SerializeField] private TMP_Text devilBurstThresholdText;
-    [SerializeField] private TMP_Text roundWagerText;
-    [SerializeField] private TMP_Text devilMoneyText;
     [SerializeField] private RectTransform playerHandRoot;
     [SerializeField] private RectTransform opponentHandRoot;
     [SerializeField] private RectTransform devilPlayPileRoot;
@@ -46,8 +44,12 @@ public sealed class BattleUiPresenter : MonoBehaviour
 
     [Header("Deck View")]
     [SerializeField] private DeckViewPanel deckViewPanel;
-    [SerializeField] private Button viewDrawPileButton;
-    [SerializeField] private Button viewPlayedPileButton;
+    [FormerlySerializedAs("viewDrawPileButton")]
+    [SerializeField] private Button viewPileButton;
+
+    [Header("Drag Interactions")]
+    [SerializeField] private RectTransform playerHandImage;
+    [SerializeField] private DevilStandIndicator devilStandIndicator;
 
     [Header("Results")]
     [SerializeField] private GameObject roundResultPanel;
@@ -84,9 +86,24 @@ public sealed class BattleUiPresenter : MonoBehaviour
     private readonly List<Card> _lastSharedPileCards = new();
     private readonly List<Tween> _cardTweens = new();
 
+    private DeckViewLongPressDragStarter _deckViewDragStarter;
+    private PlayerHandHitDragHandler _playerHandHitDragHandler;
     private int _pendingWager = 10;
     private bool _wagerOpen;
     private bool _suppressRoundPilesUntilNextRound;
+
+    public bool CanPlayerAct
+    {
+        get
+        {
+            BattleState battle = battleController != null ? battleController.BattleState : null;
+            return battleController != null
+                && battle != null
+                && battle.Phase == BattlePhase.PlayerPhase
+                && !battleController.IsWaitingForVisuals
+                && battle.CurrentRound != null;
+        }
+    }
 
     private enum CardAnimationContext
     {
@@ -122,6 +139,7 @@ public sealed class BattleUiPresenter : MonoBehaviour
         ConfigureCardLayout(devilPlayPileRoot);
         ConfigureCardLayout(sharedPlayPileRoot);
         ConfigureCardLayout(playerPlayPileRoot);
+        ConfigureDragInteractionComponents();
     }
 
     private void OnEnable()
@@ -192,16 +210,12 @@ public sealed class BattleUiPresenter : MonoBehaviour
             SetText(playerScoreText, "-");
             SetText(devilScoreText, "-");
             SetBurstThresholdText(null);
-            SetText(roundWagerText, "0");
-            SetText(devilMoneyText, "Devil $0");
             SetPanels(false, false, false);
             SetTurnButtons(false, false);
             RememberRenderedCards(null);
             return;
         }
 
-        if (devilImage != null && assetRegistry != null)
-            devilImage.sprite = assetRegistry.GetDevilSprite(battle.Config.DevilId);
 
         if (battle.Phase == BattlePhase.PreRound && (battle.CurrentRound == null || !battle.CurrentRound.WagerCommitted) && !_wagerOpen)
         {
@@ -209,10 +223,8 @@ public sealed class BattleUiPresenter : MonoBehaviour
             round = battle.CurrentRound;
         }
 
-        SetText(devilMoneyText, $"Devil ${battle.OpponentMoney}");
         SetScoreText(round);
         SetBurstThresholdText(round);
-        SetText(roundWagerText, round != null ? round.Pot.ToString() : "0");
 
         RenderCards(_playerCards, playerHandRoot, round?.PlayerHand.Count ?? 0, round?.PlayerHand, true, CanSelectCards(battle), false);
         RenderCards(_opponentCards, opponentHandRoot, round?.OpponentHand.Count ?? 0, round?.OpponentHand, false, false, true);
@@ -235,14 +247,47 @@ public sealed class BattleUiPresenter : MonoBehaviour
         ClearBattleCardViews();
     }
 
+    public bool TryPlayDraggedHandCard(int handIndex)
+    {
+        if (!CanPlayerAct)
+            return false;
+
+        _selectedHandIndices.Clear();
+        if (!battleController.TryPlayCard(handIndex))
+        {
+            Refresh();
+            return false;
+        }
+
+        battleController.EndPlayerPhase();
+        Refresh();
+        return true;
+    }
+
+    public bool TryHitFromDraggedDeck()
+    {
+        if (!CanPlayerAct)
+            return false;
+
+        _selectedHandIndices.Clear();
+        bool hit = battleController.TryHit();
+        Refresh();
+        return hit;
+    }
+
+    public bool IsPointerOverPlayerPlayPile(PointerEventData eventData)
+    {
+        if (playerPlayPileRoot == null || eventData == null)
+            return false;
+
+        Camera camera = eventData.pressEventCamera != null ? eventData.pressEventCamera : eventData.enterEventCamera;
+        return RectTransformUtility.RectangleContainsScreenPoint(playerPlayPileRoot, eventData.position, camera);
+    }
+
     private void AddListeners()
     {
-        if (playButton != null)
-            playButton.onClick.AddListener(PlaySelectedCards);
         if (standButton != null)
             standButton.onClick.AddListener(Stand);
-        if (hitButton != null)
-            hitButton.onClick.AddListener(Hit);
         if (incrementWagerButton != null)
             incrementWagerButton.onClick.AddListener(IncrementWager);
         if (decrementWagerButton != null)
@@ -253,10 +298,6 @@ public sealed class BattleUiPresenter : MonoBehaviour
             acceptOfferButton.onClick.AddListener(AcceptDevilOffer);
         if (declineOfferButton != null)
             declineOfferButton.onClick.AddListener(DeclineDevilOffer);
-        if (viewDrawPileButton != null)
-            viewDrawPileButton.onClick.AddListener(ShowDrawPile);
-        if (viewPlayedPileButton != null)
-            viewPlayedPileButton.onClick.AddListener(ShowPlayedPile);
         if (toShopButton != null)
             toShopButton.onClick.AddListener(OpenShop);
         if (backToMapButton != null)
@@ -273,8 +314,6 @@ public sealed class BattleUiPresenter : MonoBehaviour
         Remove(proposalButton, ProposeWager);
         Remove(acceptOfferButton, AcceptDevilOffer);
         Remove(declineOfferButton, DeclineDevilOffer);
-        Remove(viewDrawPileButton, ShowDrawPile);
-        Remove(viewPlayedPileButton, ShowPlayedPile);
         Remove(toShopButton, OpenShop);
         Remove(backToMapButton, ReturnToMap);
     }
@@ -399,27 +438,20 @@ public sealed class BattleUiPresenter : MonoBehaviour
         Refresh();
     }
 
-    private void ShowDrawPile()
+    public void ShowPile()
     {
         BattleState battle = battleController?.BattleState;
         if (battle == null)
             return;
 
-        deckViewPanel?.Show(battle.PlayerDrawPile, DeckViewOptions.Default);
-    }
-
-    private void ShowPlayedPile()
-    {
-        BattleState battle = battleController?.BattleState;
-        if (battle == null)
-            return;
-
-        var cards = new List<Card>();
-        cards.AddRange(battle.PlayerDiscardPile);
+        var discardedCards = new List<Card>();
+        discardedCards.AddRange(battle.PlayerDiscardPile);
         if (battle.CurrentRound != null)
-            cards.AddRange(battle.CurrentRound.PlayerPlayedCards);
+            discardedCards.AddRange(battle.CurrentRound.PlayerPlayedCards);
 
-        deckViewPanel?.Show(cards, DeckViewOptions.Default);
+        DeckViewOptions options = DeckViewOptions.Default;
+        options.Flags |= DeckViewFlags.ShowDiscardedCards;
+        deckViewPanel?.Show(battle.PlayerDrawPile, discardedCards, options);
     }
 
     private void OnRunPhaseChanged(RunPhaseChangedEvent eventData)
@@ -524,12 +556,8 @@ public sealed class BattleUiPresenter : MonoBehaviour
 
     private void SetTurnButtons(bool playerTurn, bool hasSelectedCard)
     {
-        if (playButton != null)
-            playButton.interactable = playerTurn && hasSelectedCard;
         if (standButton != null)
             standButton.interactable = playerTurn;
-        if (hitButton != null)
-            hitButton.interactable = playerTurn;
     }
 
     private static CardAnimationContext GetAnimationContext(VisualCommandType commandType)
@@ -780,11 +808,19 @@ public sealed class BattleUiPresenter : MonoBehaviour
             return;
 
         view.Button.onClick.RemoveAllListeners();
-        if (interactable && handIndex >= 0)
-        {
-            int capturedIndex = handIndex;
-            view.Button.onClick.AddListener(() => ToggleCardSelection(capturedIndex));
-        }
+        ConfigureHandCardDragHandler(view, interactable, handIndex);
+    }
+
+    private void ConfigureHandCardDragHandler(BattleUiCardView view, bool interactable, int handIndex)
+    {
+        if (view == null)
+            return;
+
+        BattleHandCardDragHandler dragHandler = view.GetComponent<BattleHandCardDragHandler>();
+        if (dragHandler == null)
+            dragHandler = view.gameObject.AddComponent<BattleHandCardDragHandler>();
+
+        dragHandler.Configure(interactable ? this : null, interactable ? handIndex : -1);
     }
 
     private void EnsureCardViews(List<BattleUiCardView> views, RectTransform root, int count, bool withButton)
@@ -846,13 +882,10 @@ public sealed class BattleUiPresenter : MonoBehaviour
 
     private void AutoBindLayout()
     {
-        devilImage ??= FindDescendantComponent<Image>("DevilImage");
         playerScoreText ??= FindDescendantComponent<TMP_Text>("PlayerScore");
         devilScoreText ??= FindDescendantComponent<TMP_Text>("DevilScore");
         playerBurstThresholdText ??= FindDescendantComponent<TMP_Text>("PlayerThreshold");
         devilBurstThresholdText ??= FindDescendantComponent<TMP_Text>("DevilThreshold");
-        roundWagerText ??= FindDescendantComponent<TMP_Text>("RoundWagerAmount");
-        devilMoneyText ??= FindDescendantComponent<TMP_Text>("DevilMoney");
         playerHandRoot ??= FindDescendantRect("PlayerHand");
         opponentHandRoot ??= FindDescendantRect("DevilHand");
         devilPlayPileRoot ??= FindDescendantRect("DevilPlayPile");
@@ -876,8 +909,11 @@ public sealed class BattleUiPresenter : MonoBehaviour
         proposalAmountText ??= FindFirstTextUnder(playerProposalRoot, "RoundWagerAmount");
         devilOfferAmountText ??= FindFirstTextUnder(devilOfferRoot, "RoundWagerAmount");
         deckViewPanel ??= FindFirstObjectByType<DeckViewPanel>(FindObjectsInactive.Include);
-        viewDrawPileButton ??= FindDescendantComponent<Button>("ViewDrawPileButton");
-        viewPlayedPileButton ??= FindDescendantComponent<Button>("ViewPlayedPileButton");
+        viewPileButton ??= FindDescendantComponent<Button>("ViewPileButton");
+        viewPileButton ??= FindDescendantComponent<Button>("ViewDrawPileButton");
+        playerHandImage ??= FindDescendantRect("PlayerHandImage");
+        devilStandIndicator ??= FindOrAddDescendantComponent<DevilStandIndicator>("DevilStandIndicator");
+        ConfigureDragInteractionComponents();
         roundResultPanel ??= FindDescendant("RoundResultPanel");
         roundResultText ??= FindDescendantComponent<TMP_Text>("RoundResultText");
         toShopButton ??= FindDescendantComponent<Button>("ToShopButton");
@@ -885,6 +921,35 @@ public sealed class BattleUiPresenter : MonoBehaviour
         battleResultPanel ??= FindDescendant("BattleResultPanel");
         rewardViewRoot ??= FindDescendantRect("RewardViewRoot");
         backToMapButton ??= FindDescendantComponent<Button>("BackToMapButton");
+    }
+
+    private void ConfigureDragInteractionComponents()
+    {
+        if (playButton != null)
+            playButton.gameObject.SetActive(false);
+
+        if (hitButton != null)
+            hitButton.gameObject.SetActive(false);
+
+        if (playerHandImage != null)
+        {
+            _playerHandHitDragHandler ??= playerHandImage.GetComponent<PlayerHandHitDragHandler>();
+            if (_playerHandHitDragHandler == null)
+                _playerHandHitDragHandler = playerHandImage.gameObject.AddComponent<PlayerHandHitDragHandler>();
+
+            _playerHandHitDragHandler.Configure(this);
+        }
+
+        if (viewPileButton != null)
+        {
+            _deckViewDragStarter ??= viewPileButton.GetComponent<DeckViewLongPressDragStarter>();
+            if (_deckViewDragStarter == null)
+                _deckViewDragStarter = viewPileButton.gameObject.AddComponent<DeckViewLongPressDragStarter>();
+
+            _deckViewDragStarter.Configure(this, _playerHandHitDragHandler);
+        }
+
+        devilStandIndicator?.Configure(battleController);
     }
 
     private GameObject FindDescendant(string objectName)
@@ -907,6 +972,15 @@ public sealed class BattleUiPresenter : MonoBehaviour
     private T FindDescendantComponent<T>(string objectName) where T : Component
     {
         return FindDescendant(objectName)?.GetComponent<T>();
+    }
+
+    private T FindOrAddDescendantComponent<T>(string objectName) where T : Component
+    {
+        GameObject target = FindDescendant(objectName);
+        if (target == null)
+            return null;
+
+        return target.GetComponent<T>() ?? target.AddComponent<T>();
     }
 
     private static TMP_Text FindFirstTextUnder(GameObject root, string preferredName)

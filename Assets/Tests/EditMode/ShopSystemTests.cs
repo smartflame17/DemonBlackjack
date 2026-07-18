@@ -1100,6 +1100,96 @@ public sealed class ShopSystemTests
         Assert.That(battle.CombatHistory[^1].PlayerMoneyLost, Is.EqualTo(0));
     }
 
+    [Test]
+    public void DevilTurnChoiceEvent_PublishesStandChoiceAndPreservesStandBehavior()
+    {
+        var run = CreateRunWithDeck(TenTwos());
+        var battle = new BattleState(run, new BattleConfig("test", 500, new FixedChoiceDevilStrategy(DevilTurnChoice.Stand), baseWager: 10));
+        battle.StartRound();
+        battle.CommitWagerAndBeginRound(1, true);
+
+        int eventCount = 0;
+        DevilTurnChoice receivedChoice = default;
+        battle.EventBus.Subscribe<DevilTurnChoiceEvent>(eventData =>
+        {
+            eventCount++;
+            receivedChoice = eventData.Choice;
+        });
+
+        Assert.That(battle.TryStand(), Is.True);
+
+        Assert.That(eventCount, Is.EqualTo(1));
+        Assert.That(receivedChoice, Is.EqualTo(DevilTurnChoice.Stand));
+        Assert.That(battle.CurrentRound.OpponentStood, Is.True);
+    }
+
+    [TestCase(DevilTurnChoice.Hit)]
+    [TestCase(DevilTurnChoice.Play)]
+    public void DevilTurnChoiceEvent_PayloadMatchesStrategyChoice(DevilTurnChoice choice)
+    {
+        var run = CreateRunWithDeck(TenTwos());
+        var battle = new BattleState(run, new BattleConfig("test", 500, new FixedChoiceDevilStrategy(choice), baseWager: 10));
+        battle.StartRound();
+        battle.CommitWagerAndBeginRound(1, true);
+
+        int eventCount = 0;
+        DevilTurnChoice receivedChoice = default;
+        battle.EventBus.Subscribe<DevilTurnChoiceEvent>(eventData =>
+        {
+            eventCount++;
+            receivedChoice = eventData.Choice;
+        });
+
+        Assert.That(battle.TryStand(), Is.True);
+
+        Assert.That(eventCount, Is.EqualTo(1));
+        Assert.That(receivedChoice, Is.EqualTo(choice));
+    }
+
+    [Test]
+    public void DevilStandIndicator_SetsImageRedWhenBattleEventPublishesStandChoice()
+    {
+        var controllerObject = new UnityEngine.GameObject("Controller");
+        var indicatorObject = new UnityEngine.GameObject("Indicator");
+        try
+        {
+            BattleController controller = controllerObject.AddComponent<BattleController>();
+            controller.InitializeBattle(CreateRunWithDeck(TenTwos()), new BattleConfig("test", 500, new StandingDevilStrategy()));
+
+            UnityEngine.UI.Image image = indicatorObject.AddComponent<UnityEngine.UI.Image>();
+            image.color = UnityEngine.Color.gray;
+            DevilStandIndicator indicator = indicatorObject.AddComponent<DevilStandIndicator>();
+            indicator.Configure(controller);
+
+            controller.BattleState.EventBus.Publish(new DevilTurnChoiceEvent(DevilTurnChoice.Stand));
+
+            Assert.That(image.color, Is.EqualTo(UnityEngine.Color.red));
+        }
+        finally
+        {
+            UnityEngine.Object.DestroyImmediate(indicatorObject);
+            UnityEngine.Object.DestroyImmediate(controllerObject);
+        }
+    }
+
+    [Test]
+    public void BattleUiPresenter_DragMediatorsRejectWhenPlayerCannotAct()
+    {
+        var target = new UnityEngine.GameObject("Presenter");
+        try
+        {
+            BattleUiPresenter presenter = target.AddComponent<BattleUiPresenter>();
+
+            Assert.That(presenter.CanPlayerAct, Is.False);
+            Assert.That(presenter.TryPlayDraggedHandCard(0), Is.False);
+            Assert.That(presenter.TryHitFromDraggedDeck(), Is.False);
+        }
+        finally
+        {
+            UnityEngine.Object.DestroyImmediate(target);
+        }
+    }
+
     private static bool ContainsUpgradedRank(IReadOnlyList<Card> cards, Rank rank, string modifierId)
     {
         for (int i = 0; i < cards.Count; i++)
@@ -1297,6 +1387,24 @@ public sealed class ShopSystemTests
     {
         public int DrawValue => 0;
         public DevilTurnChoice ChooseTurnAction(BattleState battle, RoundState round) => DevilTurnChoice.Stand;
+        public int ChooseCardIndex(BattleState battle, RoundState round) => 0;
+        public IEnumerable<Card> CreateStartingDeck(RunState runState, BattleConfig config) => new List<Card>();
+        public void RegisterAffinityHooks(BattleState battle) { }
+        public void UnregisterAffinityHooks(BattleState battle) { }
+        public IEnumerable<Modifier> GetGlobalModifiers(RunState runState) => new List<Modifier>();
+    }
+
+    private sealed class FixedChoiceDevilStrategy : IDevilStrategy
+    {
+        private readonly DevilTurnChoice _choice;
+
+        public FixedChoiceDevilStrategy(DevilTurnChoice choice)
+        {
+            _choice = choice;
+        }
+
+        public int DrawValue => 0;
+        public DevilTurnChoice ChooseTurnAction(BattleState battle, RoundState round) => _choice;
         public int ChooseCardIndex(BattleState battle, RoundState round) => 0;
         public IEnumerable<Card> CreateStartingDeck(RunState runState, BattleConfig config) => new List<Card>();
         public void RegisterAffinityHooks(BattleState battle) { }

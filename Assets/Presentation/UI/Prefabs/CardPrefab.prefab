@@ -156,7 +156,7 @@ RectTransform:
   m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
   m_AnchorMin: {x: 1, y: 1}
   m_AnchorMax: {x: 1, y: 1}
-  m_AnchoredPosition: {x: -5.2, y: -9.2}
+  m_AnchoredPosition: {x: -5.200012, y: -9.200012}
   m_SizeDelta: {x: 25, y: 25}
   m_Pivot: {x: 0.5, y: 0.5}
 --- !u!222 &5588293970633688120
@@ -349,6 +349,7 @@ GameObject:
   - component: {fileID: 7602269838714400112}
   - component: {fileID: 1909042555248093567}
   - component: {fileID: 1221368587968764743}
+  - component: {fileID: 1048596430468770268}
   m_Layer: 0
   m_Name: CardPrefab
   m_TagString: Untagged
@@ -442,3 +443,15 @@ MonoBehaviour:
   m_EditorClassIdentifier: Assembly-CSharp::EnlargeOnHover
   scaleFactor: 1.2
   transitionDuration: 0.2
+--- !u!225 &1048596430468770268
+CanvasGroup:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 7335166825123529215}
+  m_Enabled: 1
+  m_Alpha: 1
+  m_Interactable: 1
+  m_BlocksRaycasts: 1
+  m_IgnoreParentGroups: 0

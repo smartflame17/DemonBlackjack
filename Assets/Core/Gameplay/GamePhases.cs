@@ -1,3 +1,5 @@
+// This file contains globally used enums for state representation throughout the game
+
 public enum RunPhase
 {
     Inactive,
@@ -101,4 +103,14 @@ public enum DevilHandLevel
     Medium = 3,         // hand between 15 and 17
     High = 4,           // hand between 18 and 19
     VeryHigh = 5        // hand 20 or above
+}
+
+// For logging money changes on panel
+public enum MoneyTransferReason
+{
+    Other,
+    InitialWager,
+    PokerPayout,
+    BurstPenalty,
+    BlackjackPayout
 }

@@ -38,7 +38,11 @@ public class SettingMenuController : MonoBehaviour
     private void ReturnToMainMenu()
     {
         PersistenceManager.Instance?.SaveGame();
-        UnityEngine.SceneManagement.SceneManager.LoadScene("MenuScene");
+
+        if (SceneTransitionManager.Instance != null)
+            SceneTransitionManager.Instance.LoadScene("MenuScene");
+        else
+            UnityEngine.SceneManagement.SceneManager.LoadSceneAsync("MenuScene");
     }
 
 }

@@ -4,7 +4,7 @@ using System.Collections.Generic;
 public sealed class RunState
 {
     public const int StandardDeckSize = 52;
-    public const int DefaultMaxActiveItemSlots = 2;
+    public const int DefaultMaxActiveItemSlots = 3;
 
     private readonly List<RunCard> _runDeck = new();
     private readonly List<Card> _deck = new();

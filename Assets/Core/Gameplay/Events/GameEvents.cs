@@ -37,6 +37,19 @@ public readonly struct MoneyChangedEvent
     public int CurrentMoney { get; }
     public int Delta { get; }
 }
+// For informing ui why money has changed. Fire this event for every money transfer manually.
+// TODO: Consider adding multipliers for better ui representation later.
+public readonly struct MoneyTransferReasonEvent
+{
+    public MoneyTransferReasonEvent(MoneyTransferReason reason, int delta)
+    {
+        Reason = reason;
+        Delta = delta;
+    }
+
+    public MoneyTransferReason Reason { get; }
+    public int Delta { get; }
+}
 
 public readonly struct DeathPreventedEvent
 {
@@ -88,4 +101,14 @@ public readonly struct BattlePhaseChangedEvent
     }
 
     public BattlePhase Phase { get; }
+}
+
+public readonly struct DevilTurnChoiceEvent
+{
+    public DevilTurnChoiceEvent(DevilTurnChoice choice)
+    {
+        Choice = choice;
+    }
+
+    public DevilTurnChoice Choice { get; }
 }

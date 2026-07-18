@@ -55,8 +55,10 @@ public static class MoneyResolver
     {
         int playerBurstOffset = Math.Max(0, round.PlayerScore.BlackjackScore - round.PlayerBurstThreshold);
         if (playerBurstOffset > 0)
+        {
             playerMoneyLost += TransferPlayerToOpponent(battle, playerBurstOffset * wager);
-
+            EventBus.Publish(new MoneyTransferReasonEvent(MoneyTransferReason.BurstPenalty, playerBurstOffset * wager));
+        }
         int opponentBurstOffset = Math.Max(0, round.OpponentScore.BlackjackScore - round.OpponentBurstThreshold);
         if (opponentBurstOffset > 0)
             opponentMoneyLost += TransferOpponentToPlayer(battle, opponentBurstOffset * wager);
@@ -68,13 +70,21 @@ public static class MoneyResolver
             return;
 
         if (winner == Combatant.Player)
+        {
             battle.AddPlayerMoney(round.Pot);
+            EventBus.Publish(new MoneyTransferReasonEvent(MoneyTransferReason.BlackjackPayout, round.Pot));
+        }
+            
         else if (winner == Combatant.Opponent)
+        {
             battle.AddOpponentMoney(round.Pot);
+            EventBus.Publish(new MoneyTransferReasonEvent(MoneyTransferReason.BlackjackPayout, -round.Pot));
+        }
         else
         {
             battle.AddPlayerMoney(round.PlayerStake);
             battle.AddOpponentMoney(round.OpponentStake);
+            EventBus.Publish(new MoneyTransferReasonEvent(MoneyTransferReason.BlackjackPayout, 0));
         }
     }
 
@@ -85,6 +95,7 @@ public static class MoneyResolver
             return;
 
         opponentMoneyLost += TransferOpponentToPlayer(battle, wager * poker.Multiplier);
+        EventBus.Publish(new MoneyTransferReasonEvent(MoneyTransferReason.PokerPayout, wager * poker.Multiplier));
     }
 
     private static int TransferPlayerToOpponent(BattleState battle, int amount)

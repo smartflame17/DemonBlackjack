@@ -148,7 +148,10 @@ public class PersistenceManager : MonoBehaviour
 
   public void LoadScene(string sceneName)
   {
-    UnityEngine.SceneManagement.SceneManager.LoadScene(sceneName);
+    if (SceneTransitionManager.Instance != null)
+      SceneTransitionManager.Instance.LoadScene(sceneName);
+    else
+      UnityEngine.SceneManagement.SceneManager.LoadSceneAsync(sceneName);
   }
 
   public void QuitGame()
