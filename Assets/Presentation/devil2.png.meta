@@ -1,25 +1,22 @@
 fileFormatVersion: 2
-guid: 1864d9e73dab91c4fb0532647c0dd186
+guid: a4159aaf18da0bb4cbdb0657a73604b5
 TextureImporter:
   internalIDToNameTable:
   - first:
-      213: 9104241343962483977
-    second: devil3 1_0
+      213: -6633085491520740262
+    second: devil2_0
   - first:
-      213: -108052812864324816
-    second: devil3 1_1
+      213: 7683499744701254066
+    second: devil2_1
   - first:
-      213: -5940330988684985731
-    second: devil3 1_2
+      213: 572138449563588644
+    second: devil2_2
   - first:
-      213: -8210200191676833349
-    second: devil3 1_3
+      213: -7308846822248113196
+    second: devil2_3
   - first:
-      213: -4730825523326669166
-    second: devil3 1_4
-  - first:
-      213: 2013135908535468018
-    second: devil3 1_5
+      213: 6440551708361957310
+    second: devil2_4
   externalObjects: {}
   serializedVersion: 13
   mipmaps:
@@ -66,7 +63,7 @@ TextureImporter:
   spriteMeshType: 1
   alignment: 0
   spritePivot: {x: 0.5, y: 0.5}
-  spritePixelsToUnits: 100
+  spritePixelsToUnits: 120
   spriteBorder: {x: 0, y: 0, z: 0, w: 0}
   spriteGenerateFallbackPhysicsShape: 1
   alphaUsage: 1
@@ -115,133 +112,111 @@ TextureImporter:
     serializedVersion: 2
     sprites:
     - serializedVersion: 2
-      name: devil3_default
+      name: devil2_default
       rect:
         serializedVersion: 2
-        x: 912
-        y: 2358
-        width: 2201
-        height: 2116
+        x: 835
+        y: 2742
+        width: 1105
+        height: 2374
       alignment: 9
-      pivot: {x: 0.51714486, y: 0.103699535}
+      pivot: {x: 0.5946014, y: 0.107481726}
       border: {x: 0, y: 0, z: 0, w: 0}
       customData: 
       outline: []
       physicsShape: []
       tessellationDetail: -1
       bones: []
-      spriteID: 90d0f481443c85e70800000000000000
-      internalID: 9104241343962483977
+      spriteID: a54eb1993eb82f3a0800000000000000
+      internalID: -6633085491520740262
       vertices: []
       indices: 
       edges: []
       weights: []
     - serializedVersion: 2
-      name: devil3_cards
+      name: devil2_handonhip
       rect:
         serializedVersion: 2
-        x: 3663
-        y: 2366
-        width: 2193
-        height: 2109
+        x: 3036
+        y: 2740
+        width: 1366
+        height: 2376
       alignment: 9
-      pivot: {x: 0.52173287, y: 0.100668825}
+      pivot: {x: 0.509979, y: 0.10829188}
       border: {x: 0, y: 0, z: 0, w: 0}
       customData: 
       outline: []
       physicsShape: []
       tessellationDetail: -1
       bones: []
-      spriteID: 03b7d380a8e108ef0800000000000000
-      internalID: -108052812864324816
+      spriteID: 2b909b21f4641aa60800000000000000
+      internalID: 7683499744701254066
       vertices: []
       indices: 
       edges: []
       weights: []
     - serializedVersion: 2
-      name: devil3_smile
+      name: devil2_smug
       rect:
         serializedVersion: 2
-        x: 913
-        y: 405
-        width: 1455
-        height: 1829
+        x: 992
+        y: 332
+        width: 816
+        height: 2289
       alignment: 9
-      pivot: {x: 0.5874693, y: 0.17079045}
+      pivot: {x: 0.5170369, y: 0.107900396}
       border: {x: 0, y: 0, z: 0, w: 0}
       customData: 
       outline: []
       physicsShape: []
       tessellationDetail: -1
       bones: []
-      spriteID: d7abf236074bf8da0800000000000000
-      internalID: -5940330988684985731
+      spriteID: 428949873e4a0f700800000000000000
+      internalID: 572138449563588644
       vertices: []
       indices: 
       edges: []
       weights: []
     - serializedVersion: 2
-      name: devil3_worry
+      name: devil2_sideeye
       rect:
         serializedVersion: 2
-        x: 3029
-        y: 470
-        width: 1211
-        height: 1759
+        x: 2456
+        y: 323
+        width: 831
+        height: 2377
       alignment: 9
-      pivot: {x: 0.5063698, y: 0.19746965}
+      pivot: {x: 0.5024, y: 0.1117537}
       border: {x: 0, y: 0, z: 0, w: 0}
       customData: 
       outline: []
       physicsShape: []
       tessellationDetail: -1
       bones: []
-      spriteID: bb12248dc628f0e80800000000000000
-      internalID: -8210200191676833349
+      spriteID: 4db98220a82c19a90800000000000000
+      internalID: -7308846822248113196
       vertices: []
       indices: 
       edges: []
       weights: []
     - serializedVersion: 2
-      name: devil3 1_4
+      name: devil2_eyeclosed
       rect:
         serializedVersion: 2
-        x: 4775
-        y: 1406
-        width: 206
-        height: 224
-      alignment: 0
-      pivot: {x: 0.5, y: 0.5}
-      border: {x: 0, y: 0, z: 0, w: 0}
-      customData: 
-      outline: []
-      physicsShape: []
-      tessellationDetail: -1
-      bones: []
-      spriteID: 29e23c3604bb85eb0800000000000000
-      internalID: -4730825523326669166
-      vertices: []
-      indices: 
-      edges: []
-      weights: []
-    - serializedVersion: 2
-      name: devil3_sad
-      rect:
-        serializedVersion: 2
-        x: 4786
-        y: 392
-        width: 1179
-        height: 1260
+        x: 3633
+        y: 323
+        width: 1207
+        height: 2047
       alignment: 9
-      pivot: {x: 0.50163466, y: 0.3031507}
+      pivot: {x: 0.5204342, y: 0.12664956}
       border: {x: 0, y: 0, z: 0, w: 0}
       customData: 
       outline: []
       physicsShape: []
       tessellationDetail: -1
       bones: []
-      spriteID: 2fff6d8517810fb10800000000000000
-      internalID: 2013135908535468018
+      spriteID: ebf137eb7af616950800000000000000
+      internalID: 6440551708361957310
       vertices: []
       indices: 
       edges: []
@@ -250,7 +225,7 @@ TextureImporter:
     customData: 
     physicsShape: []
     bones: []
-    spriteID: 24c500fbd0c0ed94f93cb3312f3d1f82
+    spriteID: 3121ba6eaf1e1404695c4d28d69bf9ec
     internalID: 0
     vertices: []
     indices: 
@@ -260,12 +235,11 @@ TextureImporter:
     spriteCustomMetadata:
       entries: []
     nameFileIdTable:
-      devil3 1_4: -4730825523326669166
-      devil3_cards: -108052812864324816
-      devil3_default: 9104241343962483977
-      devil3_sad: 2013135908535468018
-      devil3_smile: -5940330988684985731
-      devil3_worry: -8210200191676833349
+      devil2_default: -6633085491520740262
+      devil2_eyeclosed: 6440551708361957310
+      devil2_handonhip: 7683499744701254066
+      devil2_sideeye: -7308846822248113196
+      devil2_smug: 572138449563588644
   mipmapLimitGroupName: 
   pSDRemoveMatte: 0
   userData: 

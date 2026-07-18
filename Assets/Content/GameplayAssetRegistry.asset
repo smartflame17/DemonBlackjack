@@ -178,9 +178,9 @@ MonoBehaviour:
   - devilId: devil1
     sprite: {fileID: -4151925159573598444, guid: fdc014e9913d8dd49a8afc3407a833f6, type: 3}
   - devilId: devil2
-    sprite: {fileID: 21300000, guid: 23397b6aa0f58384796e10686dfe03d0, type: 3}
+    sprite: {fileID: -6633085491520740262, guid: a4159aaf18da0bb4cbdb0657a73604b5, type: 3}
   - devilId: devil3
-    sprite: {fileID: 6505366208653593921, guid: 462d24939c2cab04b814ffb1c88def73, type: 3}
+    sprite: {fileID: 9104241343962483977, guid: 1864d9e73dab91c4fb0532647c0dd186, type: 3}
   - devilId: devil4
     sprite: {fileID: 21300000, guid: 3e0c7543750b0e74b9889a7945b29fd7, type: 3}
   defaultActiveItemSprite: {fileID: 6199116292139744875, guid: b7eb9b80f9c329a4d95ebce576fe6823, type: 3}
