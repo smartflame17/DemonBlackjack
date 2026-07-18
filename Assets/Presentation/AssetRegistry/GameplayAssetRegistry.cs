@@ -60,8 +60,24 @@ public sealed class GameplayAssetRegistry : ScriptableObject
             : defaultDevilSprite;
     }
 
-    // TODO: Query devil sprite with additional string parameter for specific emotions
+    // Queries devil sprite with additional string parameter for specific emotions
+    public Sprite GetDevilSpriteByEmotion(string devilId, string emotion)
+    {
+        if (string.IsNullOrWhiteSpace(devilId))
+            return defaultDevilSprite;
 
+        EnsureDevilLookup();
+        if (string.IsNullOrWhiteSpace(emotion))
+        {
+            Debug.LogWarning($"GetDevilSpriteByEmotion called with empty emotion for devilId: {devilId}. Returning default devil sprite.");
+            return _devilLookup.TryGetValue(devilId, out Sprite defaultEmotionSprite) && defaultEmotionSprite != null
+                ? defaultEmotionSprite
+                : defaultDevilSprite;
+        }
+        return _devilLookup.TryGetValue(devilId + "_" + emotion, out Sprite sprite) && sprite != null
+            ? sprite
+            : defaultDevilSprite;
+    }
 
     public Sprite GetActiveItemSprite(string id) => GetIdSprite(id, activeItemSprites, ref _activeItemLookup, defaultActiveItemSprite != null ? defaultActiveItemSprite : defaultCardFront);
     public Sprite GetRelicSprite(string id) => GetIdSprite(id, relicSprites, ref _relicLookup, defaultRelicSprite != null ? defaultRelicSprite : defaultCardFront);
