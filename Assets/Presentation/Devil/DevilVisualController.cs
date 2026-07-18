@@ -52,4 +52,10 @@ public class DevilVisualController : MonoBehaviour
             devilSprite.sprite = assetRegistry.GetDevilSpriteByEmotion(_currentDevilId, emotion);
         devilSprite.sortingOrder = 10;
     }
+
+    // Callback on dialogue system when bark ends, to reset devil sprite to default
+    public void OnBarkEnd(Transform actor)
+    {
+        devilSprite.sprite = assetRegistry.GetDevilSprite(_currentDevilId);
+    }
 }
