@@ -8,10 +8,12 @@ public sealed class GameData
     // Store game info (mostly RunState) here
     public long timestamp;
     public RunStateData runState;
+    public string dialogueSaveData;
 
     public GameData()
     {
         timestamp = DateTime.Now.ToFileTime();
+        dialogueSaveData = string.Empty;
     }
 }
 

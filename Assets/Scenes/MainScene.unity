@@ -12378,7 +12378,7 @@ SpriteRenderer:
   m_GlobalIlluminationMeshLod: 0
   m_SortingLayerID: 0
   m_SortingLayer: 0
-  m_SortingOrder: 0
+  m_SortingOrder: 10
   m_MaskInteraction: 0
   m_Sprite: {fileID: -4151925159573598444, guid: fdc014e9913d8dd49a8afc3407a833f6, type: 3}
   m_Color: {r: 1, g: 1, b: 1, a: 1}
@@ -34814,8 +34814,8 @@ SceneRoots:
   - {fileID: 570368681}
   - {fileID: 1394531203}
   - {fileID: 1932875565}
-  - {fileID: 848043118}
   - {fileID: 1532984027}
+  - {fileID: 848043118}
   - {fileID: 503460028}
   - {fileID: 970734544}
   - {fileID: 1475312859}
