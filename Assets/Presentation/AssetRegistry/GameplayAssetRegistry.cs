@@ -51,13 +51,7 @@ public sealed class GameplayAssetRegistry : ScriptableObject
 
     public Sprite GetDevilSprite(string devilId)
     {
-        if (string.IsNullOrWhiteSpace(devilId))
-            return defaultDevilSprite;
-
-        EnsureDevilLookup();
-        return _devilLookup.TryGetValue(devilId, out Sprite sprite) && sprite != null
-            ? sprite
-            : defaultDevilSprite;
+        return GetDevilSpriteByEmotion(devilId, "default");
     }
 
     // Queries devil sprite with additional string parameter for specific emotions
