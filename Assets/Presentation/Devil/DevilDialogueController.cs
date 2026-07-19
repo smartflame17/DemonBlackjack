@@ -1,6 +1,6 @@
+using System.Collections;
 using UnityEngine;
 using PixelCrushers.DialogueSystem;
-using System;
 
 // Handles the dialogue, as well as one-off barks
 [RequireComponent(typeof(DialogueActor))]
@@ -9,9 +9,13 @@ public class DevilDialogueController : MonoBehaviour
     [SerializeField] private DialogueActor dialogueActor;
     [SerializeField] private BattleController battleController;
     [SerializeField] private string barkConversationId; // id of conversation pool of barks
+    [SerializeField, Min(0f)] private float idleBarkDelaySeconds = 10f;
 
     private string _currentDevilId;
     private ScopedEventBus battleBus;
+    private Coroutine idleBarkCoroutine;
+    private float idleElapsedTime;
+    private bool idleBarkedThisTurn;
 
     void Awake()
     {
@@ -31,17 +35,25 @@ public class DevilDialogueController : MonoBehaviour
     {
         EventBus.Unsubscribe<BattleStartedEvent>(OnBattleStarted);
         EventBus.Unsubscribe<BattleEndedEvent>(OnBattleEnded);
+        StopIdleBarkTimer();
+        UnsubscribeFromBattleBus();
     }
 
     private void OnBattleStarted(BattleStartedEvent @event)
     {
         BattleState battle = battleController != null ? battleController.BattleState : null;
         if (battle == null) return;
+
+        StopIdleBarkTimer();
+        UnsubscribeFromBattleBus();
         _currentDevilId = battle.Config.DevilId;
 
         battleBus = battle.EventBus;
         battleBus.Subscribe<RoundStartedEvent>(OnRoundStarted);
         battleBus.Subscribe<RoundEndedEvent>(OnRoundEnded);
+        battleBus.Subscribe<PlayerTurnStartedEvent>(OnPlayerTurnStarted);
+        battleBus.Subscribe<PlayerTurnEndedEvent>(OnPlayerTurnEnded);
+        battleBus.Subscribe<CardPlayedEvent>(OnCardPlayed);
         battleBus.Subscribe<DevilTurnChoiceEvent>(OnDevilTurnChoice);
         battleBus.Subscribe<BurstAttemptedEvent>(OnBurstAttempted);
         // TODO: add poker events here later
@@ -55,6 +67,52 @@ public class DevilDialogueController : MonoBehaviour
     {
         barkConversationId = $"{_currentDevilId}_RoundStart";
         DialogueManager.Bark(barkConversationId, transform);
+    }
+
+    private void OnPlayerTurnStarted(PlayerTurnStartedEvent @event)
+    {
+        StopIdleBarkTimer();
+        idleElapsedTime = 0f;
+        idleBarkedThisTurn = false;
+
+        if (string.IsNullOrWhiteSpace(_currentDevilId))
+            return;
+
+        idleBarkCoroutine = StartCoroutine(WaitForPlayerIdle());
+    }
+
+    private void OnPlayerTurnEnded(PlayerTurnEndedEvent @event)
+    {
+        RoundState round = battleController != null ? battleController.BattleState?.CurrentRound : null;
+        if (round != null && round.PlayerPlayedThisTurn)
+            idleElapsedTime = 0f;
+
+        StopIdleBarkTimer();
+    }
+
+    private void OnCardPlayed(CardPlayedEvent @event)
+    {
+        if (@event.Owner == Combatant.Player && idleBarkCoroutine != null && !idleBarkedThisTurn)
+            idleElapsedTime = 0f;
+    }
+
+    private IEnumerator WaitForPlayerIdle()
+    {
+        while (idleElapsedTime < idleBarkDelaySeconds)
+        {
+            yield return null;
+            idleElapsedTime += Time.deltaTime;
+        }
+
+        BattleState battle = battleController != null ? battleController.BattleState : null;
+        if (!idleBarkedThisTurn && battle != null && battle.Phase == BattlePhase.PlayerPhase)
+        {
+            idleBarkedThisTurn = true;
+            barkConversationId = $"{_currentDevilId}_Idle";
+            DialogueManager.Bark(barkConversationId, transform);
+        }
+
+        idleBarkCoroutine = null;
     }
 
     private void OnRoundEnded(RoundEndedEvent @event)
@@ -78,10 +136,30 @@ public class DevilDialogueController : MonoBehaviour
 
     private void OnBattleEnded(BattleEndedEvent @event)
     {
+        StopIdleBarkTimer();
+        UnsubscribeFromBattleBus();
         _currentDevilId = null;
+    }
+
+    private void StopIdleBarkTimer()
+    {
+        if (idleBarkCoroutine == null)
+            return;
+
+        StopCoroutine(idleBarkCoroutine);
+        idleBarkCoroutine = null;
+    }
+
+    private void UnsubscribeFromBattleBus()
+    {
+        if (battleBus == null)
+            return;
 
         battleBus.Unsubscribe<RoundStartedEvent>(OnRoundStarted);
         battleBus.Unsubscribe<RoundEndedEvent>(OnRoundEnded);
+        battleBus.Unsubscribe<PlayerTurnStartedEvent>(OnPlayerTurnStarted);
+        battleBus.Unsubscribe<PlayerTurnEndedEvent>(OnPlayerTurnEnded);
+        battleBus.Unsubscribe<CardPlayedEvent>(OnCardPlayed);
         battleBus.Unsubscribe<DevilTurnChoiceEvent>(OnDevilTurnChoice);
         battleBus.Unsubscribe<BurstAttemptedEvent>(OnBurstAttempted);
         battleBus = null;
@@ -92,3 +170,4 @@ public class DevilDialogueController : MonoBehaviour
 // bool affinity = DialogueLua.GetVariable(”OverrideToMidAffinity”).asBool;
 // DialogueLua.SetVariable(”OverrideToMidAffinity”, true)
 // mid and low override should be explicitly set (no 2 trues at the same time)
+// for save compatibility, this set should be done per bark call that changes with affinity, and reset to false after the bark is done.

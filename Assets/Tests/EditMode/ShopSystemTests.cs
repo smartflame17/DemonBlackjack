@@ -1258,6 +1258,44 @@ public sealed class ShopSystemTests
         Assert.That(battle.CurrentRound.OpponentStood, Is.True);
     }
 
+    [Test]
+    public void PlayerTurnEvents_ContinuingRoundPublishesEndThenNextStart()
+    {
+        var run = CreateRunWithDeck(TenTwos());
+        var battle = new BattleState(run, new BattleConfig("test", 500, new FixedChoiceDevilStrategy(DevilTurnChoice.Hit), baseWager: 10));
+        battle.StartRound();
+
+        var events = new List<string>();
+        battle.EventBus.Subscribe<PlayerTurnStartedEvent>(_ => events.Add("started"));
+        battle.EventBus.Subscribe<PlayerTurnEndedEvent>(_ => events.Add("ended"));
+
+        Assert.That(battle.CommitWagerAndBeginRound(1, true), Is.True);
+        Assert.That(battle.TryStand(), Is.True);
+
+        CollectionAssert.AreEqual(new[] { "started", "ended", "started" }, events);
+        Assert.That(battle.Phase, Is.EqualTo(BattlePhase.PlayerPhase));
+    }
+
+    [Test]
+    public void PlayerTurnEvents_RoundEndingActionDoesNotPublishAnotherStart()
+    {
+        var run = CreateRunWithDeck(TenTwos());
+        var battle = new BattleState(run, new BattleConfig("test", 500, new StandingDevilStrategy(), baseWager: 10));
+        battle.StartRound();
+
+        int startedEvents = 0;
+        int endedEvents = 0;
+        battle.EventBus.Subscribe<PlayerTurnStartedEvent>(_ => startedEvents++);
+        battle.EventBus.Subscribe<PlayerTurnEndedEvent>(_ => endedEvents++);
+
+        Assert.That(battle.CommitWagerAndBeginRound(1, true), Is.True);
+        Assert.That(battle.TryStand(), Is.True);
+
+        Assert.That(startedEvents, Is.EqualTo(1));
+        Assert.That(endedEvents, Is.EqualTo(1));
+        Assert.That(battle.Phase, Is.EqualTo(BattlePhase.Cleanup));
+    }
+
     [TestCase(DevilTurnChoice.Hit)]
     [TestCase(DevilTurnChoice.Play)]
     public void DevilTurnChoiceEvent_PayloadMatchesStrategyChoice(DevilTurnChoice choice)
