@@ -58,17 +58,13 @@ The player and devil do not share a battle deck. The player battle deck is creat
 
 ## 3. Round Start, Hand Refill, And Wager
 
-A battle consists of rounds. Starting a round creates the round state, restores any carried-over hand cards, and refills empty hands before any wager decision is made. After this preparation step, the battle remains in `PreRound` until the presentation layer commits a wager decision.
+A battle consists of rounds. `BattleState.StartRound` is the single round-start operation: it creates the round state, restores carried-over hand cards, refills empty hands, commits both stakes, publishes the round-start notifications, and advances to the player phase.
 
-The default wager is 10% of the player's current money, rounded down to whole money with a minimum of 1 while the player has money. Wagers are expressed as ratios of that default wager rather than fixed 10, 20, 30, ..., 100 values. A proposed wager can exceed one side's current money, but the final stake is capped by each combatant's money. If either side has less money than the final proposed wager, that side is forced all in for its remaining money.
+The wager is fixed per battle by `BattleConfig.BaseWager`. The presentation layer refreshes the value through `BattleState.GetDefaultWager` immediately before starting each round so gameplay modifiers can affect that value later without restoring a wager-selection step. Each combatant's committed stake is capped by their available money, so a combatant with less money than the configured wager goes all in.
 
 Initiative alternates by round. The player acts first on odd rounds, starting with round 1; the opponent acts first on even rounds.
 
-When the player proposes a wager, the devil strategy chooses whether to accept or decline it. Higher affinity biases random decisions toward outcomes beneficial to the player. If the devil declines the player's proposal, the round automatically uses the default wager.
-
-When the devil has initiative, the devil evaluates its current hand by summing card ranks and mapping that sum to `DevilHandLevel`. The devil's proposed wager is `DevilHandLevel` multiplied by the default wager. If the player declines the devil's proposal, the round automatically uses the default wager.
-
-After a wager is decided, both combatants stake their final committed amounts. Player money decreases through `RunState`; opponent money decreases through `BattleState`. The pot is the sum of both committed amounts, and only then does the round advance to the player or opponent phase.
+Player money decreases through `RunState`; opponent money decreases through `BattleState`. The pot is the sum of both committed amounts. There is no runtime wager proposal, acceptance, or decline step.
 
 ## 4. Hand Refill
 
@@ -78,7 +74,7 @@ Unplayed hand cards carry across round cleanup.
 
 `BattleState.RefillOpponentHandIfEmpty` draws from the devil battle deck using `IDevilStrategy.DrawValue` whenever the opponent hand is empty.
 
-At round start, refill order follows initiative. The combatant who goes first draws first, so the first opening draws for the round come from that combatant's own deck. These refill checks happen before wager decisions so both combatants can evaluate their hands.
+At round start, refill order follows initiative. The combatant who goes first draws first, so the first opening draws for the round come from that combatant's own deck.
 
 Refill checks must happen any time a hand becomes empty during battle. In particular, `CardPlayedEvent` and `CardDiscardedEvent` flows should trigger refill behavior.
 
@@ -136,9 +132,7 @@ If player money reaches 0, the battle ends as a loss. If opponent money reaches 
 
 ## 8. Between Rounds
 
-After round cleanup, the battle moves back to `PreRound`.
-
-Longer-term design calls for dialogue events or shops between rounds where the player can refine their deck or buy upgrades. These features are undecided. For now, gameplay only exposes continuing to the next round and skips between-round logic.
+After round cleanup, the battle moves back to `PreRound`. The battle UI displays `RoundStartPanel` for its configured delay and then starts the next round automatically with the latest default wager.
 
 ## 9. Battle End And Run Update
 

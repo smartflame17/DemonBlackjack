@@ -55,7 +55,7 @@ public sealed class ShopSystemTests
 
             BattleController battleController = battleObject.AddComponent<BattleController>();
             battleController.InitializeBattle(runManager.RunState, new BattleConfig("test", 100, new StandingDevilStrategy()));
-            Assert.That(battleController.BattleState.StartRound(), Is.True);
+            Assert.That(battleController.BattleState.StartRound(10), Is.True);
 
             ShopUi shopUi = shopObject.AddComponent<ShopUi>();
             SetField(shopUi, "runManager", runManager);
@@ -357,7 +357,8 @@ public sealed class ShopSystemTests
         Assert.That(battle.RelicRuntimes[0], Is.TypeOf<SuitOverrideRelicRuntime>());
         Assert.That(battle.RelicRuntimes[0].RelicId, Is.EqualTo(RelicRuleResolver.SuitOverride));
 
-        Assert.That(battle.StartRound(), Is.True);
+        Assert.That(battle.StartRound(battle.GetDefaultWager()), Is.True);
+        Assert.That(battle.CurrentRound.PlayerBurstThreshold, Is.EqualTo(22));
         battle.Dispose();
     }
 
@@ -369,8 +370,7 @@ public sealed class ShopSystemTests
             CardData(Suit.Spades, Rank.Seven),
             CardData(Suit.Clubs, Rank.Two));
         var battle = new BattleState(run, TestBattleConfig(startingHandSize: 3));
-        battle.StartRound();
-        Assert.That(battle.CommitWagerAndBeginRound(1, true), Is.True);
+        battle.StartRound(battle.GetDefaultWager());
 
         Assert.That(battle.RelicRuntimes.Count, Is.EqualTo(0));
         Assert.That(run.TryPurchaseRelic(RelicRuleResolver.SuitOverride, 0).Succeeded, Is.True);
@@ -388,8 +388,7 @@ public sealed class ShopSystemTests
     {
         RunState run = CreateRunWithRelicDeck(RelicRuleResolver.BurstExtend, TenTwos());
         var battle = new BattleState(run, TestBattleConfig(startingHandSize: 1));
-        battle.StartRound();
-        Assert.That(battle.CommitWagerAndBeginRound(1, true), Is.True);
+        battle.StartRound(battle.GetDefaultWager());
 
         Assert.That(battle.TryHit(), Is.True);
         Assert.That(battle.TryHit(), Is.True);
@@ -413,8 +412,7 @@ public sealed class ShopSystemTests
         run.AddRelic(RelicRuleResolver.SuitOverride);
         run.AddRelic(RelicRuleResolver.AddJqk);
         var battle = new BattleState(run, TestBattleConfig(startingHandSize: 3));
-        battle.StartRound();
-        Assert.That(battle.CommitWagerAndBeginRound(1, true), Is.True);
+        battle.StartRound(battle.GetDefaultWager());
 
         Assert.That(battle.TryPlayPlayerHandCardForEffect(IndexOfRankAndSuit(battle.CurrentRound.PlayerHand, Rank.Seven, Suit.Hearts)), Is.True);
         Assert.That(battle.TryPlayPlayerHandCardForEffect(IndexOfRankAndSuit(battle.CurrentRound.PlayerHand, Rank.Seven, Suit.Spades)), Is.True);
@@ -438,8 +436,7 @@ public sealed class ShopSystemTests
     {
         RunState run = CreateRunWithRelicDeck(RelicRuleResolver.AddJqk, CardData(Suit.Clubs, Rank.Two));
         var battle = new BattleState(run, TestBattleConfig());
-        battle.StartRound();
-        Assert.That(battle.CommitWagerAndBeginRound(1, true), Is.True);
+        battle.StartRound(battle.GetDefaultWager());
         var counterValues = new List<int>();
         EventBus.Subscribe<RelicCounterChangedEvent>(evt =>
         {
@@ -473,8 +470,7 @@ public sealed class ShopSystemTests
             if (evt.RelicId == RelicRuleResolver.AddJqk)
                 counterValues.Add(evt.Value);
         });
-        battle.StartRound();
-        battle.CommitWagerAndBeginRound(1, true);
+        battle.StartRound(battle.GetDefaultWager());
         battle.CurrentRound.AddToOpponentHand(new Card(Suit.Hearts, Rank.Queen));
         battle.CurrentRound.TryPlayOpponentCard(0, out Card queen);
         battle.EventBus.Publish(new CardPlayedEvent(Combatant.Opponent, queen));
@@ -482,8 +478,7 @@ public sealed class ShopSystemTests
         battle.TryStand();
 
         battle.CleanupRound();
-        Assert.That(battle.StartRound(), Is.True);
-        Assert.That(battle.CommitWagerAndBeginRound(1, true), Is.True);
+        Assert.That(battle.StartRound(battle.GetDefaultWager()), Is.True);
         battle.CurrentRound.AddToOpponentHand(new Card(Suit.Spades, Rank.Ten));
         battle.CurrentRound.TryPlayOpponentCard(0, out Card ten);
         battle.EventBus.Publish(new CardPlayedEvent(Combatant.Opponent, ten));
@@ -500,8 +495,7 @@ public sealed class ShopSystemTests
     {
         RunState run = CreateRunWithRelicDeck(RelicRuleResolver.BurstExtend, TenTwos());
         var battle = new BattleState(run, TestBattleConfig(startingHandSize: 1));
-        battle.StartRound();
-        Assert.That(battle.CommitWagerAndBeginRound(1, true), Is.True);
+        battle.StartRound(battle.GetDefaultWager());
         var counterValues = new List<int>();
         EventBus.Subscribe<RelicCounterChangedEvent>(evt =>
         {
@@ -523,8 +517,7 @@ public sealed class ShopSystemTests
     {
         RunState run = CreateRunWithRelicDeck(RelicRuleResolver.BurstExtend, RepeatCardData(Suit.Clubs, Rank.Two, 6));
         var battle = new BattleState(run, TestBattleConfig(startingHandSize: 1));
-        battle.StartRound();
-        Assert.That(battle.CommitWagerAndBeginRound(1, true), Is.True);
+        battle.StartRound(battle.GetDefaultWager());
 
         for (int i = 0; i < 5; i++)
             Assert.That(battle.TryHit(), Is.True, $"Hit {i + 1}");
@@ -540,8 +533,7 @@ public sealed class ShopSystemTests
     {
         RunState run = CreateRunWithRelicDeck(RelicRuleResolver.BurstExtend, TenTwos());
         var battle = new BattleState(run, TestBattleConfig(startingHandSize: 1));
-        battle.StartRound();
-        battle.CommitWagerAndBeginRound(1, true);
+        battle.StartRound(battle.GetDefaultWager());
         var counterValues = new List<int>();
         EventBus.Subscribe<RelicCounterChangedEvent>(evt =>
         {
@@ -566,8 +558,7 @@ public sealed class ShopSystemTests
             CardData(Suit.Clubs, Rank.Eight),
             CardData(Suit.Diamonds, Rank.Seven));
         var battle = new BattleState(run, TestBattleConfig(startingHandSize: 4));
-        battle.StartRound();
-        battle.CommitWagerAndBeginRound(1, true);
+        battle.StartRound(battle.GetDefaultWager());
 
         Assert.That(battle.TryPlayPlayerHandCardForEffect(IndexOfRankAndSuit(battle.CurrentRound.PlayerHand, Rank.Seven, Suit.Hearts)), Is.True);
         Assert.That(battle.TryPlayPlayerHandCardForEffect(IndexOfRankAndSuit(battle.CurrentRound.PlayerHand, Rank.Seven, Suit.Spades)), Is.True);
@@ -587,13 +578,11 @@ public sealed class ShopSystemTests
             CardData(Suit.Spades, Rank.Seven),
             CardData(Suit.Clubs, Rank.Seven));
         var battle = new BattleState(run, TestBattleConfig(startingHandSize: 3));
-        battle.StartRound();
-        battle.CommitWagerAndBeginRound(1, true);
+        battle.StartRound(battle.GetDefaultWager());
         battle.TryPlayPlayerHandCardForEffect(IndexOfRankAndSuit(battle.CurrentRound.PlayerHand, Rank.Seven, Suit.Hearts));
         battle.CleanupRound();
 
-        Assert.That(battle.StartRound(), Is.True);
-        battle.CommitWagerAndBeginRound(1, true);
+        Assert.That(battle.StartRound(battle.GetDefaultWager()), Is.True);
         battle.CurrentRound.AddToHand(new Card(Suit.Clubs, Rank.Seven));
         Assert.That(battle.TryPlayPlayerHandCardForEffect(IndexOfRankAndSuit(battle.CurrentRound.PlayerHand, Rank.Seven, Suit.Clubs)), Is.True);
 
@@ -755,7 +744,7 @@ public sealed class ShopSystemTests
     {
         RunState run = CreateRunWithDeck(CardData(Suit.Hearts, Rank.Five), CardData(Suit.Clubs, Rank.Jack, CardModifierResolver.MoveJack));
         var battle = new BattleState(run, new BattleConfig("test", 100));
-        battle.StartRound();
+        battle.StartRound(battle.GetDefaultWager());
 
         Assert.That(battle.TryPlayPlayerHandCardForEffect(IndexOfRank(battle.CurrentRound.PlayerHand, Rank.Five)), Is.True);
         Assert.That(battle.TryPlayPlayerHandCardForEffect(IndexOfRank(battle.CurrentRound.PlayerHand, Rank.Jack)), Is.True);
@@ -773,7 +762,7 @@ public sealed class ShopSystemTests
     {
         RunState run = CreateRunWithDeck(CardData(Suit.Hearts, Rank.Five), CardData(Suit.Clubs, Rank.Jack, CardModifierResolver.MoveJack));
         var battle = new BattleState(run, new BattleConfig("test", 100));
-        battle.StartRound();
+        battle.StartRound(battle.GetDefaultWager());
         battle.TryPlayPlayerHandCardForEffect(IndexOfRank(battle.CurrentRound.PlayerHand, Rank.Five));
         battle.TryPlayPlayerHandCardForEffect(IndexOfRank(battle.CurrentRound.PlayerHand, Rank.Jack));
 
@@ -794,7 +783,7 @@ public sealed class ShopSystemTests
             CardData(Suit.Hearts, Rank.Two),
             CardData(Suit.Spades, Rank.Three));
         var battle = new BattleState(run, new BattleConfig("test", 100, startingHandSize: 4));
-        battle.StartRound();
+        battle.StartRound(battle.GetDefaultWager());
         int playedEvents = 0;
         battle.EventBus.Subscribe<CardPlayedEvent>(_ => playedEvents++);
 
@@ -816,7 +805,7 @@ public sealed class ShopSystemTests
             CardData(Suit.Clubs, Rank.Queen, CardModifierResolver.CopyQueen),
             CardData(Suit.Spades, Rank.Three));
         var battle = new BattleState(run, new BattleConfig("test", 100));
-        battle.StartRound();
+        battle.StartRound(battle.GetDefaultWager());
 
         battle.TryPlayPlayerHandCardForEffect(IndexOfRank(battle.CurrentRound.PlayerHand, Rank.Five));
         battle.TryPlayPlayerHandCardForEffect(IndexOfRank(battle.CurrentRound.PlayerHand, Rank.Queen));
@@ -835,7 +824,7 @@ public sealed class ShopSystemTests
             CardData(Suit.Clubs, Rank.King, CardModifierResolver.DuplicateKing));
         int runDeckCount = run.Deck.Count;
         var battle = new BattleState(run, new BattleConfig("test", 100));
-        battle.StartRound();
+        battle.StartRound(battle.GetDefaultWager());
 
         battle.TryPlayPlayerHandCardForEffect(IndexOfRank(battle.CurrentRound.PlayerHand, Rank.Nine));
         battle.TryPlayPlayerHandCardForEffect(IndexOfRank(battle.CurrentRound.PlayerHand, Rank.King));
@@ -854,7 +843,7 @@ public sealed class ShopSystemTests
             CardData(Suit.Diamonds, Rank.Two),
             CardData(Suit.Hearts, Rank.Seven));
         var battle = new BattleState(run, new BattleConfig("test", 100));
-        battle.StartRound();
+        battle.StartRound(battle.GetDefaultWager());
 
         Assert.That(battle.TryPlayPlayerHandCardForEffect(IndexOfRank(battle.CurrentRound.PlayerHand, Rank.Six)), Is.True);
 
@@ -870,7 +859,7 @@ public sealed class ShopSystemTests
     {
         RunState run = CreateRunWithDeck(CardData(Suit.Clubs, Rank.Six, CardModifierResolver.HitLower));
         var battle = new BattleState(run, new BattleConfig("test", 100));
-        battle.StartRound();
+        battle.StartRound(battle.GetDefaultWager());
 
         Assert.That(battle.TryPlayPlayerHandCardForEffect(IndexOfRank(battle.CurrentRound.PlayerHand, Rank.Six)), Is.True);
 
@@ -887,7 +876,7 @@ public sealed class ShopSystemTests
             CardData(Suit.Clubs, Rank.Six, CardModifierResolver.HitLower),
             CardData(Suit.Diamonds, Rank.Four, CardModifierResolver.HitLower));
         var battle = new BattleState(run, new BattleConfig("test", 100));
-        battle.StartRound();
+        battle.StartRound(battle.GetDefaultWager());
         int playedEvents = 0;
         battle.EventBus.Subscribe<CardPlayedEvent>(_ => playedEvents++);
 
@@ -904,7 +893,7 @@ public sealed class ShopSystemTests
     {
         var run = new RunState(1, startingMoney: 100);
         var battle = new BattleState(run, new BattleConfig("test", 100));
-        battle.StartRound();
+        battle.StartRound(battle.GetDefaultWager());
         Card trigger = new(Suit.Hearts, Rank.Four, CardModifierResolver.DrawSuit);
         int heartsBefore = CountSuit(battle.PlayerDrawPile, Suit.Hearts);
         int handBefore = battle.CurrentRound.PlayerHand.Count;
@@ -930,7 +919,7 @@ public sealed class ShopSystemTests
             CardData(Suit.Spades, Rank.Six),
             CardData(Suit.Spades, Rank.Seven));
         var battle = new BattleState(run, new BattleConfig("test", 100));
-        battle.StartRound();
+        battle.StartRound(battle.GetDefaultWager());
         battle.CurrentRound.TryPlayHitCard(new Card(Suit.Hearts, Rank.Two));
         battle.ClearField(Combatant.Player);
         Card trigger = new(Suit.Hearts, Rank.Four, CardModifierResolver.DrawSuit);
@@ -951,8 +940,7 @@ public sealed class ShopSystemTests
     {
         RunState run = CreateRunWithDeck(CardData(Suit.Clubs, Rank.Two), CardData(Suit.Hearts, Rank.Three));
         var battle = new BattleState(run, new BattleConfig("test", 100));
-        battle.StartRound();
-        Assert.That(battle.CommitWagerAndBeginRound(1, false), Is.True);
+        battle.StartRound(battle.GetDefaultWager());
 
         Assert.That(battle.TryPlayCard(0), Is.True);
         Assert.That(battle.TryPlayCard(0), Is.True);
@@ -967,7 +955,7 @@ public sealed class ShopSystemTests
     {
         var run = new RunState(1, startingMoney: 100);
         var battle = new BattleState(run, new BattleConfig("test", 100));
-        battle.StartRound();
+        battle.StartRound(battle.GetDefaultWager());
         battle.CurrentRound.AddToHand(new Card(Suit.Clubs, Rank.Five));
         battle.CurrentRound.TryPlayHitCard(new Card(Suit.Diamonds, Rank.Five));
         battle.ClearField(Combatant.Player);
@@ -993,7 +981,7 @@ public sealed class ShopSystemTests
     {
         var run = new RunState(1, startingMoney: 100);
         var battle = new BattleState(run, new BattleConfig("test", 100));
-        battle.StartRound();
+        battle.StartRound(battle.GetDefaultWager());
         battle.CurrentRound.AddToHand(new Card(Suit.Clubs, Rank.Queen));
 
         Assert.That(run.TryPurchaseRankUpgrade(Rank.Queen, CardModifierResolver.RankToHearts, 10).Succeeded, Is.True);
@@ -1010,12 +998,12 @@ public sealed class ShopSystemTests
     {
         var run = new RunState(1, startingMoney: 100);
         var battle = new BattleState(run, new BattleConfig("test", 100));
-        battle.StartRound();
+        battle.StartRound(battle.GetDefaultWager());
         battle.CurrentRound.AddToHand(new Card(Suit.Clubs, Rank.Jack));
         battle.CleanupRound();
 
         Assert.That(run.TryPurchaseRankUpgrade(Rank.Jack, CardModifierResolver.RankToClubs, 10).Succeeded, Is.True);
-        Assert.That(battle.StartRound(), Is.True);
+        Assert.That(battle.StartRound(battle.GetDefaultWager()), Is.True);
 
         Assert.That(ContainsUpgradedRank(battle.CurrentRound.PlayerHand, Rank.Jack, CardModifierResolver.RankToClubs), Is.True);
 
@@ -1028,7 +1016,7 @@ public sealed class ShopSystemTests
         var run = new RunState(1);
         run.AddActiveItem(ActiveItemResolver.DrawThree);
         var battle = new BattleState(run, new BattleConfig("test", 100));
-        battle.StartRound();
+        battle.StartRound(battle.GetDefaultWager());
 
         int before = battle.CurrentRound.PlayerHand.Count;
 
@@ -1044,7 +1032,7 @@ public sealed class ShopSystemTests
         var run = new RunState(1);
         run.AddActiveItem(ActiveItemResolver.RejectLastHit);
         var battle = new BattleState(run, new BattleConfig("test", 100));
-        battle.StartRound();
+        battle.StartRound(battle.GetDefaultWager());
         Card hitCard = new(Suit.Hearts, Rank.Eight);
         battle.CurrentRound.TryPlayHitCard(hitCard);
 
@@ -1056,13 +1044,96 @@ public sealed class ShopSystemTests
     }
 
     [Test]
+    public void StartRound_CreatesCommitsAndBeginsRoundAtomically()
+    {
+        var run = new RunState(1, startingMoney: 100);
+        var battle = new BattleState(run, new BattleConfig("test", 100, baseWager: 25));
+        int wagerCommittedEvents = 0;
+        int roundStartedEvents = 0;
+        int playerTurnStartedEvents = 0;
+        WagerCommittedEvent committedWager = default;
+        battle.EventBus.Subscribe<WagerCommittedEvent>(eventData =>
+        {
+            wagerCommittedEvents++;
+            committedWager = eventData;
+        });
+        battle.EventBus.Subscribe<RoundStartedEvent>(_ => roundStartedEvents++);
+        battle.EventBus.Subscribe<PlayerTurnStartedEvent>(_ => playerTurnStartedEvents++);
+
+        Assert.That(battle.StartRound(battle.GetDefaultWager()), Is.True);
+
+        Assert.That(battle.RoundNumber, Is.EqualTo(1));
+        Assert.That(battle.Phase, Is.EqualTo(BattlePhase.PlayerPhase));
+        Assert.That(battle.CurrentRound, Is.Not.Null);
+        Assert.That(battle.CurrentRound.WagerCommitted, Is.True);
+        Assert.That(battle.CurrentRound.EffectiveWager, Is.EqualTo(25));
+        Assert.That(battle.CurrentRound.PlayerStake, Is.EqualTo(25));
+        Assert.That(battle.CurrentRound.OpponentStake, Is.EqualTo(25));
+        Assert.That(run.Money, Is.EqualTo(75));
+        Assert.That(battle.OpponentMoney, Is.EqualTo(75));
+        Assert.That(wagerCommittedEvents, Is.EqualTo(1));
+        Assert.That(committedWager.WagerAmount, Is.EqualTo(25));
+        Assert.That(roundStartedEvents, Is.EqualTo(1));
+        Assert.That(playerTurnStartedEvents, Is.EqualTo(1));
+
+        int roundStartedCommands = 0;
+        while (battle.CommandQueue.TryDequeue(out VisualCommand command))
+        {
+            if (command.Type == VisualCommandType.RoundStarted)
+                roundStartedCommands++;
+        }
+
+        Assert.That(roundStartedCommands, Is.EqualTo(1));
+        battle.Dispose();
+    }
+
+    [Test]
+    public void StartRound_InvalidAndDuplicateCallsDoNotMutateBattle()
+    {
+        var run = new RunState(1, startingMoney: 100);
+        var battle = new BattleState(run, new BattleConfig("test", 100, baseWager: 25));
+        int roundStartedEvents = 0;
+        battle.EventBus.Subscribe<RoundStartedEvent>(_ => roundStartedEvents++);
+
+        Assert.That(battle.StartRound(0), Is.False);
+        Assert.That(battle.CurrentRound, Is.Null);
+        Assert.That(battle.RoundNumber, Is.EqualTo(0));
+        Assert.That(run.Money, Is.EqualTo(100));
+        Assert.That(battle.OpponentMoney, Is.EqualTo(100));
+
+        Assert.That(battle.StartRound(battle.GetDefaultWager()), Is.True);
+        Assert.That(battle.StartRound(battle.GetDefaultWager()), Is.False);
+        Assert.That(battle.RoundNumber, Is.EqualTo(1));
+        Assert.That(run.Money, Is.EqualTo(75));
+        Assert.That(battle.OpponentMoney, Is.EqualTo(75));
+        Assert.That(roundStartedEvents, Is.EqualTo(1));
+        battle.Dispose();
+    }
+
+    [Test]
+    public void StartRound_CapsEachStakeByAvailableMoney()
+    {
+        var run = new RunState(1, startingMoney: 12);
+        var battle = new BattleState(run, new BattleConfig("test", 15, baseWager: 25));
+
+        Assert.That(battle.StartRound(battle.GetDefaultWager()), Is.True);
+
+        Assert.That(battle.CurrentRound.EffectiveWager, Is.EqualTo(25));
+        Assert.That(battle.CurrentRound.PlayerStake, Is.EqualTo(12));
+        Assert.That(battle.CurrentRound.OpponentStake, Is.EqualTo(15));
+        Assert.That(battle.CurrentRound.Pot, Is.EqualTo(27));
+        Assert.That(run.Money, Is.EqualTo(0));
+        Assert.That(battle.OpponentMoney, Is.EqualTo(0));
+        battle.Dispose();
+    }
+
+    [Test]
     public void DoubleWager_AddsMatchingExtraStakes()
     {
         var run = new RunState(1, startingMoney: 100);
         run.AddActiveItem(ActiveItemResolver.DoubleWager);
         var battle = new BattleState(run, new BattleConfig("test", 100, baseWager: 10));
-        battle.StartRound();
-        Assert.That(battle.CommitWagerAndBeginRound(1, true), Is.True);
+        battle.StartRound(battle.GetDefaultWager());
 
         Assert.That(battle.TryUseActiveItem(ActiveItemResolver.DoubleWager), Is.True);
 
@@ -1075,13 +1146,11 @@ public sealed class ShopSystemTests
     }
 
     [Test]
-    public void FixedWager_IgnoresRequestedWagerAndAntesBaseWager()
+    public void FixedWager_StartRoundAntesConfiguredDefaultWager()
     {
         var run = new RunState(1, startingMoney: 100);
         var battle = new BattleState(run, new BattleConfig("test", 100, new StandingDevilStrategy(), baseWager: 25));
-        battle.StartRound();
-
-        Assert.That(battle.CommitWagerAndBeginRound(999, false), Is.True);
+        battle.StartRound(battle.GetDefaultWager());
 
         Assert.That(battle.CurrentRound.EffectiveWager, Is.EqualTo(25));
         Assert.That(battle.CurrentRound.PlayerStake, Is.EqualTo(25));
@@ -1096,8 +1165,7 @@ public sealed class ShopSystemTests
     {
         var run = new RunState(1, startingMoney: 500);
         var battle = new BattleState(run, TestBattleConfig());
-        battle.StartRound();
-        battle.CommitWagerAndBeginRound(1, true);
+        battle.StartRound(battle.GetDefaultWager());
         PlayPlayerCards(battle.CurrentRound, new Card(Suit.Clubs, Rank.King), new Card(Suit.Hearts, Rank.King), new Card(Suit.Spades, Rank.Five));
 
         Assert.That(battle.EndPlayerPhase().Winner, Is.Null);
@@ -1112,8 +1180,7 @@ public sealed class ShopSystemTests
     {
         var run = new RunState(1, startingMoney: 1000);
         var battle = new BattleState(run, new BattleConfig("test", 1000, new StandingDevilStrategy(), baseWager: 100));
-        battle.StartRound();
-        battle.CommitWagerAndBeginRound(1, true);
+        battle.StartRound(battle.GetDefaultWager());
         PlayPlayerCards(battle.CurrentRound, new Card(Suit.Clubs, Rank.Nine), new Card(Suit.Hearts, Rank.Eight), new Card(Suit.Spades, Rank.Eight));
         PlayOpponentCards(battle.CurrentRound, new Card(Suit.Diamonds, Rank.Two));
         battle.CurrentRound.MarkOpponentStood();
@@ -1129,34 +1196,8 @@ public sealed class ShopSystemTests
     {
         var run = new RunState(1, startingMoney: 500);
         var battle = new BattleState(run, new BattleConfig("test", 500, new StandingDevilStrategy(), baseWager: 10));
-        battle.StartRound();
-        battle.CommitWagerAndBeginRound(1, true);
-        battle.CurrentRound.AddToHand(new Card(Suit.Clubs, Rank.King));
-        battle.CurrentRound.AddToHand(new Card(Suit.Hearts, Rank.Queen));
-        battle.CurrentRound.AddToHand(new Card(Suit.Spades, Rank.Five));
-        battle.CurrentRound.AddToHand(new Card(Suit.Diamonds, Rank.Two));
-
-        Assert.That(battle.TryPlayCard(IndexOfRankAndSuit(battle.CurrentRound.PlayerHand, Rank.King, Suit.Clubs)), Is.True);
-        Assert.That(battle.TryPlayCard(IndexOfRankAndSuit(battle.CurrentRound.PlayerHand, Rank.Queen, Suit.Hearts)), Is.True);
-        Assert.That(battle.TryPlayCard(IndexOfRankAndSuit(battle.CurrentRound.PlayerHand, Rank.Five, Suit.Spades)), Is.True);
-        Assert.That(battle.CurrentRound.PlayerScore.IsBurst, Is.True);
-        Assert.That(battle.TryPlayCard(IndexOfRankAndSuit(battle.CurrentRound.PlayerHand, Rank.Two, Suit.Diamonds)), Is.True);
-
-        Assert.That(battle.CurrentRound.PlayerScore.BlackjackScore, Is.EqualTo(27));
-        Assert.That(battle.Phase, Is.EqualTo(BattlePhase.PlayerPhase));
-        Assert.That(battle.CurrentRound.PlayerMoneyLost, Is.EqualTo(100));
-        Assert.That(run.Money, Is.EqualTo(390));
-        battle.Dispose();
-    }
-
-    [Test]
-    public void BlackjackAchieved_TransfersOneEffectiveWagerBeforeRoundPot()
-    {
-        var run = new RunState(1, startingMoney: 500);
-        var battle = new BattleState(run, new BattleConfig("test", 500, new StandingDevilStrategy(), baseWager: 10));
-        battle.StartRound();
-        battle.CommitWagerAndBeginRound(1, true);
-        PlayPlayerCards(battle.CurrentRound, new Card(Suit.Clubs, Rank.King), new Card(Suit.Hearts, Rank.Ace));
+        battle.StartRound(battle.GetDefaultWager());
+        PlayPlayerCards(battle.CurrentRound, new Card(Suit.Clubs, Rank.King), new Card(Suit.Hearts, Rank.Nine));
         PlayOpponentCards(battle.CurrentRound, new Card(Suit.Diamonds, Rank.Eight), new Card(Suit.Spades, Rank.Seven));
         battle.CurrentRound.MarkOpponentStood();
 
@@ -1173,8 +1214,7 @@ public sealed class ShopSystemTests
     {
         var run = new RunState(1, startingMoney: 500);
         var battle = new BattleState(run, new BattleConfig("test", 500, new StandingDevilStrategy(), baseWager: 10));
-        battle.StartRound();
-        battle.CommitWagerAndBeginRound(1, true);
+        battle.StartRound(battle.GetDefaultWager());
         PlayPlayerCards(battle.CurrentRound, new Card(Suit.Clubs, Rank.Two), new Card(Suit.Hearts, Rank.Three));
         PlayOpponentCards(battle.CurrentRound, new Card(Suit.Diamonds, Rank.Nine), new Card(Suit.Spades, Rank.Nine));
         battle.CurrentRound.AddSharedVisibleCard(new Card(Suit.Clubs, Rank.Four));
@@ -1196,8 +1236,7 @@ public sealed class ShopSystemTests
     {
         var run = new RunState(1, startingMoney: 500);
         var battle = new BattleState(run, new BattleConfig("test", 500, new StandingDevilStrategy(), baseWager: 10));
-        battle.StartRound();
-        battle.CommitWagerAndBeginRound(1, true);
+        battle.StartRound(1);
         PlayPlayerCards(battle.CurrentRound,
             new Card(Suit.Clubs, Rank.Five),
             new Card(Suit.Hearts, Rank.Five),
@@ -1221,8 +1260,7 @@ public sealed class ShopSystemTests
     {
         var run = new RunState(1, startingMoney: 100);
         var battle = new BattleState(run, new BattleConfig("test", 500, new StandingDevilStrategy(), baseWager: 100));
-        battle.StartRound();
-        battle.CommitWagerAndBeginRound(1, true);
+        battle.StartRound(battle.GetDefaultWager());
         PlayPlayerCards(battle.CurrentRound, new Card(Suit.Clubs, Rank.King), new Card(Suit.Hearts, Rank.Queen), new Card(Suit.Spades, Rank.Two));
         PlayOpponentCards(battle.CurrentRound, new Card(Suit.Diamonds, Rank.Ace), new Card(Suit.Clubs, Rank.King));
         battle.CurrentRound.MarkOpponentStood();
@@ -1240,8 +1278,7 @@ public sealed class ShopSystemTests
     {
         var run = CreateRunWithDeck(TenTwos());
         var battle = new BattleState(run, new BattleConfig("test", 500, new FixedChoiceDevilStrategy(DevilTurnChoice.Stand), baseWager: 10));
-        battle.StartRound();
-        battle.CommitWagerAndBeginRound(1, true);
+        battle.StartRound(battle.GetDefaultWager());
 
         int eventCount = 0;
         DevilTurnChoice receivedChoice = default;
@@ -1263,13 +1300,11 @@ public sealed class ShopSystemTests
     {
         var run = CreateRunWithDeck(TenTwos());
         var battle = new BattleState(run, new BattleConfig("test", 500, new FixedChoiceDevilStrategy(DevilTurnChoice.Hit), baseWager: 10));
-        battle.StartRound();
-
         var events = new List<string>();
         battle.EventBus.Subscribe<PlayerTurnStartedEvent>(_ => events.Add("started"));
         battle.EventBus.Subscribe<PlayerTurnEndedEvent>(_ => events.Add("ended"));
 
-        Assert.That(battle.CommitWagerAndBeginRound(1, true), Is.True);
+        battle.StartRound(battle.GetDefaultWager());
         Assert.That(battle.TryStand(), Is.True);
 
         CollectionAssert.AreEqual(new[] { "started", "ended", "started" }, events);
@@ -1281,14 +1316,12 @@ public sealed class ShopSystemTests
     {
         var run = CreateRunWithDeck(TenTwos());
         var battle = new BattleState(run, new BattleConfig("test", 500, new StandingDevilStrategy(), baseWager: 10));
-        battle.StartRound();
-
         int startedEvents = 0;
         int endedEvents = 0;
         battle.EventBus.Subscribe<PlayerTurnStartedEvent>(_ => startedEvents++);
         battle.EventBus.Subscribe<PlayerTurnEndedEvent>(_ => endedEvents++);
 
-        Assert.That(battle.CommitWagerAndBeginRound(1, true), Is.True);
+        battle.StartRound(battle.GetDefaultWager());
         Assert.That(battle.TryStand(), Is.True);
 
         Assert.That(startedEvents, Is.EqualTo(1));
@@ -1302,8 +1335,7 @@ public sealed class ShopSystemTests
     {
         var run = CreateRunWithDeck(TenTwos());
         var battle = new BattleState(run, new BattleConfig("test", 500, new FixedChoiceDevilStrategy(choice), baseWager: 10));
-        battle.StartRound();
-        battle.CommitWagerAndBeginRound(1, true);
+        battle.StartRound(battle.GetDefaultWager());
 
         int eventCount = 0;
         DevilTurnChoice receivedChoice = default;
@@ -1317,6 +1349,34 @@ public sealed class ShopSystemTests
 
         Assert.That(eventCount, Is.EqualTo(1));
         Assert.That(receivedChoice, Is.EqualTo(choice));
+    }
+
+    [Test]
+    public void BattleController_StartNextRoundHonorsLifecycleGuards()
+    {
+        var controllerObject = new UnityEngine.GameObject("Controller");
+        try
+        {
+            BattleController controller = controllerObject.AddComponent<BattleController>();
+            Assert.That(controller.StartNextRound(10), Is.False);
+
+            controller.InitializeBattle(CreateRunWithDeck(TenTwos()), new BattleConfig("test", 500, new StandingDevilStrategy(), baseWager: 10));
+            Assert.That(controller.StartNextRound(controller.BattleState.GetDefaultWager()), Is.True);
+            Assert.That(controller.StartNextRound(controller.BattleState.GetDefaultWager()), Is.False);
+
+            Assert.That(controller.TryStand(), Is.True);
+            Assert.That(controller.IsWaitingForVisuals, Is.True);
+            Assert.That(controller.StartNextRound(controller.BattleState.GetDefaultWager()), Is.False);
+
+            controller.CompletePendingVisualTransition();
+            Assert.That(controller.IsWaitingForVisuals, Is.False);
+            Assert.That(controller.BattleState.Phase, Is.EqualTo(BattlePhase.PreRound));
+            Assert.That(controller.StartNextRound(controller.BattleState.GetDefaultWager()), Is.True);
+        }
+        finally
+        {
+            UnityEngine.Object.DestroyImmediate(controllerObject);
+        }
     }
 
     [Test]

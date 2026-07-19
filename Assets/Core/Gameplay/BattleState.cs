@@ -67,46 +67,31 @@ public sealed class BattleState
         SetPhase(BattlePhase.PreRound);
     }
 
-    public int GetOpponentWagerOffer()
-    {
-        if (IsBattleOver || CurrentRound == null || CurrentRound.WagerCommitted)
-            return 0;
-
-        return GetDefaultWager();
-    }
-
-    // creates a new round with the next round number, but does not begin it or commit the wager yet
-    public bool StartRound()
+    public bool StartRound(int wager)
     {
         if (IsBattleOver || CurrentRound != null)
             return false;
 
-        bool playerActsFirst = RoundNumber % 2 == 0;
-
-        SetPhase(BattlePhase.PreRound);
-        RoundNumber++;
-        int targetScore = RelicRuleResolver.ResolveTargetScore(RunState, Config.TargetScore);
-        int playerBurstThreshold = RelicRuleResolver.ResolvePlayerBurstThreshold(RunState, Config.BurstThreshold);
-        int opponentBurstThreshold = RelicRuleResolver.ResolveOpponentBurstThreshold(RunState, Config.BurstThreshold);
-        CurrentRound = new RoundState(RoundNumber, targetScore, playerBurstThreshold, opponentBurstThreshold, Config.BaseWager, playerActsFirst);
-        RestoreCarryoverHands();
-        RefillHandsForRoundStart(playerActsFirst);
-        return true;
-    }
-
-    public bool CommitWagerAndBeginRound(int wager, bool playerAcceptsOpponentWager)
-    {
-        if (IsBattleOver || CurrentRound == null || CurrentRound.WagerCommitted)
-            return false;
-
-        int proposedWager = GetDefaultWager();
+        int proposedWager = Math.Max(0, wager);
         if (proposedWager <= 0 || PlayerMoney <= 0 || OpponentMoney <= 0)
             return false;
 
+        bool playerActsFirst = RoundNumber % 2 == 0;
+        int nextRoundNumber = RoundNumber + 1;
+        int targetScore = RelicRuleResolver.ResolveTargetScore(RunState, Config.TargetScore);
+        int playerBurstThreshold = RelicRuleResolver.ResolvePlayerBurstThreshold(RunState, Config.BurstThreshold);
+        int opponentBurstThreshold = RelicRuleResolver.ResolveOpponentBurstThreshold(RunState, Config.BurstThreshold);
         int playerStake = Math.Min(PlayerMoney, proposedWager);
         int opponentStake = Math.Min(OpponentMoney, proposedWager);
-        if (!CurrentRound.TryCommitWager(playerStake, opponentStake))
+        var nextRound = new RoundState(nextRoundNumber, targetScore, playerBurstThreshold, opponentBurstThreshold, proposedWager, playerActsFirst);
+        if (!nextRound.TryCommitWager(playerStake, opponentStake))
             return false;
+
+        SetPhase(BattlePhase.PreRound);
+        RoundNumber = nextRoundNumber;
+        CurrentRound = nextRound;
+        RestoreCarryoverHands();
+        RefillHandsForRoundStart(playerActsFirst);
 
         RunState.AddMoney(-playerStake);
         AddOpponentMoney(-opponentStake);
