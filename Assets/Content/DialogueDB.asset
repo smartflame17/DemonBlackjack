@@ -3602,8 +3602,8 @@ MonoBehaviour:
         serializedVersion: 2
         x: 850
         y: 167
-        width: 356
-        height: 342
+        width: 280
+        height: 333
       color: {r: 0.6556604, g: 0.84069395, b: 1, a: 0.5}
     canvasScrollPosition: {x: 0, y: 0}
     canvasZoom: 1

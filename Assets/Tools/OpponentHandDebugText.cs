@@ -2,6 +2,7 @@ using System.Collections.Generic;
 using System.Text;
 using TMPro;
 using UnityEngine;
+using PixelCrushers.DialogueSystem;
 
 public sealed class OpponentHandDebugText : MonoBehaviour
 {
@@ -57,7 +58,9 @@ public sealed class OpponentHandDebugText : MonoBehaviour
         }
 
         string devilId = battle.Config != null ? battle.Config.DevilId : null;
-        int affinity = battle.RunState != null ? battle.RunState.GetDevilAffinity(devilId) : 0;
+        //int affinity = battle.RunState != null ? battle.RunState.GetDevilAffinity(devilId) : 0;
+        string queryId = devilId.Substring(0, 1).ToUpper() + devilId.Substring(1) + "Affinity";
+        int affinity = DialogueLua.GetVariable(queryId).asInt;
         IReadOnlyList<Card> opponentHand = battle.CurrentRound != null ? battle.CurrentRound.OpponentHand : null;
 
         _builder.Clear();
