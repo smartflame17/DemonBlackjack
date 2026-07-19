@@ -2702,7 +2702,7 @@ MonoBehaviour:
           m_Calls: []
       canvasRect:
         serializedVersion: 2
-        x: 94
+        x: 95
         y: 222
         width: 160
         height: 30
@@ -3138,6 +3138,473 @@ MonoBehaviour:
         width: 160
         height: 30
     entryGroups: []
+    canvasScrollPosition: {x: 0, y: 0}
+    canvasZoom: 1
+  - id: 8
+    fields:
+    - title: Title
+      value: devil1_Idle
+      type: 0
+      typeString: 
+    - title: Description
+      value: 
+      type: 0
+      typeString: 
+    - title: Actor
+      value: 1
+      type: 5
+      typeString: CustomFieldType_Actor
+    - title: Conversant
+      value: 2
+      type: 5
+      typeString: CustomFieldType_Actor
+    overrideSettings:
+      useOverrides: 0
+      overrideSubtitleSettings: 0
+      showNPCSubtitlesDuringLine: 1
+      showNPCSubtitlesWithResponses: 1
+      showPCSubtitlesDuringLine: 0
+      skipPCSubtitleAfterResponseMenu: 0
+      subtitleCharsPerSecond: 30
+      minSubtitleSeconds: 2
+      continueButton: 0
+      overrideSequenceSettings: 0
+      defaultSequence: 
+      defaultPlayerSequence: 
+      defaultResponseMenuSequence: 
+      overrideInputSettings: 0
+      alwaysForceResponseMenu: 1
+      includeInvalidEntries: 0
+      responseTimeout: 0
+      emTagForOldResponses: 0
+      emTagForInvalidResponses: 0
+      cancelSubtitle:
+        key: 27
+        buttonName: 
+        inputAction: {fileID: 0}
+      cancelConversation:
+        key: 27
+        buttonName: 
+        inputAction: {fileID: 0}
+      actorSubtitlePanelOverrides: []
+    nodeColor: 
+    dialogueEntries:
+    - id: 0
+      fields:
+      - title: Title
+        value: START
+        type: 0
+        typeString: 
+      - title: Description
+        value: 
+        type: 0
+        typeString: 
+      - title: Actor
+        value: 1
+        type: 5
+        typeString: CustomFieldType_Actor
+      - title: Conversant
+        value: 2
+        type: 5
+        typeString: CustomFieldType_Actor
+      - title: Menu Text
+        value: 
+        type: 0
+        typeString: 
+      - title: Dialogue Text
+        value: 
+        type: 0
+        typeString: 
+      - title: Sequence
+        value: None()
+        type: 0
+        typeString: 
+      conversationID: 8
+      isRoot: 1
+      isGroup: 0
+      nodeColor: 
+      delaySimStatus: 0
+      falseConditionAction: 
+      conditionPriority: 2
+      outgoingLinks:
+      - originConversationID: 8
+        originDialogueID: 0
+        destinationConversationID: 8
+        destinationDialogueID: 1
+        isConnector: 0
+        priority: 2
+      - originConversationID: 8
+        originDialogueID: 0
+        destinationConversationID: 8
+        destinationDialogueID: 2
+        isConnector: 0
+        priority: 2
+      - originConversationID: 8
+        originDialogueID: 0
+        destinationConversationID: 8
+        destinationDialogueID: 3
+        isConnector: 0
+        priority: 2
+      - originConversationID: 8
+        originDialogueID: 0
+        destinationConversationID: 8
+        destinationDialogueID: 4
+        isConnector: 0
+        priority: 2
+      - originConversationID: 8
+        originDialogueID: 0
+        destinationConversationID: 8
+        destinationDialogueID: 5
+        isConnector: 0
+        priority: 2
+      - originConversationID: 8
+        originDialogueID: 0
+        destinationConversationID: 8
+        destinationDialogueID: 6
+        isConnector: 0
+        priority: 2
+      conditionsString: 
+      userScript: 
+      onExecute:
+        m_PersistentCalls:
+          m_Calls: []
+      canvasRect:
+        serializedVersion: 2
+        x: 160
+        y: 30
+        width: 160
+        height: 30
+    - id: 1
+      fields:
+      - title: Title
+        value: 
+        type: 0
+        typeString: 
+      - title: Description
+        value: 
+        type: 0
+        typeString: 
+      - title: Actor
+        value: 2
+        type: 5
+        typeString: CustomFieldType_Actor
+      - title: Conversant
+        value: 1
+        type: 5
+        typeString: CustomFieldType_Actor
+      - title: Menu Text
+        value: 
+        type: 0
+        typeString: 
+      - title: Dialogue Text
+        value: "\uD5DB\uC9D3\uAC70\uB9AC\uC5D0 \uC2DC\uAC04 \uC4F0\uC9C0 \uB9C8!"
+        type: 0
+        typeString: 
+      - title: Sequence
+        value: SendMessage(SetDevilEmotion, frustrated, DevilImage); {{default}}
+        type: 0
+        typeString: 
+      conversationID: 8
+      isRoot: 0
+      isGroup: 0
+      nodeColor: 
+      delaySimStatus: 0
+      falseConditionAction: Block
+      conditionPriority: 2
+      outgoingLinks: []
+      conditionsString: Variable["Devil1Affinity"] <= 30 or (Variable["OverrideToLowAffinity"]
+        == true)
+      userScript: 
+      onExecute:
+        m_PersistentCalls:
+          m_Calls: []
+      canvasRect:
+        serializedVersion: 2
+        x: 101
+        y: 240
+        width: 160
+        height: 30
+    - id: 2
+      fields:
+      - title: Title
+        value: 
+        type: 0
+        typeString: 
+      - title: Description
+        value: 
+        type: 0
+        typeString: 
+      - title: Actor
+        value: 2
+        type: 5
+        typeString: CustomFieldType_Actor
+      - title: Conversant
+        value: 1
+        type: 5
+        typeString: CustomFieldType_Actor
+      - title: Menu Text
+        value: 
+        type: 0
+        typeString: 
+      - title: Dialogue Text
+        value: "\uC801\uB2F9\uD788 \uD574."
+        type: 0
+        typeString: 
+      - title: Sequence
+        value: SendMessage(SetDevilEmotion, frustrated, DevilImage); {{default}}
+        type: 0
+        typeString: 
+      conversationID: 8
+      isRoot: 0
+      isGroup: 0
+      nodeColor: 
+      delaySimStatus: 0
+      falseConditionAction: Block
+      conditionPriority: 2
+      outgoingLinks: []
+      conditionsString: Variable["Devil1Affinity"] <= 30 or (Variable["OverrideToLowAffinity"]
+        == true)
+      userScript: 
+      onExecute:
+        m_PersistentCalls:
+          m_Calls: []
+      canvasRect:
+        serializedVersion: 2
+        x: 100
+        y: 317
+        width: 160
+        height: 30
+    - id: 3
+      fields:
+      - title: Title
+        value: 
+        type: 0
+        typeString: 
+      - title: Description
+        value: 
+        type: 0
+        typeString: 
+      - title: Actor
+        value: 2
+        type: 5
+        typeString: CustomFieldType_Actor
+      - title: Conversant
+        value: 1
+        type: 5
+        typeString: CustomFieldType_Actor
+      - title: Menu Text
+        value: 
+        type: 0
+        typeString: 
+      - title: Dialogue Text
+        value: "\uBA38\uB9AC\uB97C \uB108\uBB34 \uAD74\uB9AC\uB294 \uAC74 \uB0B4
+          \uC815\uC2E0\uAC74\uAC15\uC5D0 \uC88B\uC9C0 \uC54A\uB2E4\uACE0."
+        type: 0
+        typeString: 
+      - title: Sequence
+        value: SendMessage(SetDevilEmotion, default, DevilImage); {{default}}
+        type: 0
+        typeString: 
+      conversationID: 8
+      isRoot: 0
+      isGroup: 0
+      nodeColor: 
+      delaySimStatus: 0
+      falseConditionAction: Block
+      conditionPriority: 2
+      outgoingLinks: []
+      conditionsString: (((Variable["Devil1Affinity"] >= 31) and (Variable["Devil1Affinity"]
+        <= 60)) or ((Variable["OverrideToMidAffinity"] == true) and (Variable["Devil1Affinity"]
+        >= 61))) and (Variable["OverrideToLowAffinity"] == false)
+      userScript: 
+      onExecute:
+        m_PersistentCalls:
+          m_Calls: []
+      canvasRect:
+        serializedVersion: 2
+        x: 456
+        y: 233
+        width: 160
+        height: 30
+    - id: 4
+      fields:
+      - title: Title
+        value: 
+        type: 0
+        typeString: 
+      - title: Description
+        value: 
+        type: 0
+        typeString: 
+      - title: Actor
+        value: 2
+        type: 5
+        typeString: CustomFieldType_Actor
+      - title: Conversant
+        value: 1
+        type: 5
+        typeString: CustomFieldType_Actor
+      - title: Menu Text
+        value: 
+        type: 0
+        typeString: 
+      - title: Dialogue Text
+        value: "\uC2DC\uAC04\uC744 \uAE38\uAC8C \uC4F0\uB294 \uD3B8\uC774\uAD6C\uB098.
+          \uC0C1\uAD00\uC5C6\uC5B4."
+        type: 0
+        typeString: 
+      - title: Sequence
+        value: SendMessage(SetDevilEmotion, widearms, DevilImage); {{default}}
+        type: 0
+        typeString: 
+      conversationID: 8
+      isRoot: 0
+      isGroup: 0
+      nodeColor: 
+      delaySimStatus: 0
+      falseConditionAction: Block
+      conditionPriority: 2
+      outgoingLinks: []
+      conditionsString: (((Variable["Devil1Affinity"] >= 31) and (Variable["Devil1Affinity"]
+        <= 60)) or ((Variable["OverrideToMidAffinity"] == true) and (Variable["Devil1Affinity"]
+        >= 61))) and (Variable["OverrideToLowAffinity"] == false)
+      userScript: 
+      onExecute:
+        m_PersistentCalls:
+          m_Calls: []
+      canvasRect:
+        serializedVersion: 2
+        x: 461
+        y: 316
+        width: 160
+        height: 30
+    - id: 5
+      fields:
+      - title: Title
+        value: 
+        type: 0
+        typeString: 
+      - title: Description
+        value: 
+        type: 0
+        typeString: 
+      - title: Actor
+        value: 2
+        type: 5
+        typeString: CustomFieldType_Actor
+      - title: Conversant
+        value: 1
+        type: 5
+        typeString: CustomFieldType_Actor
+      - title: Menu Text
+        value: 
+        type: 0
+        typeString: 
+      - title: Dialogue Text
+        value: "\uAE30\uB300\uB418\uB294\uB370? \uC5BC\uB9C8\uB098 \uC7AC\uBBF8\uC788\uB294\uAC78
+          \uBCF4\uC5EC\uC8FC\uB824\uACE0 \uADF8\uB7EC\uC2E4\uAE4C."
+        type: 0
+        typeString: 
+      - title: Sequence
+        value: SendMessage(SetDevilEmotion, smug, DevilImage); {{default}}
+        type: 0
+        typeString: 
+      conversationID: 8
+      isRoot: 0
+      isGroup: 0
+      nodeColor: 
+      delaySimStatus: 0
+      falseConditionAction: Block
+      conditionPriority: 2
+      outgoingLinks: []
+      conditionsString: (Variable["Devil1Affinity"] >= 61) and (Variable["OverrideToMidAffinity"]
+        == false) and (Variable["OverrideToLowAffinity"] == false)
+      userScript: 
+      onExecute:
+        m_PersistentCalls:
+          m_Calls: []
+      canvasRect:
+        serializedVersion: 2
+        x: 883
+        y: 234
+        width: 160
+        height: 30
+    - id: 6
+      fields:
+      - title: Title
+        value: 
+        type: 0
+        typeString: 
+      - title: Description
+        value: 
+        type: 0
+        typeString: 
+      - title: Actor
+        value: 2
+        type: 5
+        typeString: CustomFieldType_Actor
+      - title: Conversant
+        value: 1
+        type: 5
+        typeString: CustomFieldType_Actor
+      - title: Menu Text
+        value: 
+        type: 0
+        typeString: 
+      - title: Dialogue Text
+        value: "\uB354 \uAE38\uAC8C \uACE0\uBBFC\uD574\uB3C4 \uB3FC. \uC7AC\uBBF8\uC788\uB294
+          \uC2DC\uAC04\uC774 \uB298\uC5B4\uB098\uB294 \uAC74 \uC88B\uC740 \uC77C\uC774\uB2C8\uAE4C."
+        type: 0
+        typeString: 
+      - title: Sequence
+        value: SendMessage(SetDevilEmotion, widearms, DevilImage); {{default}}
+        type: 0
+        typeString: 
+      conversationID: 8
+      isRoot: 0
+      isGroup: 0
+      nodeColor: 
+      delaySimStatus: 0
+      falseConditionAction: Block
+      conditionPriority: 2
+      outgoingLinks: []
+      conditionsString: (Variable["Devil1Affinity"] >= 61) and (Variable["OverrideToMidAffinity"]
+        == false) and (Variable["OverrideToLowAffinity"] == false)
+      userScript: 
+      onExecute:
+        m_PersistentCalls:
+          m_Calls: []
+      canvasRect:
+        serializedVersion: 2
+        x: 891
+        y: 321
+        width: 160
+        height: 30
+    entryGroups:
+    - name: low affinity
+      rect:
+        serializedVersion: 2
+        x: 65
+        y: 176
+        width: 340
+        height: 316
+      color: {r: 0.8773585, g: 0.5752492, b: 0.5752492, a: 1}
+    - name: mid affinity
+      rect:
+        serializedVersion: 2
+        x: 437
+        y: 168
+        width: 358
+        height: 330
+      color: {r: 0.4965464, g: 0.735849, b: 0.4130473, a: 1}
+    - name: high affinity
+      rect:
+        serializedVersion: 2
+        x: 850
+        y: 167
+        width: 356
+        height: 342
+      color: {r: 0.6556604, g: 0.84069395, b: 1, a: 0.5}
     canvasScrollPosition: {x: 0, y: 0}
     canvasZoom: 1
   syncInfo:

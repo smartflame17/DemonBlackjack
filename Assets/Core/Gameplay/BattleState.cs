@@ -115,8 +115,7 @@ public sealed class BattleState
         EventBus.Publish(new RoundStartedEvent(RoundNumber));
         CommandQueue.Enqueue(new VisualCommand(VisualCommandType.RoundStarted, $"{RoundNumber}:{proposedWager}"));
 
-        CurrentRound.BeginPlayerTurn();
-        SetPhase(BattlePhase.PlayerPhase);
+        BeginPlayerTurn();
 
         return true;
     }
@@ -353,21 +352,6 @@ public sealed class BattleState
         _playerDeck.TransformCards(Transform);
         CurrentRound?.TransformPlayerCards(Transform);
         TransformCards(_playerHandCarryover, Transform);
-    }
-
-    public void DamagePlayer(int amount)
-    {
-        LosePlayerMoney(amount);
-    }
-
-    public void DamageOpponent(int amount)
-    {
-        LoseOpponentMoney(amount);
-    }
-
-    public void HealPlayer(int amount)
-    {
-        AddPlayerMoney(amount);
     }
 
     public int AddPlayerMoney(int amount)
@@ -711,6 +695,8 @@ public sealed class BattleState
 
     private bool CompletePlayerTurn()
     {
+        EventBus.Publish(new PlayerTurnEndedEvent());
+
         if (ResolveTurnOrRoundEnd())
             return true;
 
@@ -723,9 +709,15 @@ public sealed class BattleState
         if (ResolveTurnOrRoundEnd())
             return true;
 
+        BeginPlayerTurn();
+        return true;
+    }
+
+    private void BeginPlayerTurn()
+    {
         CurrentRound.BeginPlayerTurn();
         SetPhase(BattlePhase.PlayerPhase);
-        return true;
+        EventBus.Publish(new PlayerTurnStartedEvent());
     }
 
     private bool ResolveTurnOrRoundEnd()
