@@ -90,11 +90,11 @@ public sealed class BattleState
         SetPhase(BattlePhase.PreRound);
         RoundNumber = nextRoundNumber;
         CurrentRound = nextRound;
-        RestoreCarryoverHands();
-        RefillHandsForRoundStart(playerActsFirst);
-
         EventBus.Publish(new RoundStartedEvent(RoundNumber));
         CommandQueue.Enqueue(new VisualCommand(VisualCommandType.RoundStarted, $"{RoundNumber}:{proposedWager}"));
+
+        RestoreCarryoverHands();
+        RefillHandsForRoundStart(playerActsFirst);
 
         RunState.AddMoney(-playerStake);
         AddOpponentMoney(-opponentStake);
@@ -128,12 +128,12 @@ public sealed class BattleState
 
         if (!TryDrawCard(Combatant.Player, out Card card))
             return false;
+        EventBus.Publish(new CardDrawnEvent(Combatant.Player, card, _playerDeck.RemainingCards));
 
         card = ApplyPlayerCardForPlay(card);
         if (!CurrentRound.TryPlayHitCard(card))
             return false;
 
-        EventBus.Publish(new CardDrawnEvent(Combatant.Player, card, _playerDeck.RemainingCards));
         EventBus.Publish(new PlayerHitUsedEvent(RoundNumber, card));
         PublishPlayerCardPlayed(card);
         return CompletePlayerTurn();
@@ -170,7 +170,7 @@ public sealed class BattleState
         _opponentDeck.DiscardRange(opponentCards);
         CurrentRound.ClearRoundOnlyState();
         CurrentRound = null;
-
+        // WARNING: This discards cards without publishing events
         if (IsBattleOver)
             EndBattle();
         else
@@ -257,6 +257,7 @@ public sealed class BattleState
         EventBus.Publish(new CardDrawnEvent(Combatant.Player, card, _playerDeck.RemainingCards));
         EventBus.Publish(new HandRefilledEvent(CurrentRound.PlayerHand.Count));
         CommandQueue.Enqueue(new VisualCommand(VisualCommandType.CardsDrawn, CurrentRound.PlayerHand.Count.ToString()));
+
         return true;
     }
 
@@ -378,11 +379,6 @@ public sealed class BattleState
         return AddOpponentMoney(-Math.Max(0, amount)) * -1;
     }
 
-    public bool TryDrawForOpponent(out Card card)
-    {
-        return TryDrawCard(Combatant.Opponent, out card);
-    }
-
     public int NextRandomInclusive(int minimum, int maximum)
     {
         if (maximum <= minimum)
@@ -399,11 +395,6 @@ public sealed class BattleState
         EventBus.Publish(new MoneyChangedEvent(Combatant.Opponent, OpponentMoney, actualDelta));
         CommandQueue.Enqueue(new VisualCommand(VisualCommandType.MoneyChanged, $"{Combatant.Opponent}:{OpponentMoney}"));
         return actualDelta;
-    }
-
-    public bool TryDrawForPlayer(out Card card)
-    {
-        return TryDrawCard(Combatant.Player, out card);
     }
 
     public bool TryUseActiveItem(string itemId)
