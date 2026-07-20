@@ -716,6 +716,7 @@ public sealed class BattleState
         return false;
     }
 
+    // Opponent poker logic isn't really used in the current game, but just in case ¯\_(ツ)_/¯
     private void ResolveScores()
     {
         ScoreResult playerScore = ScoreResolver.Resolve(CurrentRound.PlayerPlayedCards, CurrentRound.ScoringModifiers, CurrentRound.TargetScore, CurrentRound.PlayerBurstThreshold);
@@ -726,11 +727,11 @@ public sealed class BattleState
 
         PublishScoreEvents(Combatant.Player, playerScore, playerPoker);
         PublishScoreEvents(Combatant.Opponent, opponentScore, opponentPoker);
-        ResolveRealtimeMoney();
+        ResolveRealtimeMoney(playerPoker, opponentPoker);
         CommandQueue.Enqueue(new VisualCommand(VisualCommandType.ScoresResolved, $"{playerScore.FinalScore}:{opponentScore.FinalScore}"));
     }
 
-    private void ResolveRealtimeMoney()
+    private void ResolveRealtimeMoney(PokerResult playerPoker, PokerResult opponentPoker)
     {
         if (CurrentRound == null || CurrentRound.EffectiveWager <= 0)
             return;
@@ -740,38 +741,34 @@ public sealed class BattleState
         if (!playerPlayed && !opponentPlayed)
             return;
 
-        ResolveRealtimeBlackjackPayout();
+        ResolveRealtimePokerPayout(playerPoker, opponentPoker);
         if (playerPlayed)
             ResolveRealtimeBurstPenalty(Combatant.Player, CurrentRound.PlayerScore, CurrentRound.PlayerBurstThreshold);
         if (opponentPlayed)
             ResolveRealtimeBurstPenalty(Combatant.Opponent, CurrentRound.OpponentScore, CurrentRound.OpponentBurstThreshold);
     }
 
-    private void ResolveRealtimeBlackjackPayout()   // dont need this -> needs to change to poker payout
+    private void ResolveRealtimePokerPayout(PokerResult playerPoker, PokerResult opponentPoker)   // dont need this -> needs to change to poker payout
     {
-        if (CurrentRound.BlackjackPayoutResolved)
-            return;
-
-        if (CurrentRound.PlayerScore.IsBlackjack && !CurrentRound.OpponentScore.IsBlackjack)
+        if (playerPoker.Multiplier >= (int)PokerHandRank.Pair)
         {
-            int lost = LoseOpponentMoney(CurrentRound.EffectiveWager);
+            int lost = LoseOpponentMoney(CurrentRound.EffectiveWager * playerPoker.Multiplier);
             if (lost > 0)
             {
                 AddPlayerMoney(lost);
                 CurrentRound.RecordMoneyLost(Combatant.Opponent, lost);
             }
-            CurrentRound.MarkBlackjackPayoutResolved();
         }
-        else if (CurrentRound.OpponentScore.IsBlackjack && !CurrentRound.PlayerScore.IsBlackjack)
-        {
-            int lost = LosePlayerMoney(CurrentRound.EffectiveWager);
-            if (lost > 0)
-            {
-                AddOpponentMoney(lost);
-                CurrentRound.RecordMoneyLost(Combatant.Player, lost);
-            }
-            CurrentRound.MarkBlackjackPayoutResolved();
-        }
+        // Bruh
+        // else if (CurrentRound.OpponentScore.IsBlackjack && !CurrentRound.PlayerScore.IsBlackjack)
+        // {
+        //     int lost = LosePlayerMoney(CurrentRound.EffectiveWager);
+        //     if (lost > 0)
+        //     {
+        //         AddOpponentMoney(lost);
+        //         CurrentRound.RecordMoneyLost(Combatant.Player, lost);
+        //     }
+        // }
     }
 
     private void ResolveRealtimeBurstPenalty(Combatant combatant, ScoreResult score, int threshold)
