@@ -877,14 +877,73 @@ public sealed class ShopSystemTests
             CardData(Suit.Diamonds, Rank.Four, CardModifierResolver.HitLower));
         var battle = new BattleState(run, new BattleConfig("test", 100));
         battle.StartRound(battle.GetDefaultWager());
-        int playedEvents = 0;
-        battle.EventBus.Subscribe<CardPlayedEvent>(_ => playedEvents++);
+        var playedRanks = new List<Rank>();
+        battle.EventBus.Subscribe<CardPlayedEvent>(eventData => playedRanks.Add(eventData.Card.Rank));
 
         Assert.That(battle.TryPlayPlayerHandCardForEffect(IndexOfRank(battle.CurrentRound.PlayerHand, Rank.Six)), Is.True);
 
-        Assert.That(playedEvents, Is.EqualTo(2));
+        CollectionAssert.AreEqual(new[] { Rank.Six, Rank.Four }, playedRanks);
         Assert.That(ContainsModifier(battle.CurrentRound.PlayerPlayedCards, Rank.Four, CardModifierResolver.HitLower), Is.True);
 
+        battle.Dispose();
+    }
+
+    [Test]
+    public void LastHandCardPlay_IsObservedBeforeRefillDraws()
+    {
+        RunState run = CreateRunWithDeck(
+            CardData(Suit.Clubs, Rank.Two),
+            CardData(Suit.Diamonds, Rank.Three),
+            CardData(Suit.Hearts, Rank.Four),
+            CardData(Suit.Spades, Rank.Five));
+        var battle = new BattleState(run, TestBattleConfig(startingHandSize: 2));
+        battle.StartRound(battle.GetDefaultWager());
+        var received = new List<string>();
+        battle.EventBus.Subscribe<CardPlayedEvent>(eventData =>
+        {
+            if (eventData.Owner == Combatant.Player)
+                received.Add("played");
+        });
+        battle.EventBus.Subscribe<CardDrawnEvent>(eventData =>
+        {
+            if (eventData.Owner == Combatant.Player)
+                received.Add("drawn");
+        });
+
+        Assert.That(battle.TryPlayPlayerHandCardForEffect(0), Is.True);
+        received.Clear();
+        Assert.That(battle.TryPlayPlayerHandCardForEffect(0), Is.True);
+
+        CollectionAssert.AreEqual(new[] { "played", "drawn", "drawn" }, received);
+        battle.Dispose();
+    }
+
+    [Test]
+    public void DiscardLastHit_IsObservedBeforeRefillDraw()
+    {
+        RunState run = CreateRunWithDeck(
+            CardData(Suit.Clubs, Rank.Two),
+            CardData(Suit.Diamonds, Rank.Three),
+            CardData(Suit.Hearts, Rank.Four));
+        var battle = new BattleState(run, TestBattleConfig(startingHandSize: 1));
+        battle.StartRound(battle.GetDefaultWager());
+        Assert.That(battle.CurrentRound.TryPlayCard(0, out _), Is.True);
+        Assert.That(battle.CurrentRound.TryPlayHitCard(new Card(Suit.Spades, Rank.Five)), Is.True);
+        var received = new List<string>();
+        battle.EventBus.Subscribe<CardDiscardedEvent>(eventData =>
+        {
+            if (eventData.Owner == Combatant.Player)
+                received.Add("discarded");
+        });
+        battle.EventBus.Subscribe<CardDrawnEvent>(eventData =>
+        {
+            if (eventData.Owner == Combatant.Player)
+                received.Add("drawn");
+        });
+
+        Assert.That(battle.DiscardLastPlayerHitCard(), Is.True);
+
+        CollectionAssert.AreEqual(new[] { "discarded", "drawn" }, received);
         battle.Dispose();
     }
 
@@ -1084,6 +1143,49 @@ public sealed class ShopSystemTests
         }
 
         Assert.That(roundStartedCommands, Is.EqualTo(1));
+        battle.Dispose();
+    }
+
+    [Test]
+    public void StartRound_PublishesNewRoundBeforeOpeningShuffleAndDraws()
+    {
+        RunState run = CreateRunWithDeck(
+            CardData(Suit.Clubs, Rank.Two),
+            CardData(Suit.Diamonds, Rank.Three));
+        var battle = new BattleState(run, TestBattleConfig(startingHandSize: 2));
+        Assert.That(battle.StartRound(battle.GetDefaultWager()), Is.True);
+        while (battle.CurrentRound.PlayerHand.Count > 0)
+            Assert.That(battle.CurrentRound.TryPlayCard(0, out _), Is.True);
+        battle.CleanupRound();
+
+        var received = new List<string>();
+        int eventRoundNumber = 0;
+        int stateRoundNumber = 0;
+        RoundState roundSeenBySubscriber = null;
+        battle.EventBus.Subscribe<RoundStartedEvent>(eventData =>
+        {
+            received.Add("round");
+            eventRoundNumber = eventData.RoundNumber;
+            stateRoundNumber = battle.RoundNumber;
+            roundSeenBySubscriber = battle.CurrentRound;
+        });
+        battle.EventBus.Subscribe<DeckShuffledEvent>(eventData =>
+        {
+            if (eventData.Owner == Combatant.Player)
+                received.Add("shuffle");
+        });
+        battle.EventBus.Subscribe<CardDrawnEvent>(eventData =>
+        {
+            if (eventData.Owner == Combatant.Player)
+                received.Add("draw");
+        });
+
+        Assert.That(battle.StartRound(battle.GetDefaultWager()), Is.True);
+
+        Assert.That(eventRoundNumber, Is.EqualTo(2));
+        Assert.That(stateRoundNumber, Is.EqualTo(2));
+        Assert.That(roundSeenBySubscriber, Is.SameAs(battle.CurrentRound));
+        CollectionAssert.AreEqual(new[] { "round", "shuffle", "draw", "draw" }, received);
         battle.Dispose();
     }
 
