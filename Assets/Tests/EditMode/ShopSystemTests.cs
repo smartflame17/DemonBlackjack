@@ -1,6 +1,10 @@
 #if UNITY_EDITOR && UNITY_INCLUDE_TESTS
 using System.Collections.Generic;
+using System.Reflection;
+using TMPro;
 using NUnit.Framework;
+using UnityEngine;
+using UnityEngine.UI;
 
 public sealed class ShopSystemTests
 {
@@ -19,6 +23,65 @@ public sealed class ShopSystemTests
 
         CollectionAssert.AreEqual(first, second);
         Assert.That(new HashSet<int>(first).Count, Is.EqualTo(first.Count));
+    }
+
+    [Test]
+    public void ShopSeed_ChangesOnceEveryThreeRounds()
+    {
+        var run = new RunState(7);
+
+        Assert.That(ShopOfferGenerator.CreateSeed(run, 1), Is.EqualTo(ShopOfferGenerator.CreateSeed(run, 2)));
+        Assert.That(ShopOfferGenerator.CreateSeed(run, 2), Is.EqualTo(ShopOfferGenerator.CreateSeed(run, 3)));
+        Assert.That(ShopOfferGenerator.CreateSeed(run, 3), Is.Not.EqualTo(ShopOfferGenerator.CreateSeed(run, 4)));
+    }
+
+    [Test]
+    public void ShopUi_ReusesOffersAndSoldSlotsUntilNextThreeRoundCycle()
+    {
+        GameObject shopObject = new("ShopUiTest");
+        GameObject runObject = new("RunManagerTest");
+        GameObject battleObject = new("BattleControllerTest");
+        ShopCatalog catalog = ShopCatalog.CreateRuntimeDefault();
+        shopObject.SetActive(false);
+
+        try
+        {
+            CreateShopPanel(shopObject.transform);
+            Button firstItemButton = CreateItemSlot(shopObject.transform, 1);
+            CanvasGroup firstSlotGroup = firstItemButton.transform.parent.GetComponent<CanvasGroup>();
+
+            RunManager runManager = runObject.AddComponent<RunManager>();
+            runManager.StartRun(31);
+
+            BattleController battleController = battleObject.AddComponent<BattleController>();
+            battleController.InitializeBattle(runManager.RunState, new BattleConfig("test", 100, new StandingDevilStrategy()));
+            Assert.That(battleController.BattleState.StartRound(), Is.True);
+
+            ShopUi shopUi = shopObject.AddComponent<ShopUi>();
+            SetField(shopUi, "runManager", runManager);
+            SetField(shopUi, "battleController", battleController);
+            SetField(shopUi, "catalog", catalog);
+            Invoke(shopUi, "BindSceneSlots");
+            Invoke(shopUi, "GenerateOffers");
+
+            Assert.That(firstSlotGroup.interactable, Is.True);
+            firstItemButton.onClick.Invoke();
+            Assert.That(firstSlotGroup.interactable, Is.False);
+
+            Invoke(shopUi, "GenerateOffers");
+            Assert.That(firstSlotGroup.interactable, Is.False);
+
+            SetAutoProperty(battleController.BattleState, "RoundNumber", 4);
+            Invoke(shopUi, "GenerateOffers");
+            Assert.That(firstSlotGroup.interactable, Is.True);
+        }
+        finally
+        {
+            Object.DestroyImmediate(catalog);
+            Object.DestroyImmediate(battleObject);
+            Object.DestroyImmediate(runObject);
+            Object.DestroyImmediate(shopObject);
+        }
     }
 
     [Test]
@@ -161,20 +224,21 @@ public sealed class ShopSystemTests
     }
 
     [Test]
-    public void ActiveItems_DefaultCapacityRejectsThirdPurchaseWithoutCharging()
+    public void ActiveItems_DefaultCapacityRejectsFourthPurchaseWithoutCharging()
     {
         var run = new RunState(1, startingMoney: 100);
 
-        Assert.That(run.MaxActiveItemSlots, Is.EqualTo(2));
+        Assert.That(run.MaxActiveItemSlots, Is.EqualTo(3));
         Assert.That(run.TryPurchaseActiveItem("first", 10).Succeeded, Is.True);
         Assert.That(run.TryPurchaseActiveItem("second", 10).Succeeded, Is.True);
+        Assert.That(run.TryPurchaseActiveItem("third", 10).Succeeded, Is.True);
 
-        ShopPurchaseResult result = run.TryPurchaseActiveItem("third", 10);
+        ShopPurchaseResult result = run.TryPurchaseActiveItem("fourth", 10);
 
         Assert.That(result.Succeeded, Is.False);
         Assert.That(result.Failure, Is.EqualTo(ShopPurchaseFailure.ActiveItemSlotsFull));
-        Assert.That(run.Money, Is.EqualTo(80));
-        Assert.That(run.ActiveItemIds.Count, Is.EqualTo(2));
+        Assert.That(run.Money, Is.EqualTo(70));
+        Assert.That(run.ActiveItemIds.Count, Is.EqualTo(3));
     }
 
     [Test]
@@ -247,7 +311,30 @@ public sealed class ShopSystemTests
     }
 
     [Test]
-    public void BattleState_CreatesKnownRelicRuntimesAndIgnoresUnknownIds()
+    public void RelicPurchase_ReplacesExistingRelicWithoutRefund()
+    {
+        var run = new RunState(1, startingMoney: 100);
+        RelicRemovedEvent removed = default;
+        bool removedReceived = false;
+        EventBus.Subscribe<RelicRemovedEvent>(eventData =>
+        {
+            removed = eventData;
+            removedReceived = true;
+        });
+
+        Assert.That(run.TryPurchaseRelic("old", 10).Succeeded, Is.True);
+        Assert.That(run.TryPurchaseRelic("new", 20).Succeeded, Is.True);
+
+        Assert.That(run.RelicIds.Count, Is.EqualTo(1));
+        Assert.That(run.HasRelic("old"), Is.False);
+        Assert.That(run.HasRelic("new"), Is.True);
+        Assert.That(run.Money, Is.EqualTo(70));
+        Assert.That(removedReceived, Is.True);
+        Assert.That(removed.RelicId, Is.EqualTo("old"));
+    }
+
+    [Test]
+    public void BattleState_CreatesKnownRelicRuntimeWithinRelicLimit()
     {
         var data = new RunStateData
         {
@@ -265,14 +352,12 @@ public sealed class ShopSystemTests
 
         var battle = new BattleState(run, TestBattleConfig());
 
-        Assert.That(battle.RelicRuntimes.Count, Is.EqualTo(2));
+        Assert.That(run.RelicIds.Count, Is.EqualTo(1));
+        Assert.That(battle.RelicRuntimes.Count, Is.EqualTo(1));
         Assert.That(battle.RelicRuntimes[0], Is.TypeOf<SuitOverrideRelicRuntime>());
         Assert.That(battle.RelicRuntimes[0].RelicId, Is.EqualTo(RelicRuleResolver.SuitOverride));
-        Assert.That(battle.RelicRuntimes[1], Is.TypeOf<AddJqkRelicRuntime>());
-        Assert.That(battle.RelicRuntimes[1].RelicId, Is.EqualTo(RelicRuleResolver.AddJqk));
 
         Assert.That(battle.StartRound(), Is.True);
-        Assert.That(battle.CurrentRound.PlayerBurstThreshold, Is.EqualTo(22));
         battle.Dispose();
     }
 
@@ -299,7 +384,7 @@ public sealed class ShopSystemTests
     }
 
     [Test]
-    public void BattleState_RetainsExistingRelicRuntimeStateWhenAddingNewRelic()
+    public void BattleState_RemovesExistingRelicRuntimeWhenBuyingNewRelic()
     {
         RunState run = CreateRunWithRelicDeck(RelicRuleResolver.BurstExtend, TenTwos());
         var battle = new BattleState(run, TestBattleConfig(startingHandSize: 1));
@@ -309,12 +394,12 @@ public sealed class ShopSystemTests
         Assert.That(battle.TryHit(), Is.True);
         Assert.That(battle.TryHit(), Is.True);
         Assert.That(run.TryPurchaseRelic(RelicRuleResolver.AddJqk, 0).Succeeded, Is.True);
-        for (int i = 0; i < 3; i++)
-            Assert.That(battle.TryHit(), Is.True, $"Hit after purchase {i + 1}");
 
-        Assert.That(run.PlayerBurstThresholdBonus, Is.EqualTo(1));
-        Assert.That(battle.CurrentRound.PlayerBurstThreshold, Is.EqualTo(22));
-        Assert.That(battle.RelicRuntimes.Count, Is.EqualTo(2));
+        Assert.That(run.HasRelic(RelicRuleResolver.BurstExtend), Is.False);
+        Assert.That(run.HasRelic(RelicRuleResolver.AddJqk), Is.True);
+        Assert.That(battle.RelicRuntimes.Count, Is.EqualTo(1));
+        Assert.That(battle.RelicRuntimes[0], Is.TypeOf<AddJqkRelicRuntime>());
+        Assert.That(run.PlayerBurstThresholdBonus, Is.EqualTo(0));
         battle.Dispose();
     }
 
@@ -708,7 +793,7 @@ public sealed class ShopSystemTests
             CardData(Suit.Clubs, Rank.Queen, CardModifierResolver.CopyQueen),
             CardData(Suit.Hearts, Rank.Two),
             CardData(Suit.Spades, Rank.Three));
-        var battle = new BattleState(run, new BattleConfig("test", 100));
+        var battle = new BattleState(run, new BattleConfig("test", 100, startingHandSize: 4));
         battle.StartRound();
         int playedEvents = 0;
         battle.EventBus.Subscribe<CardPlayedEvent>(_ => playedEvents++);
@@ -1040,20 +1125,45 @@ public sealed class ShopSystemTests
     }
 
     [Test]
-    public void BlackjackWinner_TransfersOneEffectiveWagerBeforePoker()
+    public void BurstPlayer_CanKeepPlayingAndPaysEachBurstCard()
     {
         var run = new RunState(1, startingMoney: 500);
         var battle = new BattleState(run, new BattleConfig("test", 500, new StandingDevilStrategy(), baseWager: 10));
         battle.StartRound();
         battle.CommitWagerAndBeginRound(1, true);
-        PlayPlayerCards(battle.CurrentRound, new Card(Suit.Clubs, Rank.King), new Card(Suit.Hearts, Rank.Nine));
+        battle.CurrentRound.AddToHand(new Card(Suit.Clubs, Rank.King));
+        battle.CurrentRound.AddToHand(new Card(Suit.Hearts, Rank.Queen));
+        battle.CurrentRound.AddToHand(new Card(Suit.Spades, Rank.Five));
+        battle.CurrentRound.AddToHand(new Card(Suit.Diamonds, Rank.Two));
+
+        Assert.That(battle.TryPlayCard(IndexOfRankAndSuit(battle.CurrentRound.PlayerHand, Rank.King, Suit.Clubs)), Is.True);
+        Assert.That(battle.TryPlayCard(IndexOfRankAndSuit(battle.CurrentRound.PlayerHand, Rank.Queen, Suit.Hearts)), Is.True);
+        Assert.That(battle.TryPlayCard(IndexOfRankAndSuit(battle.CurrentRound.PlayerHand, Rank.Five, Suit.Spades)), Is.True);
+        Assert.That(battle.CurrentRound.PlayerScore.IsBurst, Is.True);
+        Assert.That(battle.TryPlayCard(IndexOfRankAndSuit(battle.CurrentRound.PlayerHand, Rank.Two, Suit.Diamonds)), Is.True);
+
+        Assert.That(battle.CurrentRound.PlayerScore.BlackjackScore, Is.EqualTo(27));
+        Assert.That(battle.Phase, Is.EqualTo(BattlePhase.PlayerPhase));
+        Assert.That(battle.CurrentRound.PlayerMoneyLost, Is.EqualTo(100));
+        Assert.That(run.Money, Is.EqualTo(390));
+        battle.Dispose();
+    }
+
+    [Test]
+    public void BlackjackAchieved_TransfersOneEffectiveWagerBeforeRoundPot()
+    {
+        var run = new RunState(1, startingMoney: 500);
+        var battle = new BattleState(run, new BattleConfig("test", 500, new StandingDevilStrategy(), baseWager: 10));
+        battle.StartRound();
+        battle.CommitWagerAndBeginRound(1, true);
+        PlayPlayerCards(battle.CurrentRound, new Card(Suit.Clubs, Rank.King), new Card(Suit.Hearts, Rank.Ace));
         PlayOpponentCards(battle.CurrentRound, new Card(Suit.Diamonds, Rank.Eight), new Card(Suit.Spades, Rank.Seven));
         battle.CurrentRound.MarkOpponentStood();
 
         Assert.That(battle.TryStand(), Is.True);
 
         Assert.That(battle.CombatHistory[^1].Winner, Is.EqualTo(Combatant.Player));
-        Assert.That(battle.CombatHistory[^1].OpponentMoneyLost, Is.EqualTo(10)); // High-card poker after blackjack pot settlement.
+        Assert.That(battle.CombatHistory[^1].OpponentMoneyLost, Is.EqualTo(10));
         Assert.That(run.Money, Is.EqualTo(520));
         Assert.That(battle.OpponentMoney, Is.EqualTo(480));
     }
@@ -1079,6 +1189,31 @@ public sealed class ShopSystemTests
         Assert.That(battle.CombatHistory[^1].PlayerMoneyLost, Is.EqualTo(0));
         Assert.That(run.Money, Is.EqualTo(530));
         Assert.That(battle.OpponentMoney, Is.EqualTo(470));
+    }
+
+    [Test]
+    public void PokerResolvedEvent_IncludesScoringCardIndices()
+    {
+        var run = new RunState(1, startingMoney: 500);
+        var battle = new BattleState(run, new BattleConfig("test", 500, new StandingDevilStrategy(), baseWager: 10));
+        battle.StartRound();
+        battle.CommitWagerAndBeginRound(1, true);
+        PlayPlayerCards(battle.CurrentRound,
+            new Card(Suit.Clubs, Rank.Five),
+            new Card(Suit.Hearts, Rank.Five),
+            new Card(Suit.Spades, Rank.Nine));
+        battle.CurrentRound.MarkOpponentStood();
+        PokerResult result = default;
+        battle.EventBus.Subscribe<PokerResolvedEvent>(eventData =>
+        {
+            if (eventData.Combatant == Combatant.Player)
+                result = eventData.Poker;
+        });
+
+        Assert.That(battle.TryStand(), Is.True);
+
+        Assert.That(result.Rank, Is.EqualTo(PokerHandRank.Pair));
+        CollectionAssert.AreEqual(new[] { 0, 1 }, result.CardIndices);
     }
 
     [Test]
@@ -1381,6 +1516,56 @@ public sealed class ShopSystemTests
             round.AddToOpponentHand(cards[i]);
             Assert.That(round.TryPlayOpponentCard(round.OpponentHand.Count - 1, out _), Is.True);
         }
+    }
+
+    private static void CreateShopPanel(Transform parent)
+    {
+        GameObject panel = new("ShopPanel");
+        panel.AddComponent<RectTransform>();
+        panel.transform.SetParent(parent);
+    }
+
+    private static Button CreateItemSlot(Transform parent, int index)
+    {
+        GameObject slot = new($"item{index}Slot");
+        slot.transform.SetParent(parent);
+        slot.AddComponent<CanvasGroup>();
+
+        GameObject sprite = new($"Item{index}Sprite");
+        sprite.transform.SetParent(slot.transform);
+        sprite.AddComponent<Image>();
+        Button button = sprite.AddComponent<Button>();
+
+        GameObject label = new("Label");
+        label.transform.SetParent(sprite.transform);
+        label.AddComponent<TextMeshProUGUI>();
+
+        GameObject price = new($"item{index}PriceText");
+        price.transform.SetParent(slot.transform);
+        price.AddComponent<TextMeshProUGUI>();
+
+        return button;
+    }
+
+    private static void SetField(object target, string fieldName, object value)
+    {
+        FieldInfo field = target.GetType().GetField(fieldName, BindingFlags.Instance | BindingFlags.NonPublic);
+        Assert.That(field, Is.Not.Null, fieldName);
+        field.SetValue(target, value);
+    }
+
+    private static void SetAutoProperty(object target, string propertyName, object value)
+    {
+        FieldInfo field = target.GetType().GetField($"<{propertyName}>k__BackingField", BindingFlags.Instance | BindingFlags.NonPublic);
+        Assert.That(field, Is.Not.Null, propertyName);
+        field.SetValue(target, value);
+    }
+
+    private static void Invoke(object target, string methodName)
+    {
+        MethodInfo method = target.GetType().GetMethod(methodName, BindingFlags.Instance | BindingFlags.NonPublic);
+        Assert.That(method, Is.Not.Null, methodName);
+        method.Invoke(target, null);
     }
 
     private sealed class StandingDevilStrategy : IDevilStrategy
