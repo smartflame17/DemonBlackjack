@@ -21,6 +21,7 @@ public sealed class BattleState
         EventBus = new ScopedEventBus();
         global::EventBus.Subscribe<RankUpgradeChangedEvent>(OnRankUpgradeChanged);
         global::EventBus.Subscribe<RelicAddedEvent>(OnRelicAdded);
+        global::EventBus.Subscribe<RelicRemovedEvent>(OnRelicRemoved);
         _relicRuntimes = BattleRelicRuntimeFactory.CreateAll(runState.RelicIds, this);
         _effectRuntime = new BattleEffectRuntime(this);
         EventBus.Subscribe<CardPlayedEvent>(OnCardPlayedForRefill);
@@ -214,6 +215,7 @@ public sealed class BattleState
         for (int i = 0; i < _relicRuntimes.Count; i++)
             _relicRuntimes[i].Dispose();
         global::EventBus.Unsubscribe<RelicAddedEvent>(OnRelicAdded);
+        global::EventBus.Unsubscribe<RelicRemovedEvent>(OnRelicRemoved);
         global::EventBus.Unsubscribe<RankUpgradeChangedEvent>(OnRankUpgradeChanged);
         EventBus.Clear();
         _disposed = true;
@@ -914,6 +916,18 @@ public sealed class BattleState
     private void OnRelicAdded(RelicAddedEvent eventData)
     {
         AddRelicRuntimeIfMissing(eventData.RelicId);
+    }
+
+    private void OnRelicRemoved(RelicRemovedEvent eventData)
+    {
+        for (int i = _relicRuntimes.Count - 1; i >= 0; i--)
+        {
+            if (_relicRuntimes[i].RelicId != eventData.RelicId)
+                continue;
+
+            _relicRuntimes[i].Dispose();
+            _relicRuntimes.RemoveAt(i);
+        }
     }
 
     private bool AddRelicRuntimeIfMissing(string relicId)
