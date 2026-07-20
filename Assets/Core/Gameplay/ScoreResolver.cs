@@ -6,22 +6,21 @@ public static class ScoreResolver
 {
     public static ScoreResult Resolve(IReadOnlyList<Card> cards, IReadOnlyList<Modifier> modifiers, int targetScore, int burstThreshold, int blackjackBonus = 0)
     {
-        int blackjackScore = Math.Max(0, ResolveBlackjackScore(cards) + blackjackBonus);
+        int blackjackScore = ResolveBlackjackScore(cards) + blackjackBonus;
         bool isBurst = blackjackScore > burstThreshold;
 
-        PokerHandRank pokerRank = ResolvePokerRank(cards);
-        int multiplier = 1;
+        PokerResult poker = ResolvePoker(cards);
 
-        int modifiedScore = ApplyModifiers(blackjackScore, multiplier, modifiers);
+        int modifiedScore = ApplyModifiers(blackjackScore, 1, modifiers);
         bool isBlackjack = modifiedScore == targetScore;    // fk you codex for adding arbitrary card.Count==2
 
-        return new ScoreResult(blackjackScore, modifiedScore, pokerRank, multiplier, isBurst, isBlackjack);
+        return new ScoreResult(blackjackScore, modifiedScore, poker.Rank, poker.Multiplier, isBurst, isBlackjack);
     }
 
     public static PokerResult ResolvePoker(IReadOnlyList<Card> cards)
     {
-        PokerHandRank rank = ResolvePokerRank(cards);
-        return new PokerResult(rank, GetPokerMultiplier(rank));
+        PokerHandRank rank = ResolvePokerRank(cards, out List<int> cardIndices);
+        return new PokerResult(rank, GetPokerMultiplier(rank), cardIndices);
     }
 
     private static int ResolveBlackjackScore(IReadOnlyList<Card> cards) // TODO: apply any attached modifiers before evaluating
@@ -84,55 +83,113 @@ public static class ScoreResolver
         };
     }
 
-    private static PokerHandRank ResolvePokerRank(IReadOnlyList<Card> cards)
+    private static PokerHandRank ResolvePokerRank(IReadOnlyList<Card> cards, out List<int> cardIndices)
     {
+        cardIndices = new List<int>();
         if (cards == null || cards.Count < 2)
             return PokerHandRank.HighCard;
 
-        var rankGroups = cards.GroupBy(card => card.Rank).Select(group => group.Count()).OrderByDescending(count => count).ToList();
-        var suitGroups = cards.GroupBy(card => card.Suit).ToList();
-        bool flush = cards.Count >= 5 && suitGroups.Any(group => group.Count() >= 5);
-        bool straight = HasStraight(cards, out bool royal);
-        bool straightFlush = suitGroups.Any(group => group.Count() >= 5 && HasStraight(group.ToList(), out royal));
+        var indexedCards = cards.Select((card, index) => new IndexedCard(card, index)).ToList();
+        var rankGroups = indexedCards
+            .GroupBy(entry => entry.Card.Rank)
+            .Select(group => group.OrderBy(entry => entry.Index).ToList())
+            .OrderByDescending(group => group.Count)
+            .ThenByDescending(group => (int)group[0].Card.Rank)
+            .ToList();
+        var suitGroups = indexedCards.GroupBy(entry => entry.Card.Suit).Select(group => group.ToList()).ToList();
+        List<IndexedCard> flushGroup = suitGroups.FirstOrDefault(group => group.Count >= 5);
+        bool flush = flushGroup != null;
+        bool straight = HasStraight(indexedCards, out bool royal, out List<int> straightIndices);
+        bool straightFlush = false;
+        bool straightFlushRoyal = false;
+        List<int> straightFlushIndices = null;
+        foreach (List<IndexedCard> group in suitGroups.Where(group => group.Count >= 5))
+        {
+            if (!HasStraight(group, out bool groupRoyal, out List<int> groupIndices))
+                continue;
 
-        if (straightFlush && royal)
+            straightFlush = true;
+            straightFlushRoyal = groupRoyal;
+            straightFlushIndices = groupIndices;
+            break;
+        }
+
+        if (straightFlush && straightFlushRoyal)
+        {
+            cardIndices = straightFlushIndices;
             return PokerHandRank.RoyalFlush;
+        }
 
         if (straightFlush)
+        {
+            cardIndices = straightFlushIndices;
             return PokerHandRank.StraightFlush;
+        }
 
-        if (rankGroups[0] == 4)
+        if (rankGroups[0].Count == 4)
+        {
+            cardIndices = rankGroups[0].Take(4).Select(entry => entry.Index).ToList();
             return PokerHandRank.FourOfAKind;
+        }
 
-        if (rankGroups[0] == 3 && rankGroups.Count > 1 && rankGroups[1] >= 2)
+        if (rankGroups[0].Count == 3 && rankGroups.Count > 1 && rankGroups[1].Count >= 2)
+        {
+            cardIndices = rankGroups[0].Take(3).Concat(rankGroups[1].Take(2)).Select(entry => entry.Index).ToList();
             return PokerHandRank.FullHouse;
+        }
 
         if (flush)
+        {
+            cardIndices = flushGroup.Take(5).Select(entry => entry.Index).ToList();
             return PokerHandRank.Flush;
+        }
 
         if (straight)
+        {
+            cardIndices = straightIndices;
             return PokerHandRank.Straight;
+        }
 
-        if (rankGroups[0] == 3)
+        if (rankGroups[0].Count == 3)
+        {
+            cardIndices = rankGroups[0].Take(3).Select(entry => entry.Index).ToList();
             return PokerHandRank.ThreeOfAKind;
+        }
 
-        int pairs = rankGroups.Count(count => count == 2);
+        List<List<IndexedCard>> pairs = rankGroups.Where(group => group.Count == 2).ToList();
 
-        if (pairs >= 2)
+        if (pairs.Count >= 2)
+        {
+            cardIndices = pairs.Take(2).SelectMany(group => group.Take(2)).Select(entry => entry.Index).ToList();
             return PokerHandRank.TwoPair;
+        }
 
-        return pairs == 1 ? PokerHandRank.Pair : PokerHandRank.HighCard;
+        if (pairs.Count == 1)
+        {
+            cardIndices = pairs[0].Take(2).Select(entry => entry.Index).ToList();
+            return PokerHandRank.Pair;
+        }
+
+        return PokerHandRank.HighCard;
     }
 
-    private static bool HasStraight(IReadOnlyList<Card> cards, out bool royal)
+    private static bool HasStraight(IReadOnlyList<IndexedCard> cards, out bool royal, out List<int> cardIndices)
     {
-        var values = cards.Select(card => card.Rank == Rank.Ace ? 14 : (int)card.Rank).Distinct().OrderBy(value => value).ToList();
-
-        if (values.Contains(14))
-            values.Insert(0, 1);
+        var rankEntries = new Dictionary<int, IndexedCard>();
+        for (int i = 0; i < cards.Count; i++)
+        {
+            IndexedCard entry = cards[i];
+            int value = entry.Card.Rank == Rank.Ace ? 14 : (int)entry.Card.Rank;
+            if (!rankEntries.ContainsKey(value))
+                rankEntries[value] = entry;
+            if (value == 14 && !rankEntries.ContainsKey(1))
+                rankEntries[1] = entry;
+        }
 
         int run = 1;
         royal = false;
+        cardIndices = new List<int>();
+        List<int> values = rankEntries.Keys.OrderBy(value => value).ToList();
 
         for (int i = 1; i < values.Count; i++)
         {
@@ -143,6 +200,7 @@ public static class ScoreResolver
                 if (run >= 5)
                 {
                     royal = values[i] == 14 && values.Contains(10);
+                    cardIndices = values.Skip(i - 4).Take(5).Select(value => rankEntries[value].Index).ToList();
                     return true;
                 }
             }
@@ -153,6 +211,18 @@ public static class ScoreResolver
         }
 
         return false;
+    }
+
+    private readonly struct IndexedCard
+    {
+        public IndexedCard(Card card, int index)
+        {
+            Card = card;
+            Index = index;
+        }
+
+        public Card Card { get; }
+        public int Index { get; }
     }
 }
 
@@ -178,12 +248,14 @@ public readonly struct ScoreResult
 
 public readonly struct PokerResult
 {
-    public PokerResult(PokerHandRank rank, int multiplier)
+    public PokerResult(PokerHandRank rank, int multiplier, IReadOnlyList<int> cardIndices)
     {
         Rank = rank;
         Multiplier = multiplier;
+        CardIndices = cardIndices != null ? new List<int>(cardIndices) : new List<int>();
     }
 
     public PokerHandRank Rank { get; }
     public int Multiplier { get; }
+    public IReadOnlyList<int> CardIndices { get; }
 }

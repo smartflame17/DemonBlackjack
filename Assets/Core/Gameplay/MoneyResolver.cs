@@ -11,8 +11,8 @@ public static class MoneyResolver
             throw new ArgumentNullException(nameof(round));
 
         Combatant? winner = DetermineWinner(round.PlayerScore, round.OpponentScore);
-        int opponentMoneyLost = 0;
-        int playerMoneyLost = 0;
+        int opponentMoneyLost = round.OpponentMoneyLost;
+        int playerMoneyLost = round.PlayerMoneyLost;
 
         int wager = Math.Max(0, round.EffectiveWager);
         if (wager > 0 && applyBurstPenalty)
@@ -54,14 +54,26 @@ public static class MoneyResolver
         ref int playerMoneyLost)
     {
         int playerBurstOffset = Math.Max(0, round.PlayerScore.BlackjackScore - round.PlayerBurstThreshold);
-        if (playerBurstOffset > 0)
+        if (playerBurstOffset > 0 && !round.PlayerBurstPenaltyResolved)
         {
-            playerMoneyLost += TransferPlayerToOpponent(battle, playerBurstOffset * wager);
-            EventBus.Publish(new MoneyTransferReasonEvent(MoneyTransferReason.BurstPenalty, playerBurstOffset * wager));
+            int amount = playerBurstOffset * wager;
+            int lost = TransferPlayerToOpponent(battle, amount);
+            playerMoneyLost += lost;
+            round.RecordMoneyLost(Combatant.Player, lost);
+            round.MarkBurstPenaltyResolved(Combatant.Player);
+            EventBus.Publish(new MoneyTransferReasonEvent(MoneyTransferReason.BurstPenalty, amount));
         }
+
         int opponentBurstOffset = Math.Max(0, round.OpponentScore.BlackjackScore - round.OpponentBurstThreshold);
-        if (opponentBurstOffset > 0)
-            opponentMoneyLost += TransferOpponentToPlayer(battle, opponentBurstOffset * wager);
+        if (opponentBurstOffset > 0 && !round.OpponentBurstPenaltyResolved)
+        {
+            int amount = opponentBurstOffset * wager;
+            int lost = TransferOpponentToPlayer(battle, amount);
+            opponentMoneyLost += lost;
+            round.RecordMoneyLost(Combatant.Opponent, lost);
+            round.MarkBurstPenaltyResolved(Combatant.Opponent);
+            EventBus.Publish(new MoneyTransferReasonEvent(MoneyTransferReason.BurstPenalty, -amount));
+        }
     }
 
     private static void ResolveBlackjackPot(BattleState battle, RoundState round, Combatant? winner)

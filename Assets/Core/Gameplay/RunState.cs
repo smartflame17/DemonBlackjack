@@ -5,6 +5,7 @@ public sealed class RunState
 {
     public const int StandardDeckSize = 52;
     public const int DefaultMaxActiveItemSlots = 3;
+    public const int DefaultMaxRelicSlots = 1;
 
     private readonly List<RunCard> _runDeck = new();
     private readonly List<Card> _deck = new();
@@ -34,6 +35,7 @@ public sealed class RunState
     public int MaxActiveItemSlots { get; private set; }
     public int PlayerBurstThresholdBonus { get; private set; }
     public bool AreActiveItemSlotsFull => FindEmptyActiveItemSlot() < 0;
+    public bool AreRelicSlotsFull => _relicIds.Count >= DefaultMaxRelicSlots;
     public IReadOnlyList<RunCard> RunDeck => _runDeck;
     public IReadOnlyList<Card> Deck => _deck;
     public IReadOnlyList<string> RelicIds => _relicIds;
@@ -104,6 +106,13 @@ public sealed class RunState
             return ShopPurchaseResult.Failed(ShopPurchaseFailure.InsufficientFunds, price);
 
         AddMoney(-price);
+        while (_relicIds.Count >= DefaultMaxRelicSlots)
+        {
+            string removedRelicId = _relicIds[0];
+            _relicIds.RemoveAt(0);
+            EventBus.Publish(new RelicRemovedEvent(removedRelicId));
+        }
+
         _relicIds.Add(relicId);
         EventBus.Publish(new RelicAddedEvent(relicId));
         return ShopPurchaseResult.Success(price);
@@ -382,7 +391,7 @@ public sealed class RunState
             state._runDeck.AddRange(CreateStandardRunDeck());
         }
 
-        AddNonBlankRange(state._relicIds, data.relicIds);
+        AddNonBlankRange(state._relicIds, data.relicIds, DefaultMaxRelicSlots);
         AddNonBlankRange(state._globalModifierIds, data.globalModifierIds);
         if (data.activeItemIds != null)
         {
@@ -482,11 +491,19 @@ public sealed class RunState
 
     private static void AddNonBlankRange(List<string> target, List<string> source)
     {
+        AddNonBlankRange(target, source, int.MaxValue);
+    }
+
+    private static void AddNonBlankRange(List<string> target, List<string> source, int maxCount)
+    {
         if (source == null)
             return;
 
         for (int i = 0; i < source.Count; i++)
         {
+            if (target.Count >= maxCount)
+                return;
+
             if (!string.IsNullOrWhiteSpace(source[i]))
                 target.Add(source[i]);
         }

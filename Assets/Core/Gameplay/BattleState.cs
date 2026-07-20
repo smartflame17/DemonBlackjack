@@ -21,6 +21,7 @@ public sealed class BattleState
         EventBus = new ScopedEventBus();
         global::EventBus.Subscribe<RankUpgradeChangedEvent>(OnRankUpgradeChanged);
         global::EventBus.Subscribe<RelicAddedEvent>(OnRelicAdded);
+        global::EventBus.Subscribe<RelicRemovedEvent>(OnRelicRemoved);
         _relicRuntimes = BattleRelicRuntimeFactory.CreateAll(runState.RelicIds, this);
         _effectRuntime = new BattleEffectRuntime(this);
         EventBus.Subscribe<CardPlayedEvent>(OnCardPlayedForRefill);
@@ -131,6 +132,7 @@ public sealed class BattleState
 
         PublishPlayerCardPlayed(card);
         RefillPlayerHandIfEmpty();
+        ResolveScores();
         return true;
     }
 
@@ -213,6 +215,7 @@ public sealed class BattleState
         for (int i = 0; i < _relicRuntimes.Count; i++)
             _relicRuntimes[i].Dispose();
         global::EventBus.Unsubscribe<RelicAddedEvent>(OnRelicAdded);
+        global::EventBus.Unsubscribe<RelicRemovedEvent>(OnRelicRemoved);
         global::EventBus.Unsubscribe<RankUpgradeChangedEvent>(OnRankUpgradeChanged);
         EventBus.Clear();
         _disposed = true;
@@ -233,6 +236,7 @@ public sealed class BattleState
             return false;
 
         PublishPlayerCardPlayed(card);
+        ResolveScores();
         return true;
     }
 
@@ -746,11 +750,83 @@ public sealed class BattleState
     {
         ScoreResult playerScore = ScoreResolver.Resolve(CurrentRound.PlayerPlayedCards, CurrentRound.ScoringModifiers, CurrentRound.TargetScore, CurrentRound.PlayerBurstThreshold);
         ScoreResult opponentScore = ScoreResolver.Resolve(CurrentRound.OpponentVisibleCards, CurrentRound.ScoringModifiers, CurrentRound.TargetScore, CurrentRound.OpponentBurstThreshold, GetOpponentBlackjackBonus());
+        PokerResult playerPoker = ScoreResolver.ResolvePoker(CurrentRound.PlayerPlayedCards);
+        PokerResult opponentPoker = ScoreResolver.ResolvePoker(CurrentRound.OpponentVisibleCards);
         CurrentRound.SetScores(playerScore, opponentScore);
 
-        PublishScoreEvents(Combatant.Player, playerScore);
-        PublishScoreEvents(Combatant.Opponent, opponentScore);
+        PublishScoreEvents(Combatant.Player, playerScore, playerPoker);
+        PublishScoreEvents(Combatant.Opponent, opponentScore, opponentPoker);
+        ResolveRealtimeMoney();
         CommandQueue.Enqueue(new VisualCommand(VisualCommandType.ScoresResolved, $"{playerScore.FinalScore}:{opponentScore.FinalScore}"));
+    }
+
+    private void ResolveRealtimeMoney()
+    {
+        if (CurrentRound == null || CurrentRound.EffectiveWager <= 0)
+            return;
+
+        bool playerPlayed = CurrentRound.ConsumePlayedThisTurn(Combatant.Player);
+        bool opponentPlayed = CurrentRound.ConsumePlayedThisTurn(Combatant.Opponent);
+        if (!playerPlayed && !opponentPlayed)
+            return;
+
+        ResolveRealtimeBlackjackPayout();
+        if (playerPlayed)
+            ResolveRealtimeBurstPenalty(Combatant.Player, CurrentRound.PlayerScore, CurrentRound.PlayerBurstThreshold);
+        if (opponentPlayed)
+            ResolveRealtimeBurstPenalty(Combatant.Opponent, CurrentRound.OpponentScore, CurrentRound.OpponentBurstThreshold);
+    }
+
+    private void ResolveRealtimeBlackjackPayout()
+    {
+        if (CurrentRound.BlackjackPayoutResolved)
+            return;
+
+        if (CurrentRound.PlayerScore.IsBlackjack && !CurrentRound.OpponentScore.IsBlackjack)
+        {
+            int lost = LoseOpponentMoney(CurrentRound.EffectiveWager);
+            if (lost > 0)
+            {
+                AddPlayerMoney(lost);
+                CurrentRound.RecordMoneyLost(Combatant.Opponent, lost);
+            }
+            CurrentRound.MarkBlackjackPayoutResolved();
+        }
+        else if (CurrentRound.OpponentScore.IsBlackjack && !CurrentRound.PlayerScore.IsBlackjack)
+        {
+            int lost = LosePlayerMoney(CurrentRound.EffectiveWager);
+            if (lost > 0)
+            {
+                AddOpponentMoney(lost);
+                CurrentRound.RecordMoneyLost(Combatant.Player, lost);
+            }
+            CurrentRound.MarkBlackjackPayoutResolved();
+        }
+    }
+
+    private void ResolveRealtimeBurstPenalty(Combatant combatant, ScoreResult score, int threshold)
+    {
+        int burstOffset = Math.Max(0, score.BlackjackScore - threshold);
+        if (burstOffset <= 0)
+            return;
+
+        int amount = burstOffset * CurrentRound.EffectiveWager;
+        int lost;
+        if (combatant == Combatant.Player)
+        {
+            lost = LosePlayerMoney(amount);
+            if (lost > 0)
+                AddOpponentMoney(lost);
+        }
+        else
+        {
+            lost = LoseOpponentMoney(amount);
+            if (lost > 0)
+                AddPlayerMoney(lost);
+        }
+
+        CurrentRound.RecordMoneyLost(combatant, lost);
+        CurrentRound.MarkBurstPenaltyResolved(combatant);
     }
 
     private int GetOpponentBlackjackBonus()
@@ -797,9 +873,10 @@ public sealed class BattleState
         CommandQueue.Enqueue(new VisualCommand(VisualCommandType.CardsPlayed, card.ToString()));
     }
 
-    private void PublishScoreEvents(Combatant combatant, ScoreResult score)
+    private void PublishScoreEvents(Combatant combatant, ScoreResult score, PokerResult poker)
     {
         EventBus.Publish(new ScoreCalculatedEvent(combatant, score));
+        EventBus.Publish(new PokerResolvedEvent(combatant, poker));
 
         int burstThreshold = CurrentRound.GetBurstThreshold(combatant);
         if (score.FinalScore > burstThreshold)
@@ -839,6 +916,18 @@ public sealed class BattleState
     private void OnRelicAdded(RelicAddedEvent eventData)
     {
         AddRelicRuntimeIfMissing(eventData.RelicId);
+    }
+
+    private void OnRelicRemoved(RelicRemovedEvent eventData)
+    {
+        for (int i = _relicRuntimes.Count - 1; i >= 0; i--)
+        {
+            if (_relicRuntimes[i].RelicId != eventData.RelicId)
+                continue;
+
+            _relicRuntimes[i].Dispose();
+            _relicRuntimes.RemoveAt(i);
+        }
     }
 
     private bool AddRelicRuntimeIfMissing(string relicId)

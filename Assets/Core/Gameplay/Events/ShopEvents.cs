@@ -60,6 +60,12 @@ public readonly struct RelicAddedEvent
     public string RelicId { get; }
 }
 
+public readonly struct RelicRemovedEvent
+{
+    public RelicRemovedEvent(string relicId) => RelicId = relicId;
+    public string RelicId { get; }
+}
+
 public readonly struct RelicCounterChangedEvent
 {
     public RelicCounterChangedEvent(string relicId, int value)
