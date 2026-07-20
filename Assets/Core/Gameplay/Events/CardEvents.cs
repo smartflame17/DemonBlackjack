@@ -60,12 +60,14 @@ public readonly struct CardDiscardedEvent
 
 public readonly struct DeckShuffledEvent
 {
-    public DeckShuffledEvent(int reshuffleCount, int deckCount)
+    public DeckShuffledEvent(Combatant owner, int reshuffleCount, int deckCount)
     {
+        Owner = owner;
         ReshuffleCount = reshuffleCount;
         DeckCount = deckCount;
     }
 
+    public Combatant Owner { get; }
     public int ReshuffleCount { get; }
     public int DeckCount { get; }
 }

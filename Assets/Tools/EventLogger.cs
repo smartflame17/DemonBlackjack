@@ -74,6 +74,18 @@ public class EventLogger : MonoBehaviour
                 if (!logEvents) return;
                 Debug.Log($"<color=red>[Battle]</color> Card Played: Card={eventData.Card}");
             });
+
+            battleState.EventBus.Subscribe<CardDrawnEvent>(eventData =>
+            {
+                if (!logEvents) return;
+                Debug.Log($"<color=red>[Battle]</color> Card Drawn: Card={eventData.Card}, RemainingDeckCount={eventData.RemainingDeckCount}");
+            });
+
+            battleState.EventBus.Subscribe<CardDiscardedEvent>(eventData =>
+            {
+                if (!logEvents) return;
+                Debug.Log($"<color=red>[Battle]</color> Card Discarded: Card={eventData.Card}");
+            });
             
             battleState.EventBus.Subscribe<HandRefilledEvent>(eventData =>
             {
@@ -84,7 +96,7 @@ public class EventLogger : MonoBehaviour
             battleState.EventBus.Subscribe<DeckShuffledEvent>(eventData =>
             {
                 if (!logEvents) return;
-                Debug.Log($"<color=red>[Battle]</color> Deck Shuffled: ReshuffleCount={eventData.ReshuffleCount}, DeckCount={eventData.DeckCount}");
+                Debug.Log($"<color=red>[Battle]</color> Deck Shuffled: Owner={eventData.Owner}, ReshuffleCount={eventData.ReshuffleCount}, DeckCount={eventData.DeckCount}");
             });
 
             // Score events

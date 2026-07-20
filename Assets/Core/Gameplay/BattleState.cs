@@ -212,6 +212,7 @@ public sealed class BattleState
         EventBus.Publish(new ModifierAddedEvent(modifier));
     }
 
+    // Use this method when a card is played by some other effect, not the player directly. This ensures that the card is processed correctly and any effects are applied.
     public bool TryPlayPlayerHandCardForEffect(int handIndex)
     {
         if (CurrentRound == null)
@@ -755,7 +756,7 @@ public sealed class BattleState
             ResolveRealtimeBurstPenalty(Combatant.Opponent, CurrentRound.OpponentScore, CurrentRound.OpponentBurstThreshold);
     }
 
-    private void ResolveRealtimeBlackjackPayout()
+    private void ResolveRealtimeBlackjackPayout()   // dont need this -> needs to change to poker payout
     {
         if (CurrentRound.BlackjackPayoutResolved)
             return;
@@ -839,7 +840,7 @@ public sealed class BattleState
         {
             deck.ReshuffleDiscardIntoDraw();
             ReshuffleCount++;
-            EventBus.Publish(new DeckShuffledEvent(ReshuffleCount, deck.RemainingCards));
+            EventBus.Publish(new DeckShuffledEvent(owner, ReshuffleCount, deck.RemainingCards));
         }
 
         return deck.TryDraw(out card);
