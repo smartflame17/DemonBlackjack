@@ -11431,7 +11431,7 @@ MonoBehaviour:
   audioSource: {fileID: 0}
   barkUISettings:
     barkUI: {fileID: 11453294, guid: d5a18ab9ec93e0d4284d6fbae4f557e0, type: 3}
-    barkUIOffset: {x: 10, y: 12, z: 0}
+    barkUIOffset: {x: 12, y: 12, z: 0}
   standardDialogueUISettings:
     subtitlePanelNumber: 0
     customSubtitlePanel: {fileID: 0}
