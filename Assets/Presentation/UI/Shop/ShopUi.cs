@@ -24,7 +24,11 @@ public sealed class ShopUi : MonoBehaviour
     private readonly List<ShopSlotView> _itemSlots = new();
     private readonly List<ShopSlotView> _relicSlots = new();
     private readonly List<ShopSlotView> _upgradeSlots = new();
-    private bool _generated;
+    private readonly List<ActiveItemDefinition> _currentItemOffers = new();
+    private readonly List<RelicDefinition> _currentRelicOffers = new();
+    private readonly List<CardUpgradeOffer> _currentUpgradeOffers = new();
+    private readonly HashSet<string> _soldOfferKeys = new();
+    private int _generatedShopCycle = -1;
     private RectTransform shopPanelRectTransform => shopPanel != null ? shopPanel.transform as RectTransform : null;
 
     private void Awake()
@@ -56,19 +60,36 @@ public sealed class ShopUi : MonoBehaviour
         shopPanelRectTransform.DOAnchorPos(new Vector2(0, 1000), shopPanelAnimationDuration).SetEase(shopPanelAnimationEase);
         if (continueButton != null)
             continueButton.onClick.RemoveListener(Continue);
-        _generated = false;
     }
 
     private void GenerateOffers()
     {
-        if (_generated || runManager == null || runManager.RunState == null || battleController == null || battleController.BattleState == null)
+        if (runManager == null || runManager.RunState == null || battleController == null || battleController.BattleState == null)
             return;
 
-        _generated = true;
         RunState run = runManager.RunState;
-        var random = new System.Random(ShopOfferGenerator.CreateSeed(run, battleController.BattleState.RoundNumber));
+        int roundNumber = battleController.BattleState.RoundNumber;
+        int shopCycle = ShopOfferGenerator.GetShopCycle(roundNumber);
+        if (_generatedShopCycle != shopCycle)
+            GenerateNewOfferCycle(run, roundNumber, shopCycle);
 
-        List<ActiveItemDefinition> items = ShopOfferGenerator.TakeRandom(catalog.ActiveItems, activeItemOfferCount, random);
+        BindPreviews(_currentItemOffers, _currentUpgradeOffers);
+        BindItems(_currentItemOffers, run);
+        BindRelics(_currentRelicOffers, run);
+        BindUpgrades(_currentUpgradeOffers, run);
+    }
+
+    private void GenerateNewOfferCycle(RunState run, int roundNumber, int shopCycle)
+    {
+        _generatedShopCycle = shopCycle;
+        _soldOfferKeys.Clear();
+        _currentItemOffers.Clear();
+        _currentRelicOffers.Clear();
+        _currentUpgradeOffers.Clear();
+
+        var random = new System.Random(ShopOfferGenerator.CreateSeed(run, roundNumber));
+
+        _currentItemOffers.AddRange(ShopOfferGenerator.TakeRandom(catalog.ActiveItems, activeItemOfferCount, random));
         var eligibleRelics = new List<RelicDefinition>();
         for (int i = 0; i < catalog.Relics.Count; i++)
         {
@@ -76,15 +97,10 @@ public sealed class ShopUi : MonoBehaviour
             if (relic != null && !run.HasRelic(relic.Id))
                 eligibleRelics.Add(relic);
         }
-        List<RelicDefinition> relics = ShopOfferGenerator.TakeRandom(eligibleRelics, relicOfferCount, random);
+        _currentRelicOffers.AddRange(ShopOfferGenerator.TakeRandom(eligibleRelics, relicOfferCount, random));
 
         List<CardUpgradeOffer> upgradePool = ShopOfferGenerator.CreateCardUpgradeOfferPool(catalog.CardUpgrades);
-        List<CardUpgradeOffer> upgrades = ShopOfferGenerator.TakeRandom(upgradePool, upgradeOfferCount, random);
-
-        BindPreviews(items, upgrades);
-        BindItems(items, run);
-        BindRelics(relics, run);
-        BindUpgrades(upgrades, run);
+        _currentUpgradeOffers.AddRange(ShopOfferGenerator.TakeRandom(upgradePool, upgradeOfferCount, random));
     }
 
     private void BindPreviews(IReadOnlyList<ActiveItemDefinition> items, IReadOnlyList<CardUpgradeOffer> upgrades)
@@ -139,7 +155,9 @@ public sealed class ShopUi : MonoBehaviour
             if (i >= offers.Count || offers[i] == null) { _itemSlots[i].SetUnavailable(); continue; }
             ActiveItemDefinition offer = offers[i];
             ShopSlotView slot = _itemSlots[i];
-            slot.Bind(assetRegistry != null ? assetRegistry.GetActiveItemSprite(offer.Id) : null, offer.Price, offer.DisplayName, offer.Id, () => PurchaseItem(slot, offer, run));
+            string offerKey = CreateOfferKey(ShopOfferType.ActiveItem, offer.Id, null);
+            if (_soldOfferKeys.Contains(offerKey)) { slot.SetUnavailable(); continue; }
+            slot.Bind(assetRegistry != null ? assetRegistry.GetActiveItemSprite(offer.Id) : null, offer.Price, offer.DisplayName, offer.Id, () => PurchaseItem(slot, offer, run, offerKey));
         }
     }
 
@@ -150,7 +168,9 @@ public sealed class ShopUi : MonoBehaviour
             if (i >= offers.Count || offers[i] == null) { _relicSlots[i].SetUnavailable(); continue; }
             RelicDefinition offer = offers[i];
             ShopSlotView slot = _relicSlots[i];
-            slot.Bind(assetRegistry != null ? assetRegistry.GetRelicSprite(offer.Id) : null, offer.Price, offer.DisplayName, offer.Id, () => PurchaseRelic(slot, offer, run));
+            string offerKey = CreateOfferKey(ShopOfferType.Relic, offer.Id, null);
+            if (_soldOfferKeys.Contains(offerKey)) { slot.SetUnavailable(); continue; }
+            slot.Bind(assetRegistry != null ? assetRegistry.GetRelicSprite(offer.Id) : null, offer.Price, offer.DisplayName, offer.Id, () => PurchaseRelic(slot, offer, run, offerKey));
         }
     }
 
@@ -163,7 +183,9 @@ public sealed class ShopUi : MonoBehaviour
             ShopSlotView slot = _upgradeSlots[i];
             Card card = new(Suit.Hearts, offer.Rank, offer.Definition.Id);
             Sprite sprite = assetRegistry != null ? assetRegistry.GetCardFront(card) : null;
-            slot.BindCard(card, sprite, assetRegistry, offer.Definition.Price, offer.Definition.Id, () => PurchaseUpgrade(slot, offer, run, battleController));
+            string offerKey = CreateOfferKey(ShopOfferType.CardUpgrade, offer.Definition.Id, offer.Rank);
+            if (_soldOfferKeys.Contains(offerKey)) { slot.SetUnavailable(); continue; }
+            slot.BindCard(card, sprite, assetRegistry, offer.Definition.Price, offer.Definition.Id, () => PurchaseUpgrade(slot, offer, run, battleController, offerKey));
         }
     }
 
@@ -175,33 +197,47 @@ public sealed class ShopUi : MonoBehaviour
             EventBus.Publish(new ShopPurchaseFailedEvent(type, id, rank, result.Failure));
     }
 
-    private static void PurchaseItem(ShopSlotView slot, ActiveItemDefinition offer, RunState run)
+    private void PurchaseItem(ShopSlotView slot, ActiveItemDefinition offer, RunState run, string offerKey)
     {
         ShopPurchaseResult result = run.TryPurchaseActiveItem(offer.Id, offer.Price);
         PublishResult(ShopOfferType.ActiveItem, offer.Id, null, result);
-        if (result.Succeeded) slot.SetUnavailable();
+        if (!result.Succeeded)
+            return;
+
+        _soldOfferKeys.Add(offerKey);
+        slot.SetUnavailable();
     }
 
-    private static void PurchaseRelic(ShopSlotView slot, RelicDefinition offer, RunState run)
+    private void PurchaseRelic(ShopSlotView slot, RelicDefinition offer, RunState run, string offerKey)
     {
         ShopPurchaseResult result = run.TryPurchaseRelic(offer.Id, offer.Price);
         PublishResult(ShopOfferType.Relic, offer.Id, null, result);
-        if (result.Succeeded) slot.SetUnavailable();
+        if (!result.Succeeded)
+            return;
+
+        _soldOfferKeys.Add(offerKey);
+        slot.SetUnavailable();
     }
 
-    private static void PurchaseUpgrade(ShopSlotView slot, CardUpgradeOffer offer, RunState run, BattleController battleController)
+    private void PurchaseUpgrade(ShopSlotView slot, CardUpgradeOffer offer, RunState run, BattleController battleController, string offerKey)
     {
         ShopPurchaseResult result = run.TryPurchaseRankUpgrade(offer.Rank, offer.Definition.Id, offer.Definition.Price);
         PublishResult(ShopOfferType.CardUpgrade, offer.Definition.Id, offer.Rank, result);
         if (!result.Succeeded)
             return;
 
+        _soldOfferKeys.Add(offerKey);
         slot.SetUnavailable();
         BattleUiPresenter presenter = battleController != null
             ? battleController.GetComponentInChildren<BattleUiPresenter>(true)
             : null;
         presenter ??= UnityEngine.Object.FindFirstObjectByType<BattleUiPresenter>(FindObjectsInactive.Include);
         presenter?.Refresh();
+    }
+
+    private static string CreateOfferKey(ShopOfferType type, string id, Rank? rank)
+    {
+        return rank.HasValue ? $"{type}:{id}:{rank.Value}" : $"{type}:{id}";
     }
 
     private void Continue() => runManager?.ContinueFromShop();

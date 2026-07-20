@@ -5,16 +5,23 @@ public static class ShopOfferGenerator
 {
     public static int CreateSeed(RunState runState, int roundNumber)
     {
+        int shopCycle = GetShopCycle(roundNumber);
         if (runState == null)
-            return roundNumber;
+            return shopCycle;
 
         unchecked
         {
             int seed = runState.Seed;
             seed = (seed * 397) ^ runState.EncounterIndex;
-            seed = (seed * 397) ^ roundNumber;
+            seed = (seed * 397) ^ shopCycle;
             return seed;
         }
+    }
+
+    public static int GetShopCycle(int roundNumber)
+    {
+        int normalizedRound = Math.Max(1, roundNumber);
+        return ((normalizedRound - 1) / 3) + 1;
     }
 
     public static List<T> TakeRandom<T>(IReadOnlyList<T> source, int count, Random random)
