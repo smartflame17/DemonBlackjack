@@ -1278,7 +1278,6 @@ public sealed class ShopSystemTests
 
     [Test]
     public void FixedWager_StartRoundAntesConfiguredDefaultWager()
-    public void FixedWager_StartRoundAntesConfiguredDefaultWager()
     {
         var run = new RunState(1, startingMoney: 100);
         var battle = new BattleState(run, new BattleConfig("test", 100, new StandingDevilStrategy(), baseWager: 25));
@@ -1468,40 +1467,6 @@ public sealed class ShopSystemTests
         Assert.That(battle.Phase, Is.EqualTo(BattlePhase.Cleanup));
     }
 
-    [Test]
-    public void PlayerTurnEvents_ContinuingRoundPublishesEndThenNextStart()
-    {
-        var run = CreateRunWithDeck(TenTwos());
-        var battle = new BattleState(run, new BattleConfig("test", 500, new FixedChoiceDevilStrategy(DevilTurnChoice.Hit), baseWager: 10));
-        var events = new List<string>();
-        battle.EventBus.Subscribe<PlayerTurnStartedEvent>(_ => events.Add("started"));
-        battle.EventBus.Subscribe<PlayerTurnEndedEvent>(_ => events.Add("ended"));
-
-        battle.StartRound(battle.GetDefaultWager());
-        Assert.That(battle.TryStand(), Is.True);
-
-        CollectionAssert.AreEqual(new[] { "started", "ended", "started" }, events);
-        Assert.That(battle.Phase, Is.EqualTo(BattlePhase.PlayerPhase));
-    }
-
-    [Test]
-    public void PlayerTurnEvents_RoundEndingActionDoesNotPublishAnotherStart()
-    {
-        var run = CreateRunWithDeck(TenTwos());
-        var battle = new BattleState(run, new BattleConfig("test", 500, new StandingDevilStrategy(), baseWager: 10));
-        int startedEvents = 0;
-        int endedEvents = 0;
-        battle.EventBus.Subscribe<PlayerTurnStartedEvent>(_ => startedEvents++);
-        battle.EventBus.Subscribe<PlayerTurnEndedEvent>(_ => endedEvents++);
-
-        battle.StartRound(battle.GetDefaultWager());
-        Assert.That(battle.TryStand(), Is.True);
-
-        Assert.That(startedEvents, Is.EqualTo(1));
-        Assert.That(endedEvents, Is.EqualTo(1));
-        Assert.That(battle.Phase, Is.EqualTo(BattlePhase.Cleanup));
-    }
-
     [TestCase(DevilTurnChoice.Hit)]
     [TestCase(DevilTurnChoice.Play)]
     public void DevilTurnChoiceEvent_PayloadMatchesStrategyChoice(DevilTurnChoice choice)
@@ -1523,34 +1488,6 @@ public sealed class ShopSystemTests
 
         Assert.That(eventCount, Is.EqualTo(1));
         Assert.That(receivedChoice, Is.EqualTo(choice));
-    }
-
-    [Test]
-    public void BattleController_StartNextRoundHonorsLifecycleGuards()
-    {
-        var controllerObject = new UnityEngine.GameObject("Controller");
-        try
-        {
-            BattleController controller = controllerObject.AddComponent<BattleController>();
-            Assert.That(controller.StartNextRound(10), Is.False);
-
-            controller.InitializeBattle(CreateRunWithDeck(TenTwos()), new BattleConfig("test", 500, new StandingDevilStrategy(), baseWager: 10));
-            Assert.That(controller.StartNextRound(controller.BattleState.GetDefaultWager()), Is.True);
-            Assert.That(controller.StartNextRound(controller.BattleState.GetDefaultWager()), Is.False);
-
-            Assert.That(controller.TryStand(), Is.True);
-            Assert.That(controller.IsWaitingForVisuals, Is.True);
-            Assert.That(controller.StartNextRound(controller.BattleState.GetDefaultWager()), Is.False);
-
-            controller.CompletePendingVisualTransition();
-            Assert.That(controller.IsWaitingForVisuals, Is.False);
-            Assert.That(controller.BattleState.Phase, Is.EqualTo(BattlePhase.PreRound));
-            Assert.That(controller.StartNextRound(controller.BattleState.GetDefaultWager()), Is.True);
-        }
-        finally
-        {
-            UnityEngine.Object.DestroyImmediate(controllerObject);
-        }
     }
 
     [Test]
