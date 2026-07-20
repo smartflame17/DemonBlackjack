@@ -10,6 +10,18 @@ public readonly struct ScoreCalculatedEvent
     public ScoreResult Score { get; }
 }
 
+public readonly struct PokerResolvedEvent
+{
+    public PokerResolvedEvent(Combatant combatant, PokerResult poker)
+    {
+        Combatant = combatant;
+        Poker = poker;
+    }
+
+    public Combatant Combatant { get; }
+    public PokerResult Poker { get; }
+}
+
 public readonly struct BurstAttemptedEvent
 {
     public BurstAttemptedEvent(Combatant combatant, int score, int threshold, bool willBurst)

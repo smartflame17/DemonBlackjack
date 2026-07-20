@@ -746,10 +746,12 @@ public sealed class BattleState
     {
         ScoreResult playerScore = ScoreResolver.Resolve(CurrentRound.PlayerPlayedCards, CurrentRound.ScoringModifiers, CurrentRound.TargetScore, CurrentRound.PlayerBurstThreshold);
         ScoreResult opponentScore = ScoreResolver.Resolve(CurrentRound.OpponentVisibleCards, CurrentRound.ScoringModifiers, CurrentRound.TargetScore, CurrentRound.OpponentBurstThreshold, GetOpponentBlackjackBonus());
+        PokerResult playerPoker = ScoreResolver.ResolvePoker(CurrentRound.PlayerPlayedCards);
+        PokerResult opponentPoker = ScoreResolver.ResolvePoker(CurrentRound.OpponentVisibleCards);
         CurrentRound.SetScores(playerScore, opponentScore);
 
-        PublishScoreEvents(Combatant.Player, playerScore);
-        PublishScoreEvents(Combatant.Opponent, opponentScore);
+        PublishScoreEvents(Combatant.Player, playerScore, playerPoker);
+        PublishScoreEvents(Combatant.Opponent, opponentScore, opponentPoker);
         CommandQueue.Enqueue(new VisualCommand(VisualCommandType.ScoresResolved, $"{playerScore.FinalScore}:{opponentScore.FinalScore}"));
     }
 
@@ -797,9 +799,10 @@ public sealed class BattleState
         CommandQueue.Enqueue(new VisualCommand(VisualCommandType.CardsPlayed, card.ToString()));
     }
 
-    private void PublishScoreEvents(Combatant combatant, ScoreResult score)
+    private void PublishScoreEvents(Combatant combatant, ScoreResult score, PokerResult poker)
     {
         EventBus.Publish(new ScoreCalculatedEvent(combatant, score));
+        EventBus.Publish(new PokerResolvedEvent(combatant, poker));
 
         int burstThreshold = CurrentRound.GetBurstThreshold(combatant);
         if (score.FinalScore > burstThreshold)
