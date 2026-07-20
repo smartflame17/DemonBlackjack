@@ -40,6 +40,11 @@ public sealed class RoundState
     public bool WagerCommitted { get; private set; }
     public int Pot => PlayerStake + OpponentStake;
     public int Reward => Pot;
+    public bool BlackjackPayoutResolved { get; private set; }
+    public bool PlayerBurstPenaltyResolved { get; private set; }
+    public bool OpponentBurstPenaltyResolved { get; private set; }
+    public int OpponentMoneyLost { get; private set; }
+    public int PlayerMoneyLost { get; private set; }
     public bool PlayerHasPlayed => _playerPlayedCards.Count > 0;
     public bool OpponentHasPlayed => _opponentVisibleCards.Count > 0;
     public bool PlayerStood { get; private set; }
@@ -244,6 +249,20 @@ public sealed class RoundState
         OpponentPlayedThisTurn = false;
     }
 
+    public bool ConsumePlayedThisTurn(Combatant combatant)
+    {
+        if (combatant == Combatant.Player)
+        {
+            bool played = PlayerPlayedThisTurn;
+            PlayerPlayedThisTurn = false;
+            return played;
+        }
+
+        bool opponentPlayed = OpponentPlayedThisTurn;
+        OpponentPlayedThisTurn = false;
+        return opponentPlayed;
+    }
+
     public void MarkPlayerStood()
     {
         PlayerStood = true;
@@ -285,6 +304,31 @@ public sealed class RoundState
     {
         PlayerScore = playerScore;
         OpponentScore = opponentScore;
+    }
+
+    public void MarkBlackjackPayoutResolved()
+    {
+        BlackjackPayoutResolved = true;
+    }
+
+    public void MarkBurstPenaltyResolved(Combatant combatant)
+    {
+        if (combatant == Combatant.Player)
+            PlayerBurstPenaltyResolved = true;
+        else
+            OpponentBurstPenaltyResolved = true;
+    }
+
+    public void RecordMoneyLost(Combatant combatant, int amount)
+    {
+        int finalAmount = Math.Max(0, amount);
+        if (finalAmount <= 0)
+            return;
+
+        if (combatant == Combatant.Player)
+            PlayerMoneyLost += finalAmount;
+        else
+            OpponentMoneyLost += finalAmount;
     }
 
     public IReadOnlyList<Card> GetPokerCardsForPlayerPayout()

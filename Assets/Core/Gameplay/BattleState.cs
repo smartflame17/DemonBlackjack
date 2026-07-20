@@ -131,6 +131,7 @@ public sealed class BattleState
 
         PublishPlayerCardPlayed(card);
         RefillPlayerHandIfEmpty();
+        ResolveScores();
         return true;
     }
 
@@ -233,6 +234,7 @@ public sealed class BattleState
             return false;
 
         PublishPlayerCardPlayed(card);
+        ResolveScores();
         return true;
     }
 
@@ -752,7 +754,77 @@ public sealed class BattleState
 
         PublishScoreEvents(Combatant.Player, playerScore, playerPoker);
         PublishScoreEvents(Combatant.Opponent, opponentScore, opponentPoker);
+        ResolveRealtimeMoney();
         CommandQueue.Enqueue(new VisualCommand(VisualCommandType.ScoresResolved, $"{playerScore.FinalScore}:{opponentScore.FinalScore}"));
+    }
+
+    private void ResolveRealtimeMoney()
+    {
+        if (CurrentRound == null || CurrentRound.EffectiveWager <= 0)
+            return;
+
+        bool playerPlayed = CurrentRound.ConsumePlayedThisTurn(Combatant.Player);
+        bool opponentPlayed = CurrentRound.ConsumePlayedThisTurn(Combatant.Opponent);
+        if (!playerPlayed && !opponentPlayed)
+            return;
+
+        ResolveRealtimeBlackjackPayout();
+        if (playerPlayed)
+            ResolveRealtimeBurstPenalty(Combatant.Player, CurrentRound.PlayerScore, CurrentRound.PlayerBurstThreshold);
+        if (opponentPlayed)
+            ResolveRealtimeBurstPenalty(Combatant.Opponent, CurrentRound.OpponentScore, CurrentRound.OpponentBurstThreshold);
+    }
+
+    private void ResolveRealtimeBlackjackPayout()
+    {
+        if (CurrentRound.BlackjackPayoutResolved)
+            return;
+
+        if (CurrentRound.PlayerScore.IsBlackjack && !CurrentRound.OpponentScore.IsBlackjack)
+        {
+            int lost = LoseOpponentMoney(CurrentRound.EffectiveWager);
+            if (lost > 0)
+            {
+                AddPlayerMoney(lost);
+                CurrentRound.RecordMoneyLost(Combatant.Opponent, lost);
+            }
+            CurrentRound.MarkBlackjackPayoutResolved();
+        }
+        else if (CurrentRound.OpponentScore.IsBlackjack && !CurrentRound.PlayerScore.IsBlackjack)
+        {
+            int lost = LosePlayerMoney(CurrentRound.EffectiveWager);
+            if (lost > 0)
+            {
+                AddOpponentMoney(lost);
+                CurrentRound.RecordMoneyLost(Combatant.Player, lost);
+            }
+            CurrentRound.MarkBlackjackPayoutResolved();
+        }
+    }
+
+    private void ResolveRealtimeBurstPenalty(Combatant combatant, ScoreResult score, int threshold)
+    {
+        int burstOffset = Math.Max(0, score.BlackjackScore - threshold);
+        if (burstOffset <= 0)
+            return;
+
+        int amount = burstOffset * CurrentRound.EffectiveWager;
+        int lost;
+        if (combatant == Combatant.Player)
+        {
+            lost = LosePlayerMoney(amount);
+            if (lost > 0)
+                AddOpponentMoney(lost);
+        }
+        else
+        {
+            lost = LoseOpponentMoney(amount);
+            if (lost > 0)
+                AddPlayerMoney(lost);
+        }
+
+        CurrentRound.RecordMoneyLost(combatant, lost);
+        CurrentRound.MarkBurstPenaltyResolved(combatant);
     }
 
     private int GetOpponentBlackjackBonus()
