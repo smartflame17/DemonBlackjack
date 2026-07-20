@@ -39,8 +39,6 @@ public sealed class RoundState
     public bool PlayerActsFirst { get; }
     public bool WagerCommitted { get; private set; }
     public int Pot => PlayerStake + OpponentStake;
-    public int Reward => Pot;
-    public bool BlackjackPayoutResolved { get; private set; }
     public bool PlayerBurstPenaltyResolved { get; private set; }
     public bool OpponentBurstPenaltyResolved { get; private set; }
     public int OpponentMoneyLost { get; private set; }
@@ -304,11 +302,6 @@ public sealed class RoundState
     {
         PlayerScore = playerScore;
         OpponentScore = opponentScore;
-    }
-
-    public void MarkBlackjackPayoutResolved()
-    {
-        BlackjackPayoutResolved = true;
     }
 
     public void MarkBurstPenaltyResolved(Combatant combatant)
