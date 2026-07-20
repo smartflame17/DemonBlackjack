@@ -1813,6 +1813,7 @@ public sealed class ShopSystemTests
         public IEnumerable<Card> CreateStartingDeck(RunState runState, BattleConfig config) => new List<Card>();
         public void RegisterAffinityHooks(BattleState battle) { }
         public void UnregisterAffinityHooks(BattleState battle) { }
+        public string GetDialogueId() => "test";
         public IEnumerable<Modifier> GetGlobalModifiers(RunState runState) => new List<Modifier>();
     }
 
@@ -1831,6 +1832,7 @@ public sealed class ShopSystemTests
         public IEnumerable<Card> CreateStartingDeck(RunState runState, BattleConfig config) => new List<Card>();
         public void RegisterAffinityHooks(BattleState battle) { }
         public void UnregisterAffinityHooks(BattleState battle) { }
+        public string GetDialogueId() => "test";
         public IEnumerable<Modifier> GetGlobalModifiers(RunState runState) => new List<Modifier>();
     }
 }

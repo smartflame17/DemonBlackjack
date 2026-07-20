@@ -1,6 +1,7 @@
 using System;
 using System.Collections.Generic;
 
+// Core strategy interface for devil AI behavior.
 public interface IDevilStrategy
 {
     int DrawValue { get; }
@@ -9,13 +10,14 @@ public interface IDevilStrategy
     IEnumerable<Card> CreateStartingDeck(RunState runState, BattleConfig config);
     void RegisterAffinityHooks(BattleState battle);
     void UnregisterAffinityHooks(BattleState battle);
+    string GetDialogueId();
     IEnumerable<Modifier> GetGlobalModifiers(RunState runState);
 }
 
 
-// Default strategy that always plays first card in hand and has a fixed draw value (default 2). Can be used for testing or as a simple baseline strategy.
+// Default strategy that always plays best card in hand and has a fixed draw value (default 3). Can be used for testing or as a simple baseline strategy.
 // Expand upon here to create complex AI strategies that consider the current battle and round state to make informed decisions on which card to play and how much to draw.
-public sealed class BasicDevilStrategy : IDevilStrategy
+public class BasicDevilStrategy : IDevilStrategy
 {
     public BasicDevilStrategy(int drawValue = 3)
     {
@@ -52,6 +54,11 @@ public sealed class BasicDevilStrategy : IDevilStrategy
     public IEnumerable<Card> CreateStartingDeck(RunState runState, BattleConfig config)
     {
         return Deck.CreateStandardDeck();
+    }
+
+    public virtual string GetDialogueId()
+    {
+        return "Error";
     }
 
     public void RegisterAffinityHooks(BattleState battle)
@@ -94,4 +101,19 @@ public sealed class BasicDevilStrategy : IDevilStrategy
         return currentScore < 17;
     }
 
+}
+
+public class Devil1Strategy : BasicDevilStrategy
+{
+    public Devil1Strategy() : base(drawValue: 3)
+    {
+    }
+
+    public override string GetDialogueId()
+    {
+        // TODO: Check devil state, conditions, and other factors to determine which dialogue ID to return. For now, we return a fixed ID for Devil1.
+        return "Devil1TestConversation";
+    }
+
+    // Additional devil-specific logic can be added here if needed
 }

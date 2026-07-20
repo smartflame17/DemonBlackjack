@@ -9,6 +9,7 @@ public class DevilDialogueController : MonoBehaviour
     [SerializeField] private DialogueActor dialogueActor;
     [SerializeField] private BattleController battleController;
     [SerializeField] private string barkConversationId; // id of conversation pool of barks
+    [SerializeField] private string roundEndConversationId; // id of conversation pool of idle barks
     [SerializeField, Min(0f)] private float idleBarkDelaySeconds = 10f;
 
     private string _currentDevilId;
@@ -16,6 +17,8 @@ public class DevilDialogueController : MonoBehaviour
     private Coroutine idleBarkCoroutine;
     private float idleElapsedTime;
     private bool idleBarkedThisTurn;
+    private PokerHandRank lastPokerRank;
+    private IDevilStrategy _devilStrategy;   // This will house all devil-specific logic for long conversations
 
     void Awake()
     {
@@ -47,6 +50,7 @@ public class DevilDialogueController : MonoBehaviour
         StopIdleBarkTimer();
         UnsubscribeFromBattleBus();
         _currentDevilId = battle.Config.DevilId;
+        _devilStrategy = battle.Config.DevilStrategy;
 
         battleBus = battle.EventBus;
         battleBus.Subscribe<RoundStartedEvent>(OnRoundStarted);
@@ -56,7 +60,7 @@ public class DevilDialogueController : MonoBehaviour
         battleBus.Subscribe<CardPlayedEvent>(OnCardPlayed);
         battleBus.Subscribe<DevilTurnChoiceEvent>(OnDevilTurnChoice);
         battleBus.Subscribe<BurstAttemptedEvent>(OnBurstAttempted);
-        // TODO: add poker events here later
+        battleBus.Subscribe<PokerResolvedEvent>(OnPokerResolved);
 
         barkConversationId = $"{_currentDevilId}_BattleStart";
         DialogueManager.Bark(barkConversationId, transform);
@@ -67,6 +71,8 @@ public class DevilDialogueController : MonoBehaviour
     {
         barkConversationId = $"{_currentDevilId}_RoundStart";
         DialogueManager.Bark(barkConversationId, transform);
+
+        lastPokerRank = PokerHandRank.HighCard; // Reset last poker rank at the start of each round
     }
 
     private void OnPlayerTurnStarted(PlayerTurnStartedEvent @event)
@@ -118,6 +124,9 @@ public class DevilDialogueController : MonoBehaviour
     private void OnRoundEnded(RoundEndedEvent @event)
     {
         // TODO: add IDevilStrategy interface to get the correct conversation ID for round end
+        roundEndConversationId = _devilStrategy.GetDialogueId();
+        Debug.Log($"DevilDialogueController: OnRoundEnded, using conversation ID: {roundEndConversationId}");
+        DialogueManager.StartConversation(roundEndConversationId, transform);
     }
 
     private void OnDevilTurnChoice(DevilTurnChoiceEvent @event)
@@ -139,6 +148,20 @@ public class DevilDialogueController : MonoBehaviour
         StopIdleBarkTimer();
         UnsubscribeFromBattleBus();
         _currentDevilId = null;
+        _devilStrategy = null;
+        roundEndConversationId = null;
+    }
+
+    private void OnPokerResolved(PokerResolvedEvent @event)
+    {
+        if (@event.Combatant == Combatant.Opponent) return;
+
+        // TODO: add limits to how high the poker rank should be to trigger this bark
+        if (@event.Poker.Rank <= lastPokerRank) return;
+  
+        lastPokerRank = @event.Poker.Rank;
+        barkConversationId = $"{_currentDevilId}_PokerAchieved";
+        DialogueManager.Bark(barkConversationId, transform);
     }
 
     private void StopIdleBarkTimer()
@@ -162,6 +185,7 @@ public class DevilDialogueController : MonoBehaviour
         battleBus.Unsubscribe<CardPlayedEvent>(OnCardPlayed);
         battleBus.Unsubscribe<DevilTurnChoiceEvent>(OnDevilTurnChoice);
         battleBus.Unsubscribe<BurstAttemptedEvent>(OnBurstAttempted);
+        battleBus.Unsubscribe<PokerResolvedEvent>(OnPokerResolved);
         battleBus = null;
     }
 }
