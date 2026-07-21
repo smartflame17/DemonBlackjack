@@ -92,7 +92,7 @@ public class DevilVisualController : MonoBehaviour
         devilSprite.color = color;
 
         spriteTransition = DOTween.Sequence()
-            .Append(devilSprite.DOFade(0f, spriteFadeDuration))
+            .Append(devilSprite.DOFade(0.3f, spriteFadeDuration))
             .AppendCallback(() =>
             {
                 devilSprite.sprite = newSprite;

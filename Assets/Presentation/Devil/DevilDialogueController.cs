@@ -16,6 +16,7 @@ public class DevilDialogueController : MonoBehaviour
     private ScopedEventBus battleBus;
     private Coroutine idleBarkCoroutine;
     private float idleElapsedTime;
+    private bool isBarking; // Flag to indicate if a bark is currently in progress
     private bool idleBarkedThisTurn;
     private PokerHandRank lastPokerRank;
     private IDevilStrategy _devilStrategy;   // This will house all devil-specific logic for long conversations
@@ -63,14 +64,27 @@ public class DevilDialogueController : MonoBehaviour
         battleBus.Subscribe<PokerResolvedEvent>(OnPokerResolved);
 
         barkConversationId = $"{_currentDevilId}_BattleStart";
-        DialogueManager.Bark(barkConversationId, transform);
+        StartBark(barkConversationId);
         // TODO: delayed second bark
+    }
+
+    private void StartBark(string conversationId)
+    {
+        if (string.IsNullOrWhiteSpace(conversationId))
+            return;
+
+        if (isBarking)
+            return; // Prevent starting a new bark if one is already in progress
+
+        isBarking = true;
+        DialogueManager.Bark(conversationId, transform);
+        // TODO: Maybe add a priority queue for barks, so that if a new bark is triggered while one is in progress, it can be queued up to play next after a set delay.
     }
 
     private void OnRoundStarted(RoundStartedEvent @event)
     {
         barkConversationId = $"{_currentDevilId}_RoundStart";
-        DialogueManager.Bark(barkConversationId, transform);
+        StartBark(barkConversationId);
 
         lastPokerRank = PokerHandRank.HighCard; // Reset last poker rank at the start of each round
     }
@@ -115,7 +129,7 @@ public class DevilDialogueController : MonoBehaviour
         {
             idleBarkedThisTurn = true;
             barkConversationId = $"{_currentDevilId}_Idle";
-            DialogueManager.Bark(barkConversationId, transform);
+            StartBark(barkConversationId);
         }
 
         idleBarkCoroutine = null;
@@ -132,7 +146,7 @@ public class DevilDialogueController : MonoBehaviour
     private void OnDevilTurnChoice(DevilTurnChoiceEvent @event)
     {
         barkConversationId = $"{_currentDevilId}_DevilTurn";
-        DialogueManager.Bark(barkConversationId, transform);
+        StartBark(barkConversationId);
     }
 
     private void OnBurstAttempted(BurstAttemptedEvent @event)
@@ -140,7 +154,7 @@ public class DevilDialogueController : MonoBehaviour
         if (@event.Combatant == Combatant.Opponent) return;
 
         barkConversationId = $"{_currentDevilId}_OverBurst";
-        DialogueManager.Bark(barkConversationId, transform);
+        StartBark(barkConversationId);
     }
 
     private void OnBattleEnded(BattleEndedEvent @event)
@@ -161,7 +175,12 @@ public class DevilDialogueController : MonoBehaviour
   
         lastPokerRank = @event.Poker.Rank;
         barkConversationId = $"{_currentDevilId}_PokerAchieved";
-        DialogueManager.Bark(barkConversationId, transform);
+        StartBark(barkConversationId);
+    }
+
+    public void OnBarkEnd(Transform actor)
+    {
+        isBarking = false; // Reset the flag when a bark ends
     }
 
     private void StopIdleBarkTimer()
