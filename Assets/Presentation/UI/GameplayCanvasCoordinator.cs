@@ -82,7 +82,7 @@ public sealed class GameplayCanvasCoordinator : MonoBehaviour
     private void StartDevil1Battle()
     {
         Debug.Log("Starting devil1 battle");
-        StartBattle("devil1", new Devil1Strategy());
+        StartBattle("devil1", new BattleConfig("devil1", 1000, new Devil1Strategy(), devilId:"devil1"));
     }
 
     private void StartDevil2Battle()
@@ -103,12 +103,15 @@ public sealed class GameplayCanvasCoordinator : MonoBehaviour
         StartBattle("devil4");
     }
 
-    private void StartBattle(string devilId, IDevilStrategy devilStrategy = null)
+    private void StartBattle(string devilId, BattleConfig config = null)
     {
         if (runManager == null)
             return;
 
-        var config = new BattleConfig(devilId, 1000, devilStrategy: devilStrategy, devilId: devilId);
+        if (config == null)
+        {
+            config = new BattleConfig(devilId, 1000, devilStrategy: new BasicDevilStrategy(), devilId: devilId);
+        }
         runManager.StartBattle(config);
     }
 

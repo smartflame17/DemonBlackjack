@@ -139,6 +139,8 @@ public class DevilDialogueController : MonoBehaviour
     {
         // TODO: add IDevilStrategy interface to get the correct conversation ID for round end
         roundEndConversationId = _devilStrategy.GetDialogueId();
+        if (string.IsNullOrWhiteSpace(roundEndConversationId)) return;
+        
         Debug.Log($"DevilDialogueController: OnRoundEnded, using conversation ID: {roundEndConversationId}");
         DialogueManager.StartConversation(roundEndConversationId, transform);
     }

@@ -5,6 +5,7 @@ using System.Collections.Generic;
 public interface IDevilStrategy
 {
     int DrawValue { get; }
+    void UpdateDevilState(BattleState battle = null, RoundState round = null);
     DevilTurnChoice ChooseTurnAction(BattleState battle, RoundState round);
     int ChooseCardIndex(BattleState battle, RoundState round);
     IEnumerable<Card> CreateStartingDeck(RunState runState, BattleConfig config);
@@ -25,6 +26,11 @@ public class BasicDevilStrategy : IDevilStrategy
     }
 
     public int DrawValue { get; }
+
+    public virtual void UpdateDevilState(BattleState battle, RoundState round)
+    {
+        // Default implementation does nothing. Override in derived classes for more complex behavior.
+    }
 
     public DevilTurnChoice ChooseTurnAction(BattleState battle, RoundState round)
     {
@@ -51,7 +57,7 @@ public class BasicDevilStrategy : IDevilStrategy
         return bestIndex >= 0 ? bestIndex : 0;
     }
 
-    public IEnumerable<Card> CreateStartingDeck(RunState runState, BattleConfig config)
+    public virtual IEnumerable<Card> CreateStartingDeck(RunState runState, BattleConfig config)
     {
         return Deck.CreateStandardDeck();
     }
@@ -105,14 +111,50 @@ public class BasicDevilStrategy : IDevilStrategy
 
 public class Devil1Strategy : BasicDevilStrategy
 {
-    public Devil1Strategy() : base(drawValue: 3)
+    public Devil1Strategy(int startMoney = 1000) : base(drawValue: 3)
     {
+        startingMoney = startMoney <= 0 ? 1000 : startMoney;
+    }
+
+    private readonly int startingMoney;
+    private bool isYandereMode = false;
+    private int winStreak = 0;
+    private int lossStreak = 0;
+    private bool[] winStreakDialogueShown = new bool[4]; // Track if win streak dialogue has been shown for 2, 3, and 4 wins
+    private bool[] lossStreakDialogueShown = new bool[4]; // Track if loss streak dialogue has been shown for 2, 3, and 4 losses
+
+    // When should this update be called within the gameplay loop? It should be handled before any event publishing to account for other event-based behavior to be triggered correctly.
+    public override void UpdateDevilState(BattleState battle, RoundState round)
+    {
+        if (battle == null || round == null)
+            return;
+        //TODO: check battle.CombatHistory to update win/loss streaks
+
+        if (battle.OpponentMoney < startingMoney * 0.2f || lossStreak >= 3)
+            isYandereMode = true;
+        else
+            isYandereMode = false;
+        
+    }
+
+    public override IEnumerable<Card> CreateStartingDeck(RunState runState, BattleConfig config)
+    {
+        return Deck.CreateAllHeartsDeck(4);
     }
 
     public override string GetDialogueId()
     {
-        // TODO: Check devil state, conditions, and other factors to determine which dialogue ID to return. For now, we return a fixed ID for Devil1.
-        return "Devil1TestConversation";
+        if (winStreak >= 2 && winStreak <= 4 && !winStreakDialogueShown[winStreak - 1])
+        {
+            winStreakDialogueShown[winStreak - 1] = true;
+            return $"devil1_WinStreak{winStreak}_Dialogue";
+        }
+        else if (lossStreak >= 2 && lossStreak <= 4 && !lossStreakDialogueShown[lossStreak - 1])
+        {
+            lossStreakDialogueShown[lossStreak - 1] = true;
+            return $"devil1_LossStreak{lossStreak}_Dialogue";
+        }
+        return null; // No dialogue to show
     }
 
     // Additional devil-specific logic can be added here if needed
