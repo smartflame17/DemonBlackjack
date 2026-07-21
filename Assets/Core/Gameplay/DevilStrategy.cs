@@ -182,6 +182,8 @@ public class Devil1Strategy : BasicDevilStrategy
         }
         isYandereMode = context.Battle.OpponentMoney < startingMoney * 0.2f || lossStreak >= 3;
     }
+    
+    // TODO: Heart card multiplier logic, change-to-spade on card play for n cards + spade multiplier based on yandere mode
 
     private void UpdateStreaks(RoundResolution resolution)
     {
