@@ -90,6 +90,10 @@ public sealed class BattleState
         SetPhase(BattlePhase.PreRound);
         RoundNumber = nextRoundNumber;
         CurrentRound = nextRound;
+        Config.DevilStrategy.UpdateDevilState(new DevilStateUpdateContext(
+            this,
+            CurrentRound,
+            DevilStateUpdatePoint.RoundStarted));
         EventBus.Publish(new RoundStartedEvent(RoundNumber));
         CommandQueue.Enqueue(new VisualCommand(VisualCommandType.RoundStarted, $"{RoundNumber}:{proposedWager}"));
 
@@ -626,6 +630,10 @@ public sealed class BattleState
         CurrentRound.BeginOpponentTurn();
         RefillOpponentHandIfEmpty();
 
+        Config.DevilStrategy.UpdateDevilState(new DevilStateUpdateContext(
+            this,
+            CurrentRound,
+            DevilStateUpdatePoint.OpponentTurnStarted));
         DevilTurnChoice choice = Config.DevilStrategy.ChooseTurnAction(this, CurrentRound);
         EventBus.Publish(new DevilTurnChoiceEvent(choice));
         if (choice == DevilTurnChoice.Stand)
@@ -708,8 +716,7 @@ public sealed class BattleState
 
         if (CurrentRound.PlayerStood && CurrentRound.OpponentStood) // if both players stand, resolve the round immediately
         {
-            Combatant? winner = MoneyResolver.DetermineWinner(CurrentRound.PlayerScore, CurrentRound.OpponentScore);
-            ResolveRound(new RoundResolution(winner, 0, 0), true);
+            ResolveRound(true);
             return true;
         }
 
@@ -805,13 +812,18 @@ public sealed class BattleState
         return bonus;
     }
 
-    private void ResolveRound(RoundResolution baseResolution, bool applyBurstPenalty)
+    private void ResolveRound(bool applyBurstPenalty)
     {
-        EventBus.Publish(new RoundEndedEvent(RoundNumber));
-        SetPhase(BattlePhase.PostRound);
-
         RoundResolution resolution = MoneyResolver.ResolveRound(this, CurrentRound, applyBurstPenalty);
         _combatHistory.Add(resolution);
+
+        Config.DevilStrategy.UpdateDevilState(new DevilStateUpdateContext(
+            this,
+            CurrentRound,
+            DevilStateUpdatePoint.RoundResolved,
+            resolution));
+        SetPhase(BattlePhase.PostRound);
+        EventBus.Publish(new RoundEndedEvent(RoundNumber));
 
         CommandQueue.Enqueue(new VisualCommand(VisualCommandType.RoundEnded, RoundNumber.ToString()));
 

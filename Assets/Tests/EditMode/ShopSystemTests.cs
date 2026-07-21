@@ -1491,6 +1491,148 @@ public sealed class ShopSystemTests
     }
 
     [Test]
+    public void DevilState_RoundStartedUpdatesBeforeEventAndOpeningDraws()
+    {
+        var order = new List<string>();
+        var strategy = new RecordingDevilStrategy(order);
+        var battle = new BattleState(
+            CreateRunWithDeck(TenTwos()),
+            new BattleConfig("test", 500, strategy, baseWager: 10));
+        battle.EventBus.Subscribe<RoundStartedEvent>(_ => order.Add("event:round-started"));
+        battle.EventBus.Subscribe<CardDrawnEvent>(eventData =>
+        {
+            if (eventData.Owner == Combatant.Player)
+                order.Add("event:player-drawn");
+        });
+
+        Assert.That(battle.StartRound(battle.GetDefaultWager()), Is.True);
+
+        Assert.That(strategy.RoundStartedRound, Is.SameAs(battle.CurrentRound));
+        Assert.That(strategy.RoundStartedRoundNumber, Is.EqualTo(1));
+        Assert.That(strategy.RoundStartedOpponentMoney, Is.EqualTo(500));
+        Assert.That(strategy.RoundStartedHistoryCount, Is.EqualTo(0));
+        Assert.That(strategy.RoundStartedOpponentHandCount, Is.EqualTo(0));
+        Assert.That(order[0], Is.EqualTo("update:RoundStarted"));
+        Assert.That(order[1], Is.EqualTo("event:round-started"));
+        Assert.That(order[2], Is.EqualTo("event:player-drawn"));
+    }
+
+    [Test]
+    public void DevilState_OpponentTurnUpdatesBeforeChoiceAndChoiceEvent()
+    {
+        var order = new List<string>();
+        var strategy = new RecordingDevilStrategy(order);
+        var battle = new BattleState(
+            CreateRunWithDeck(TenTwos()),
+            new BattleConfig("test", 500, strategy, baseWager: 10));
+        DevilTurnChoice receivedChoice = DevilTurnChoice.Hit;
+        battle.EventBus.Subscribe<DevilTurnChoiceEvent>(eventData =>
+        {
+            order.Add("event:devil-choice");
+            receivedChoice = eventData.Choice;
+        });
+
+        Assert.That(battle.StartRound(battle.GetDefaultWager()), Is.True);
+        order.Clear();
+        Assert.That(battle.TryStand(), Is.True);
+
+        Assert.That(receivedChoice, Is.EqualTo(DevilTurnChoice.Stand));
+        Assert.That(strategy.OpponentTurnUpdateCount, Is.EqualTo(1));
+        Assert.That(strategy.OpponentTurnOpponentHandCount, Is.GreaterThan(0));
+        CollectionAssert.AreEqual(
+            new[]
+            {
+                "update:OpponentTurnStarted",
+                "choose",
+                "event:devil-choice",
+                "update:RoundResolved"
+            },
+            order);
+    }
+
+    [Test]
+    public void DevilState_RoundResolvedSeesFinalStateBeforeRoundEndedEvent()
+    {
+        var strategy = new RecordingDevilStrategy();
+        var battle = new BattleState(
+            CreateRunWithDeck(TenTwos()),
+            new BattleConfig("test", 100, strategy, baseWager: 10));
+        int updateCountSeenByEvent = 0;
+        int historyCountSeenByEvent = 0;
+        int playerMoneySeenByEvent = 0;
+        int opponentMoneySeenByEvent = 0;
+        BattlePhase phaseSeenByEvent = BattlePhase.Inactive;
+        battle.EventBus.Subscribe<RoundEndedEvent>(_ =>
+        {
+            updateCountSeenByEvent = strategy.RoundResolvedUpdateCount;
+            historyCountSeenByEvent = battle.CombatHistory.Count;
+            playerMoneySeenByEvent = battle.PlayerMoney;
+            opponentMoneySeenByEvent = battle.OpponentMoney;
+            phaseSeenByEvent = battle.Phase;
+        });
+
+        Assert.That(battle.StartRound(battle.GetDefaultWager()), Is.True);
+        PlayPlayerCards(battle.CurrentRound, new Card(Suit.Clubs, Rank.King));
+        Assert.That(battle.TryStand(), Is.True);
+
+        Assert.That(strategy.RoundResolvedUpdateCount, Is.EqualTo(1));
+        Assert.That(strategy.RoundResolvedHistoryCount, Is.EqualTo(1));
+        Assert.That(strategy.RoundResolvedResolution, Is.EqualTo(battle.CombatHistory[^1]));
+        Assert.That(strategy.RoundResolvedPlayerMoney, Is.EqualTo(110));
+        Assert.That(strategy.RoundResolvedOpponentMoney, Is.EqualTo(90));
+        Assert.That(updateCountSeenByEvent, Is.EqualTo(1));
+        Assert.That(historyCountSeenByEvent, Is.EqualTo(1));
+        Assert.That(playerMoneySeenByEvent, Is.EqualTo(110));
+        Assert.That(opponentMoneySeenByEvent, Is.EqualTo(90));
+        Assert.That(phaseSeenByEvent, Is.EqualTo(BattlePhase.PostRound));
+    }
+
+    [Test]
+    public void DevilState_InvalidStartAndDirectRoundEndDoNotAddExtraUpdates()
+    {
+        var strategy = new RecordingDevilStrategy();
+        var battle = new BattleState(
+            CreateRunWithDeck(TenTwos()),
+            new BattleConfig("test", 100, strategy, baseWager: 10));
+
+        Assert.That(battle.StartRound(0), Is.False);
+        Assert.That(strategy.UpdatePoints, Is.Empty);
+
+        Assert.That(battle.StartRound(battle.GetDefaultWager()), Is.True);
+        battle.CurrentRound.MarkOpponentStood();
+        Assert.That(battle.TryStand(), Is.True);
+
+        CollectionAssert.AreEqual(
+            new[] { DevilStateUpdatePoint.RoundStarted, DevilStateUpdatePoint.RoundResolved },
+            strategy.UpdatePoints);
+        Assert.That(strategy.OpponentTurnUpdateCount, Is.EqualTo(0));
+        Assert.That(strategy.RoundResolvedUpdateCount, Is.EqualTo(1));
+    }
+
+    [Test]
+    public void Devil1Strategy_ResolvedRoundsAdvanceWinStreakOncePerRound()
+    {
+        var strategy = new Devil1Strategy(startMoney: 1000);
+        var battle = new BattleState(
+            CreateRunWithDeck(TenTwos()),
+            new BattleConfig("devil1", 1000, strategy, baseWager: 10));
+
+        for (int roundNumber = 1; roundNumber <= 2; roundNumber++)
+        {
+            Assert.That(battle.StartRound(battle.GetDefaultWager()), Is.True);
+            PlayOpponentCards(battle.CurrentRound, new Card(Suit.Hearts, Rank.King));
+            battle.CurrentRound.MarkOpponentStood();
+            Assert.That(battle.TryStand(), Is.True);
+
+            if (roundNumber < 2)
+                battle.CleanupRound();
+        }
+
+        Assert.That(strategy.GetDialogueId(), Is.EqualTo("devil1_WinStreak2_Dialogue"));
+        Assert.That(strategy.GetDialogueId(), Is.Null);
+    }
+
+    [Test]
     public void BattleController_StartNextRoundHonorsLifecycleGuards()
     {
         var controllerObject = new UnityEngine.GameObject("Controller");
@@ -1813,7 +1955,7 @@ public sealed class ShopSystemTests
         public IEnumerable<Card> CreateStartingDeck(RunState runState, BattleConfig config) => new List<Card>();
         public void RegisterAffinityHooks(BattleState battle) { }
         public void UnregisterAffinityHooks(BattleState battle) { }
-        public void UpdateDevilState(BattleState battle, RoundState round) { }
+        public void UpdateDevilState(DevilStateUpdateContext context) { }
         public string GetDialogueId() => "test";
         public IEnumerable<Modifier> GetGlobalModifiers(RunState runState) => new List<Modifier>();
     }
@@ -1833,7 +1975,76 @@ public sealed class ShopSystemTests
         public IEnumerable<Card> CreateStartingDeck(RunState runState, BattleConfig config) => new List<Card>();
         public void RegisterAffinityHooks(BattleState battle) { }
         public void UnregisterAffinityHooks(BattleState battle) { }
-        public void UpdateDevilState(BattleState battle, RoundState round) { }
+        public void UpdateDevilState(DevilStateUpdateContext context) { }
+        public string GetDialogueId() => "test";
+        public IEnumerable<Modifier> GetGlobalModifiers(RunState runState) => new List<Modifier>();
+    }
+
+    private sealed class RecordingDevilStrategy : IDevilStrategy
+    {
+        private readonly List<string> _order;
+        private bool _opponentTurnUpdated;
+
+        public RecordingDevilStrategy(List<string> order = null)
+        {
+            _order = order;
+        }
+
+        public int DrawValue => 1;
+        public List<DevilStateUpdatePoint> UpdatePoints { get; } = new();
+        public RoundState RoundStartedRound { get; private set; }
+        public int RoundStartedRoundNumber { get; private set; }
+        public int RoundStartedOpponentMoney { get; private set; }
+        public int RoundStartedHistoryCount { get; private set; }
+        public int RoundStartedOpponentHandCount { get; private set; }
+        public int OpponentTurnUpdateCount { get; private set; }
+        public int OpponentTurnOpponentHandCount { get; private set; }
+        public int RoundResolvedUpdateCount { get; private set; }
+        public int RoundResolvedHistoryCount { get; private set; }
+        public int RoundResolvedPlayerMoney { get; private set; }
+        public int RoundResolvedOpponentMoney { get; private set; }
+        public RoundResolution? RoundResolvedResolution { get; private set; }
+
+        public void UpdateDevilState(DevilStateUpdateContext context)
+        {
+            UpdatePoints.Add(context.UpdatePoint);
+            _order?.Add($"update:{context.UpdatePoint}");
+
+            if (context.UpdatePoint == DevilStateUpdatePoint.RoundStarted)
+            {
+                RoundStartedRound = context.Round;
+                RoundStartedRoundNumber = context.Round.RoundNumber;
+                RoundStartedOpponentMoney = context.Battle.OpponentMoney;
+                RoundStartedHistoryCount = context.Battle.CombatHistory.Count;
+                RoundStartedOpponentHandCount = context.Round.OpponentHand.Count;
+            }
+            else if (context.UpdatePoint == DevilStateUpdatePoint.OpponentTurnStarted)
+            {
+                _opponentTurnUpdated = true;
+                OpponentTurnUpdateCount++;
+                OpponentTurnOpponentHandCount = context.Round.OpponentHand.Count;
+            }
+            else if (context.UpdatePoint == DevilStateUpdatePoint.RoundResolved)
+            {
+                RoundResolvedUpdateCount++;
+                RoundResolvedHistoryCount = context.Battle.CombatHistory.Count;
+                RoundResolvedPlayerMoney = context.Battle.PlayerMoney;
+                RoundResolvedOpponentMoney = context.Battle.OpponentMoney;
+                RoundResolvedResolution = context.Resolution;
+            }
+        }
+
+        public DevilTurnChoice ChooseTurnAction(BattleState battle, RoundState round)
+        {
+            _order?.Add("choose");
+            return _opponentTurnUpdated ? DevilTurnChoice.Stand : DevilTurnChoice.Hit;
+        }
+
+        public int ChooseCardIndex(BattleState battle, RoundState round) => 0;
+        public IEnumerable<Card> CreateStartingDeck(RunState runState, BattleConfig config) =>
+            new[] { new Card(Suit.Hearts, Rank.Two) };
+        public void RegisterAffinityHooks(BattleState battle) { }
+        public void UnregisterAffinityHooks(BattleState battle) { }
         public string GetDialogueId() => "test";
         public IEnumerable<Modifier> GetGlobalModifiers(RunState runState) => new List<Modifier>();
     }

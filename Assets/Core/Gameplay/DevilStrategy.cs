@@ -1,11 +1,43 @@
 using System;
 using System.Collections.Generic;
 
+public enum DevilStateUpdatePoint
+{
+    RoundStarted,
+    OpponentTurnStarted,
+    RoundResolved
+}
+
+public readonly struct DevilStateUpdateContext
+{
+    public DevilStateUpdateContext(
+        BattleState battle,
+        RoundState round,
+        DevilStateUpdatePoint updatePoint,
+        RoundResolution? resolution = null)
+    {
+        Battle = battle ?? throw new ArgumentNullException(nameof(battle));
+        Round = round ?? throw new ArgumentNullException(nameof(round));
+
+        bool isRoundResolved = updatePoint == DevilStateUpdatePoint.RoundResolved;
+        if (isRoundResolved != resolution.HasValue)
+            throw new ArgumentException("A resolution must be supplied only for a round-resolved update.", nameof(resolution));
+
+        UpdatePoint = updatePoint;
+        Resolution = resolution;
+    }
+
+    public BattleState Battle { get; }
+    public RoundState Round { get; }
+    public DevilStateUpdatePoint UpdatePoint { get; }
+    public RoundResolution? Resolution { get; }
+}
+
 // Core strategy interface for devil AI behavior.
 public interface IDevilStrategy
 {
     int DrawValue { get; }
-    void UpdateDevilState(BattleState battle = null, RoundState round = null);
+    void UpdateDevilState(DevilStateUpdateContext context);
     DevilTurnChoice ChooseTurnAction(BattleState battle, RoundState round);
     int ChooseCardIndex(BattleState battle, RoundState round);
     IEnumerable<Card> CreateStartingDeck(RunState runState, BattleConfig config);
@@ -27,7 +59,7 @@ public class BasicDevilStrategy : IDevilStrategy
 
     public int DrawValue { get; }
 
-    public virtual void UpdateDevilState(BattleState battle, RoundState round)
+    public virtual void UpdateDevilState(DevilStateUpdateContext context)
     {
         // Default implementation does nothing. Override in derived classes for more complex behavior.
     }
@@ -120,21 +152,58 @@ public class Devil1Strategy : BasicDevilStrategy
     private bool isYandereMode = false;
     private int winStreak = 0;
     private int lossStreak = 0;
+    private int lastResolvedRoundNumber = -1;
     private bool[] winStreakDialogueShown = new bool[4]; // Track if win streak dialogue has been shown for 2, 3, and 4 wins
     private bool[] lossStreakDialogueShown = new bool[4]; // Track if loss streak dialogue has been shown for 2, 3, and 4 losses
 
-    // When should this update be called within the gameplay loop? It should be handled before any event publishing to account for other event-based behavior to be triggered correctly.
-    public override void UpdateDevilState(BattleState battle, RoundState round)
+    public override void UpdateDevilState(DevilStateUpdateContext context)
     {
-        if (battle == null || round == null)
-            return;
-        //TODO: check battle.CombatHistory to update win/loss streaks
+        if (context.UpdatePoint == DevilStateUpdatePoint.RoundResolved
+            && context.Round.RoundNumber > lastResolvedRoundNumber)
+        {
+            UpdateStreaks(context.Resolution.Value);
+            lastResolvedRoundNumber = context.Round.RoundNumber;
+        }
 
-        if (battle.OpponentMoney < startingMoney * 0.2f || lossStreak >= 3)
-            isYandereMode = true;
+        if (context.Battle.OpponentMoney <= startingMoney * 0.2f)
+        {
+            PixelCrushers.DialogueSystem.DialogueLua.SetVariable("OverrideToLowAffinity", true);
+            PixelCrushers.DialogueSystem.DialogueLua.SetVariable("OverrideToMidAffinity", false);
+        }
+        else if (context.Battle.OpponentMoney <= startingMoney * 0.4f)
+        {
+            PixelCrushers.DialogueSystem.DialogueLua.SetVariable("OverrideToLowAffinity", false);
+            PixelCrushers.DialogueSystem.DialogueLua.SetVariable("OverrideToMidAffinity", true);
+        }
         else
-            isYandereMode = false;
-        
+        {
+            PixelCrushers.DialogueSystem.DialogueLua.SetVariable("OverrideToLowAffinity", false);
+            PixelCrushers.DialogueSystem.DialogueLua.SetVariable("OverrideToMidAffinity", false);
+        }
+        isYandereMode = context.Battle.OpponentMoney < startingMoney * 0.2f || lossStreak >= 3;
+    }
+
+    private void UpdateStreaks(RoundResolution resolution)
+    {
+        if (resolution.Winner == Combatant.Opponent)
+        {
+            winStreak++;
+            lossStreak = 0;
+            int affinity = PixelCrushers.DialogueSystem.DialogueLua.GetVariable("Devil1Affinity").asInt;
+            PixelCrushers.DialogueSystem.DialogueLua.SetVariable("Devil1Affinity", affinity + 5);
+        }
+        else if (resolution.Winner == Combatant.Player)
+        {
+            lossStreak++;
+            winStreak = 0;
+            int affinity = PixelCrushers.DialogueSystem.DialogueLua.GetVariable("Devil1Affinity").asInt;
+            PixelCrushers.DialogueSystem.DialogueLua.SetVariable("Devil1Affinity", affinity - 5);
+        }
+        else
+        {
+            winStreak = 0;
+            lossStreak = 0;
+        }
     }
 
     public override IEnumerable<Card> CreateStartingDeck(RunState runState, BattleConfig config)
