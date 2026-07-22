@@ -49,6 +49,7 @@ public class PersistenceManager : MonoBehaviour
   public void NewGame()
   {
     gameData = new GameData(); // Initialize a new GameData instance
+    ApplyGameData();
     Debug.Log($"New game started in slot {selectedProfileId}.");
   }
 
@@ -62,8 +63,14 @@ public class PersistenceManager : MonoBehaviour
     {
       Debug.Log("No game data found, starting a new game.");
       NewGame(); // If no game data exists, create a new one
+      return;
     }
 
+    ApplyGameData();
+  }
+
+  private void ApplyGameData()
+  {
     this.dataPersistenceObjects = FindAllDataPersistenceObjects(); // Refresh the list of IDataPersistence objects
     foreach (IDataPersistence dataPersistenceObj in this.dataPersistenceObjects)
     {

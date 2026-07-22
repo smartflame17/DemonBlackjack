@@ -18,6 +18,14 @@ public readonly struct RoundEndedEvent
     public int RoundNumber { get; }
 }
 
+public readonly struct PlayerTurnStartedEvent
+{
+}
+
+public readonly struct PlayerTurnEndedEvent
+{
+}
+
 
 public readonly struct WagerCommittedEvent
 {

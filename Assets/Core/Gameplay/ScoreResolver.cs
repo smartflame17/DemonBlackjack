@@ -258,4 +258,9 @@ public readonly struct PokerResult
     public PokerHandRank Rank { get; }
     public int Multiplier { get; }
     public IReadOnlyList<int> CardIndices { get; }
+
+    public override string ToString()
+    {
+        return $"PokerResult(Rank={Rank}, Multiplier={Multiplier}, CardIndices=[{string.Join(", ", CardIndices)}])";
+    }
 }

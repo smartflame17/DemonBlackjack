@@ -30,17 +30,10 @@ public sealed class BattleUiPresenter : MonoBehaviour
     [SerializeField] private Button standButton;
     [SerializeField] private Button hitButton;
 
-    [Header("Wager")]
-    [SerializeField] private GameObject wagerPanel;
-    [SerializeField] private GameObject playerProposalRoot;
-    [SerializeField] private GameObject devilOfferRoot;
-    [SerializeField] private Button incrementWagerButton;
-    [SerializeField] private Button decrementWagerButton;
-    [SerializeField] private Button proposalButton;
-    [SerializeField] private Button acceptOfferButton;
-    [SerializeField] private Button declineOfferButton;
-    [SerializeField] private TMP_Text proposalAmountText;
-    [SerializeField] private TMP_Text devilOfferAmountText;
+    [Header("Round Start")]
+    [FormerlySerializedAs("wagerPanel")]
+    [SerializeField] private GameObject roundStartPanel;
+    [SerializeField, Min(0f)] private float roundStartDelaySeconds = 2f;
 
     [Header("Deck View")]
     [SerializeField] private DeckViewPanel deckViewPanel;
@@ -88,8 +81,9 @@ public sealed class BattleUiPresenter : MonoBehaviour
 
     private DeckViewLongPressDragStarter _deckViewDragStarter;
     private PlayerHandHitDragHandler _playerHandHitDragHandler;
+    private Coroutine _roundStartRoutine;
+    private BattleState _scheduledRoundBattle;
     private int _pendingWager = 10;
-    private bool _wagerOpen;
     private bool _suppressRoundPilesUntilNextRound;
 
     public bool CanPlayerAct
@@ -155,6 +149,8 @@ public sealed class BattleUiPresenter : MonoBehaviour
 
     private void OnDisable()
     {
+        CancelPendingRoundStart();
+        SetActive(roundStartPanel, false);
         ClearGeneratedBattleCards();
         EventBus.Unsubscribe<RunPhaseChangedEvent>(OnRunPhaseChanged);
         EventBus.Unsubscribe<BattleStartedEvent>(OnBattleStarted);
@@ -206,6 +202,7 @@ public sealed class BattleUiPresenter : MonoBehaviour
 
         if (battle == null)
         {
+            CancelPendingRoundStart();
             ClearBattleCardViews();
             SetText(playerScoreText, "-");
             SetText(devilScoreText, "-");
@@ -216,12 +213,11 @@ public sealed class BattleUiPresenter : MonoBehaviour
             return;
         }
 
-
-        if (battle.Phase == BattlePhase.PreRound && (battle.CurrentRound == null || !battle.CurrentRound.WagerCommitted) && !_wagerOpen)
-        {
-            OpenWagerPanel();
-            round = battle.CurrentRound;
-        }
+        bool shouldStartRound = CanScheduleRoundStart(battle);
+        if (shouldStartRound)
+            ScheduleRoundStart(battle);
+        else
+            CancelPendingRoundStart();
 
         SetScoreText(round);
         SetBurstThresholdText(round);
@@ -233,9 +229,7 @@ public sealed class BattleUiPresenter : MonoBehaviour
 
         bool roundFinished = battle.Phase == BattlePhase.Cleanup;
         bool battleFinished = battle.Phase == BattlePhase.BattleEnd;
-        bool showWager = _wagerOpen && battle.Phase == BattlePhase.PreRound && round != null && !round.WagerCommitted && !battleFinished;
-        SetPanels(showWager, roundFinished, battleFinished);
-        RefreshWagerPanel(battle);
+        SetPanels(shouldStartRound, roundFinished, battleFinished);
         RefreshRoundResult(battle);
         RefreshBattleResult(battle);
         SetTurnButtons(battle.Phase == BattlePhase.PlayerPhase && !battleController.IsWaitingForVisuals, _selectedHandIndices.Count > 0);
@@ -288,16 +282,6 @@ public sealed class BattleUiPresenter : MonoBehaviour
     {
         if (standButton != null)
             standButton.onClick.AddListener(Stand);
-        if (incrementWagerButton != null)
-            incrementWagerButton.onClick.AddListener(IncrementWager);
-        if (decrementWagerButton != null)
-            decrementWagerButton.onClick.AddListener(DecrementWager);
-        if (proposalButton != null)
-            proposalButton.onClick.AddListener(ProposeWager);
-        if (acceptOfferButton != null)
-            acceptOfferButton.onClick.AddListener(AcceptDevilOffer);
-        if (declineOfferButton != null)
-            declineOfferButton.onClick.AddListener(DeclineDevilOffer);
         if (toShopButton != null)
             toShopButton.onClick.AddListener(OpenShop);
         if (backToMapButton != null)
@@ -309,11 +293,6 @@ public sealed class BattleUiPresenter : MonoBehaviour
         Remove(playButton, PlaySelectedCards);
         Remove(standButton, Stand);
         Remove(hitButton, Hit);
-        Remove(incrementWagerButton, IncrementWager);
-        Remove(decrementWagerButton, DecrementWager);
-        Remove(proposalButton, ProposeWager);
-        Remove(acceptOfferButton, AcceptDevilOffer);
-        Remove(declineOfferButton, DeclineDevilOffer);
         Remove(toShopButton, OpenShop);
         Remove(backToMapButton, ReturnToMap);
     }
@@ -377,53 +356,6 @@ public sealed class BattleUiPresenter : MonoBehaviour
         Refresh();
     }
 
-    private void IncrementWager()
-    {
-        BattleState battle = battleController?.BattleState;
-        if (battle == null)
-            return;
-
-        _pendingWager = battle.GetDefaultWager();
-        Refresh();
-    }
-
-    private void DecrementWager()
-    {
-        BattleState battle = battleController?.BattleState;
-        if (battle == null)
-            return;
-
-        _pendingWager = battle.GetDefaultWager();
-        Refresh();
-    }
-
-    private void ProposeWager()
-    {
-        StartRound(_pendingWager, true);
-    }
-
-    private void AcceptDevilOffer()
-    {
-        StartRound(-1, true);
-    }
-
-    private void DeclineDevilOffer()
-    {
-        StartRound(-1, false);
-    }
-
-    private void StartRound(int wager, bool acceptDevilOffer)
-    {
-        if (battleController == null)
-            return;
-
-        _selectedHandIndices.Clear();
-        _wagerOpen = false;
-        _suppressRoundPilesUntilNextRound = false;
-        battleController.DecideRoundWager(wager, acceptDevilOffer);
-        Refresh();
-    }
-
     private void OpenShop()
     {
         runManager?.OpenShop();
@@ -465,12 +397,13 @@ public sealed class BattleUiPresenter : MonoBehaviour
     private void OnBattleStarted(BattleStartedEvent eventData)
     {
         _suppressRoundPilesUntilNextRound = false;
-        OpenWagerPanel();
+        ScheduleRoundStart(battleController?.BattleState);
         Refresh();
     }
 
     private void OnBattleEnded(BattleEndedEvent eventData)
     {
+        CancelPendingRoundStart();
         ClearBattleCardViews();
         Refresh();
     }
@@ -480,38 +413,63 @@ public sealed class BattleUiPresenter : MonoBehaviour
         Refresh();
     }
 
-    private void OpenWagerPanel()
+    private bool CanScheduleRoundStart(BattleState battle)
     {
-        BattleState battle = battleController?.BattleState;
-        if (battle == null || battle.IsBattleOver)
-            return;
-
-        if (battle.CurrentRound == null)
-            battleController.StartNextRound();
-
-        battle = battleController?.BattleState;
-        if (battle == null || battle.CurrentRound == null || battle.CurrentRound.WagerCommitted)
-            return;
-
-        _wagerOpen = true;
-        _pendingWager = battle.GetDefaultWager();
+        return isActiveAndEnabled
+            && battleController != null
+            && ReferenceEquals(battleController.BattleState, battle)
+            && battle != null
+            && !battle.IsBattleOver
+            && !battleController.IsWaitingForVisuals
+            && battle.Phase == BattlePhase.PreRound
+            && battle.CurrentRound == null;
     }
 
-    private void RefreshWagerPanel(BattleState battle)
+    private void ScheduleRoundStart(BattleState battle)
     {
-        if (wagerPanel == null || !wagerPanel.activeSelf || battle == null)
+        if (!CanScheduleRoundStart(battle))
             return;
 
-        SetActive(playerProposalRoot, true);
-        SetActive(devilOfferRoot, false);
+        if (_roundStartRoutine != null && ReferenceEquals(_scheduledRoundBattle, battle))
+            return;
+
+        CancelPendingRoundStart();
+        _scheduledRoundBattle = battle;
+        _roundStartRoutine = StartCoroutine(StartRoundAfterDelay(battle));
+    }
+
+    private IEnumerator StartRoundAfterDelay(BattleState battle)
+    {
+        if (roundStartDelaySeconds > 0f)
+            yield return new WaitForSeconds(roundStartDelaySeconds);
+        else
+            yield return null;
+
+        if (!CanScheduleRoundStart(battle))
+        {
+            _roundStartRoutine = null;
+            _scheduledRoundBattle = null;
+            Refresh();
+            yield break;
+        }
 
         _pendingWager = battle.GetDefaultWager();
-        SetText(proposalAmountText, _pendingWager.ToString());
+        _selectedHandIndices.Clear();
+        _suppressRoundPilesUntilNextRound = false;
 
-        if (incrementWagerButton != null)
-            incrementWagerButton.interactable = false;
-        if (decrementWagerButton != null)
-            decrementWagerButton.interactable = false;
+        _roundStartRoutine = null;
+        _scheduledRoundBattle = null;
+        battleController.StartNextRound(_pendingWager);
+        Refresh();
+    }
+
+    private void CancelPendingRoundStart()
+    {
+        if (_roundStartRoutine != null)
+            StopCoroutine(_roundStartRoutine);
+
+        _roundStartRoutine = null;
+        _scheduledRoundBattle = null;
     }
 
     private void RefreshRoundResult(BattleState battle)
@@ -532,24 +490,9 @@ public sealed class BattleUiPresenter : MonoBehaviour
         ClearChildren(rewardViewRoot);
     }
 
-    private int GetMaxProposal(BattleState battle)
+    private void SetPanels(bool showRoundStart, bool showRoundResult, bool showBattleResult)
     {
-        return Mathf.Max(1, battle.GetDefaultWager());
-    }
-
-    private int GetMinProposal(BattleState battle)
-    {
-        return Mathf.Max(1, battle.GetDefaultWager());
-    }
-
-    private int GetWagerStep(BattleState battle)
-    {
-        return Mathf.Max(1, battle.GetDefaultWager());
-    }
-
-    private void SetPanels(bool showWager, bool showRoundResult, bool showBattleResult)
-    {
-        SetActive(wagerPanel, showWager);
+        SetActive(roundStartPanel, showRoundStart);
         SetActive(roundResultPanel, showRoundResult);
         SetActive(battleResultPanel, showBattleResult);
     }
@@ -898,16 +841,7 @@ public sealed class BattleUiPresenter : MonoBehaviour
         playButton ??= FindDescendantComponent<Button>("PlayButton");
         standButton ??= FindDescendantComponent<Button>("StandButton");
         hitButton ??= FindDescendantComponent<Button>("HitButton");
-        wagerPanel ??= FindDescendant("WagerPanel");
-        playerProposalRoot ??= FindDescendant("PlayerProposal");
-        devilOfferRoot ??= FindDescendant("DevilOffer");
-        incrementWagerButton ??= FindDescendantComponent<Button>("IncrementButton");
-        decrementWagerButton ??= FindDescendantComponent<Button>("DecrementButton");
-        proposalButton ??= FindDescendantComponent<Button>("ProposalButton");
-        acceptOfferButton ??= FindDescendantComponent<Button>("AcceptButton");
-        declineOfferButton ??= FindDescendantComponent<Button>("DeclineButton");
-        proposalAmountText ??= FindFirstTextUnder(playerProposalRoot, "RoundWagerAmount");
-        devilOfferAmountText ??= FindFirstTextUnder(devilOfferRoot, "RoundWagerAmount");
+        roundStartPanel ??= FindDescendant("RoundStartPanel");
         deckViewPanel ??= FindFirstObjectByType<DeckViewPanel>(FindObjectsInactive.Include);
         viewPileButton ??= FindDescendantComponent<Button>("ViewPileButton");
         viewPileButton ??= FindDescendantComponent<Button>("ViewDrawPileButton");

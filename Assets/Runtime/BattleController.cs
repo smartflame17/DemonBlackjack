@@ -2,9 +2,6 @@ using UnityEngine;
 
 public class BattleController : MonoBehaviour
 {
-    [SerializeField] private bool startFirstRoundOnInitialize;
-    [SerializeField] private bool autoStartNextRoundAfterVisuals;
-
     public BattleState BattleState { get; private set; }
     public CommandQueue CommandQueue => BattleState?.CommandQueue;
     public bool HasActiveBattle => BattleState != null && !BattleState.IsBattleOver;
@@ -19,35 +16,17 @@ public class BattleController : MonoBehaviour
         BattleState = new BattleState(runState, config);
         BattleState.EventBus.Subscribe<BattleEndedEvent>(OnBattleEnded);
         BattleState.Initialize();
-
-        if (startFirstRoundOnInitialize)
-            StartNextRound();
-    }
-
-    public void StartNextRound()
-    {
-        if (BattleState == null || BattleState.IsBattleOver || IsWaitingForVisuals)
-            return;
-
-        BattleState.StartRound();
     }
 
     public bool StartNextRound(int wager)
     {
-        return DecideRoundWager(wager, true);
-    }
-
-    public bool StartNextRound(int wager, bool playerAcceptsOpponentWager)
-    {
-        return DecideRoundWager(wager, playerAcceptsOpponentWager);
-    }
-
-    public bool DecideRoundWager(int wager, bool playerAcceptsOpponentWager)
-    {
         if (BattleState == null || BattleState.IsBattleOver || IsWaitingForVisuals)
             return false;
-        Debug.Log($"<color=blue>[Round]</color> Player wager: {wager}, Player phase started");
-        return BattleState.CommitWagerAndBeginRound(wager, playerAcceptsOpponentWager);
+
+        bool started = BattleState.StartRound(wager);
+        if (started)
+            Debug.Log($"<color=blue>[Round]</color> Wager: {wager}, Player phase started");
+        return started;
     }
 
     public bool TryPlayCard(int handIndex)
@@ -132,9 +111,6 @@ public class BattleController : MonoBehaviour
         else if (activeBattle.Phase == BattlePhase.Cleanup)
         {
             activeBattle.CleanupRound();
-
-            if (BattleState == activeBattle && !activeBattle.IsBattleOver && autoStartNextRoundAfterVisuals)
-                StartNextRound();
         }
     }
 

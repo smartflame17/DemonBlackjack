@@ -32,12 +32,20 @@ public interface IEventBus
 {
     void Subscribe<T>(Action<T> callback);
     void Unsubscribe<T>(Action<T> callback);
+
+    /// <summary>
+    /// Publishes synchronously. Events published by a subscriber are queued until every
+    /// subscriber of the current event has run, so nested events are delivered in FIFO order.
+    /// A nested call can therefore return before that nested event has been delivered.
+    /// </summary>
     void Publish<T>(T eventData);
 }
 
 public sealed class ScopedEventBus : IEventBus
 {
     private readonly Dictionary<Type, Delegate> _subscribers = new();
+    private readonly Queue<Action> _pendingPublishes = new();
+    private bool _isDraining;
 
     public void Subscribe<T>(Action<T> callback)
     {
@@ -77,13 +85,37 @@ public sealed class ScopedEventBus : IEventBus
     public void Publish<T>(T eventData)
     {
         Type type = typeof(T);
+        if (!_subscribers.TryGetValue(type, out var callback))
+            return;
 
-        if (_subscribers.TryGetValue(type, out var callback))
-            ((Action<T>)callback)?.Invoke(eventData);
+        // Capture the invocation list at publication time. Subscription changes made before
+        // a queued event is delivered must not change who receives that already-published event.
+        var capturedCallback = (Action<T>)callback;
+        _pendingPublishes.Enqueue(() => capturedCallback.Invoke(eventData));
+
+        if (_isDraining)
+            return;
+
+        _isDraining = true;
+        try
+        {
+            while (_pendingPublishes.Count > 0)
+                _pendingPublishes.Dequeue().Invoke();
+        }
+        catch
+        {
+            _pendingPublishes.Clear();
+            throw;
+        }
+        finally
+        {
+            _isDraining = false;
+        }
     }
 
     public void Clear()
     {
         _subscribers.Clear();
+        _pendingPublishes.Clear();
     }
 }

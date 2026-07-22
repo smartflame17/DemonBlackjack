@@ -67,57 +67,46 @@ public sealed class BattleState
         SetPhase(BattlePhase.PreRound);
     }
 
-    public int GetOpponentWagerOffer()
-    {
-        if (IsBattleOver || CurrentRound == null || CurrentRound.WagerCommitted)
-            return 0;
-
-        return GetDefaultWager();
-    }
-
-    // creates a new round with the next round number, but does not begin it or commit the wager yet
-    public bool StartRound()
+    public bool StartRound(int wager)
     {
         if (IsBattleOver || CurrentRound != null)
             return false;
 
-        bool playerActsFirst = RoundNumber % 2 == 0;
-
-        SetPhase(BattlePhase.PreRound);
-        RoundNumber++;
-        int targetScore = RelicRuleResolver.ResolveTargetScore(RunState, Config.TargetScore);
-        int playerBurstThreshold = RelicRuleResolver.ResolvePlayerBurstThreshold(RunState, Config.BurstThreshold);
-        int opponentBurstThreshold = RelicRuleResolver.ResolveOpponentBurstThreshold(RunState, Config.BurstThreshold);
-        CurrentRound = new RoundState(RoundNumber, targetScore, playerBurstThreshold, opponentBurstThreshold, Config.BaseWager, playerActsFirst);
-        RestoreCarryoverHands();
-        RefillHandsForRoundStart(playerActsFirst);
-        return true;
-    }
-
-    public bool CommitWagerAndBeginRound(int wager, bool playerAcceptsOpponentWager)
-    {
-        if (IsBattleOver || CurrentRound == null || CurrentRound.WagerCommitted)
-            return false;
-
-        int proposedWager = GetDefaultWager();
+        int proposedWager = Math.Max(0, wager);
         if (proposedWager <= 0 || PlayerMoney <= 0 || OpponentMoney <= 0)
             return false;
 
+        bool playerActsFirst = RoundNumber % 2 == 0;
+        int nextRoundNumber = RoundNumber + 1;
+        int targetScore = RelicRuleResolver.ResolveTargetScore(RunState, Config.TargetScore);
+        int playerBurstThreshold = RelicRuleResolver.ResolvePlayerBurstThreshold(RunState, Config.BurstThreshold);
+        int opponentBurstThreshold = RelicRuleResolver.ResolveOpponentBurstThreshold(RunState, Config.BurstThreshold);
         int playerStake = Math.Min(PlayerMoney, proposedWager);
         int opponentStake = Math.Min(OpponentMoney, proposedWager);
-        if (!CurrentRound.TryCommitWager(playerStake, opponentStake))
+        var nextRound = new RoundState(nextRoundNumber, targetScore, playerBurstThreshold, opponentBurstThreshold, proposedWager, playerActsFirst);
+        if (!nextRound.TryCommitWager(playerStake, opponentStake))
             return false;
+
+        SetPhase(BattlePhase.PreRound);
+        RoundNumber = nextRoundNumber;
+        CurrentRound = nextRound;
+        Config.DevilStrategy.UpdateDevilState(new DevilStateUpdateContext(
+            this,
+            CurrentRound,
+            DevilStateUpdatePoint.RoundStarted));
+        EventBus.Publish(new RoundStartedEvent(RoundNumber));
+        CommandQueue.Enqueue(new VisualCommand(VisualCommandType.RoundStarted, $"{RoundNumber}:{proposedWager}"));
+
+        RestoreCarryoverHands();
+        RefillHandsForRoundStart(playerActsFirst);
 
         RunState.AddMoney(-playerStake);
         AddOpponentMoney(-opponentStake);
 
         EventBus.Publish(new WagerCommittedEvent(proposedWager, CurrentRound.PlayerActsFirst, WagerResponse.Accept));
         global::EventBus.Publish(new MoneyTransferReasonEvent(MoneyTransferReason.InitialWager, playerStake));
-        EventBus.Publish(new RoundStartedEvent(RoundNumber));
-        CommandQueue.Enqueue(new VisualCommand(VisualCommandType.RoundStarted, $"{RoundNumber}:{proposedWager}"));
 
-        CurrentRound.BeginPlayerTurn();
-        SetPhase(BattlePhase.PlayerPhase);
+        BeginPlayerTurn();
 
         return true;
     }
@@ -143,12 +132,12 @@ public sealed class BattleState
 
         if (!TryDrawCard(Combatant.Player, out Card card))
             return false;
+        EventBus.Publish(new CardDrawnEvent(Combatant.Player, card, _playerDeck.RemainingCards));
 
         card = ApplyPlayerCardForPlay(card);
         if (!CurrentRound.TryPlayHitCard(card))
             return false;
 
-        EventBus.Publish(new CardDrawnEvent(Combatant.Player, card, _playerDeck.RemainingCards));
         EventBus.Publish(new PlayerHitUsedEvent(RoundNumber, card));
         PublishPlayerCardPlayed(card);
         return CompletePlayerTurn();
@@ -185,7 +174,7 @@ public sealed class BattleState
         _opponentDeck.DiscardRange(opponentCards);
         CurrentRound.ClearRoundOnlyState();
         CurrentRound = null;
-
+        // WARNING: This discards cards without publishing events
         if (IsBattleOver)
             EndBattle();
         else
@@ -227,6 +216,7 @@ public sealed class BattleState
         EventBus.Publish(new ModifierAddedEvent(modifier));
     }
 
+    // Use this method when a card is played by some other effect, not the player directly. This ensures that the card is processed correctly and any effects are applied.
     public bool TryPlayPlayerHandCardForEffect(int handIndex)
     {
         if (CurrentRound == null)
@@ -271,6 +261,7 @@ public sealed class BattleState
         EventBus.Publish(new CardDrawnEvent(Combatant.Player, card, _playerDeck.RemainingCards));
         EventBus.Publish(new HandRefilledEvent(CurrentRound.PlayerHand.Count));
         CommandQueue.Enqueue(new VisualCommand(VisualCommandType.CardsDrawn, CurrentRound.PlayerHand.Count.ToString()));
+
         return true;
     }
 
@@ -359,21 +350,6 @@ public sealed class BattleState
         TransformCards(_playerHandCarryover, Transform);
     }
 
-    public void DamagePlayer(int amount)
-    {
-        LosePlayerMoney(amount);
-    }
-
-    public void DamageOpponent(int amount)
-    {
-        LoseOpponentMoney(amount);
-    }
-
-    public void HealPlayer(int amount)
-    {
-        AddPlayerMoney(amount);
-    }
-
     public int AddPlayerMoney(int amount)
     {
         int finalAmount = Math.Max(0, amount);
@@ -407,11 +383,6 @@ public sealed class BattleState
         return AddOpponentMoney(-Math.Max(0, amount)) * -1;
     }
 
-    public bool TryDrawForOpponent(out Card card)
-    {
-        return TryDrawCard(Combatant.Opponent, out card);
-    }
-
     public int NextRandomInclusive(int minimum, int maximum)
     {
         if (maximum <= minimum)
@@ -428,11 +399,6 @@ public sealed class BattleState
         EventBus.Publish(new MoneyChangedEvent(Combatant.Opponent, OpponentMoney, actualDelta));
         CommandQueue.Enqueue(new VisualCommand(VisualCommandType.MoneyChanged, $"{Combatant.Opponent}:{OpponentMoney}"));
         return actualDelta;
-    }
-
-    public bool TryDrawForPlayer(out Card card)
-    {
-        return TryDrawCard(Combatant.Player, out card);
     }
 
     public bool TryUseActiveItem(string itemId)
@@ -664,6 +630,10 @@ public sealed class BattleState
         CurrentRound.BeginOpponentTurn();
         RefillOpponentHandIfEmpty();
 
+        Config.DevilStrategy.UpdateDevilState(new DevilStateUpdateContext(
+            this,
+            CurrentRound,
+            DevilStateUpdatePoint.OpponentTurnStarted));
         DevilTurnChoice choice = Config.DevilStrategy.ChooseTurnAction(this, CurrentRound);
         EventBus.Publish(new DevilTurnChoiceEvent(choice));
         if (choice == DevilTurnChoice.Stand)
@@ -715,6 +685,8 @@ public sealed class BattleState
 
     private bool CompletePlayerTurn()
     {
+        EventBus.Publish(new PlayerTurnEndedEvent());
+
         if (ResolveTurnOrRoundEnd())
             return true;
 
@@ -727,9 +699,15 @@ public sealed class BattleState
         if (ResolveTurnOrRoundEnd())
             return true;
 
+        BeginPlayerTurn();
+        return true;
+    }
+
+    private void BeginPlayerTurn()
+    {
         CurrentRound.BeginPlayerTurn();
         SetPhase(BattlePhase.PlayerPhase);
-        return true;
+        EventBus.Publish(new PlayerTurnStartedEvent());
     }
 
     private bool ResolveTurnOrRoundEnd()
@@ -738,14 +716,14 @@ public sealed class BattleState
 
         if (CurrentRound.PlayerStood && CurrentRound.OpponentStood) // if both players stand, resolve the round immediately
         {
-            Combatant? winner = MoneyResolver.DetermineWinner(CurrentRound.PlayerScore, CurrentRound.OpponentScore);
-            ResolveRound(new RoundResolution(winner, 0, 0), true);
+            ResolveRound(true);
             return true;
         }
 
         return false;
     }
 
+    // Opponent poker logic isn't really used in the current game, but just in case ¯\_(ツ)_/¯
     private void ResolveScores()
     {
         ScoreResult playerScore = ScoreResolver.Resolve(CurrentRound.PlayerPlayedCards, CurrentRound.ScoringModifiers, CurrentRound.TargetScore, CurrentRound.PlayerBurstThreshold);
@@ -756,11 +734,11 @@ public sealed class BattleState
 
         PublishScoreEvents(Combatant.Player, playerScore, playerPoker);
         PublishScoreEvents(Combatant.Opponent, opponentScore, opponentPoker);
-        ResolveRealtimeMoney();
+        ResolveRealtimeMoney(playerPoker, opponentPoker);
         CommandQueue.Enqueue(new VisualCommand(VisualCommandType.ScoresResolved, $"{playerScore.FinalScore}:{opponentScore.FinalScore}"));
     }
 
-    private void ResolveRealtimeMoney()
+    private void ResolveRealtimeMoney(PokerResult playerPoker, PokerResult opponentPoker)
     {
         if (CurrentRound == null || CurrentRound.EffectiveWager <= 0)
             return;
@@ -770,38 +748,34 @@ public sealed class BattleState
         if (!playerPlayed && !opponentPlayed)
             return;
 
-        ResolveRealtimeBlackjackPayout();
+        ResolveRealtimePokerPayout(playerPoker, opponentPoker);
         if (playerPlayed)
             ResolveRealtimeBurstPenalty(Combatant.Player, CurrentRound.PlayerScore, CurrentRound.PlayerBurstThreshold);
         if (opponentPlayed)
             ResolveRealtimeBurstPenalty(Combatant.Opponent, CurrentRound.OpponentScore, CurrentRound.OpponentBurstThreshold);
     }
 
-    private void ResolveRealtimeBlackjackPayout()
+    private void ResolveRealtimePokerPayout(PokerResult playerPoker, PokerResult opponentPoker)   // dont need this -> needs to change to poker payout
     {
-        if (CurrentRound.BlackjackPayoutResolved)
-            return;
-
-        if (CurrentRound.PlayerScore.IsBlackjack && !CurrentRound.OpponentScore.IsBlackjack)
+        if (playerPoker.Multiplier >= (int)PokerHandRank.Pair)
         {
-            int lost = LoseOpponentMoney(CurrentRound.EffectiveWager);
+            int lost = LoseOpponentMoney(CurrentRound.EffectiveWager * playerPoker.Multiplier);
             if (lost > 0)
             {
                 AddPlayerMoney(lost);
                 CurrentRound.RecordMoneyLost(Combatant.Opponent, lost);
             }
-            CurrentRound.MarkBlackjackPayoutResolved();
         }
-        else if (CurrentRound.OpponentScore.IsBlackjack && !CurrentRound.PlayerScore.IsBlackjack)
-        {
-            int lost = LosePlayerMoney(CurrentRound.EffectiveWager);
-            if (lost > 0)
-            {
-                AddOpponentMoney(lost);
-                CurrentRound.RecordMoneyLost(Combatant.Player, lost);
-            }
-            CurrentRound.MarkBlackjackPayoutResolved();
-        }
+        // Bruh
+        // else if (CurrentRound.OpponentScore.IsBlackjack && !CurrentRound.PlayerScore.IsBlackjack)
+        // {
+        //     int lost = LosePlayerMoney(CurrentRound.EffectiveWager);
+        //     if (lost > 0)
+        //     {
+        //         AddOpponentMoney(lost);
+        //         CurrentRound.RecordMoneyLost(Combatant.Player, lost);
+        //     }
+        // }
     }
 
     private void ResolveRealtimeBurstPenalty(Combatant combatant, ScoreResult score, int threshold)
@@ -838,13 +812,18 @@ public sealed class BattleState
         return bonus;
     }
 
-    private void ResolveRound(RoundResolution baseResolution, bool applyBurstPenalty)
+    private void ResolveRound(bool applyBurstPenalty)
     {
-        EventBus.Publish(new RoundEndedEvent(RoundNumber));
-        SetPhase(BattlePhase.PostRound);
-
         RoundResolution resolution = MoneyResolver.ResolveRound(this, CurrentRound, applyBurstPenalty);
         _combatHistory.Add(resolution);
+
+        Config.DevilStrategy.UpdateDevilState(new DevilStateUpdateContext(
+            this,
+            CurrentRound,
+            DevilStateUpdatePoint.RoundResolved,
+            resolution));
+        SetPhase(BattlePhase.PostRound);
+        EventBus.Publish(new RoundEndedEvent(RoundNumber));
 
         CommandQueue.Enqueue(new VisualCommand(VisualCommandType.RoundEnded, RoundNumber.ToString()));
 
@@ -861,7 +840,7 @@ public sealed class BattleState
         {
             deck.ReshuffleDiscardIntoDraw();
             ReshuffleCount++;
-            EventBus.Publish(new DeckShuffledEvent(ReshuffleCount, deck.RemainingCards));
+            EventBus.Publish(new DeckShuffledEvent(owner, ReshuffleCount, deck.RemainingCards));
         }
 
         return deck.TryDraw(out card);
