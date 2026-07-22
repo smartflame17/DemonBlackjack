@@ -33,7 +33,7 @@ public sealed class BattleUiPresenter : MonoBehaviour
     [Header("Round Start")]
     [FormerlySerializedAs("wagerPanel")]
     [SerializeField] private GameObject roundStartPanel;
-    [SerializeField, Min(0f)] private float roundStartDelaySeconds = 2f;
+    [SerializeField, Min(0f)] public float roundStartDelaySeconds = 2f;
 
     [Header("Deck View")]
     [SerializeField] private DeckViewPanel deckViewPanel;
