@@ -33,6 +33,16 @@ public readonly struct DevilStateUpdateContext
     public RoundResolution? Resolution { get; }
 }
 
+public interface IDevilOpponentFieldModifier
+{
+    void RefreshOpponentField(BattleState battle, RoundState round);
+}
+
+public interface IDevilRoundPayoutModifier
+{
+    int GetOpponentWinBonus(BattleState battle, RoundState round);
+}
+
 // Core strategy interface for devil AI behavior.
 public interface IDevilStrategy
 {
@@ -141,7 +151,7 @@ public class BasicDevilStrategy : IDevilStrategy
 
 }
 
-public class Devil1Strategy : BasicDevilStrategy
+public class Devil1Strategy : BasicDevilStrategy, IDevilOpponentFieldModifier, IDevilRoundPayoutModifier
 {
     public Devil1Strategy(int startMoney = 1000) : base(drawValue: 3)
     {
@@ -165,12 +175,73 @@ public class Devil1Strategy : BasicDevilStrategy
             lastResolvedRoundNumber = context.Round.RoundNumber;
         }
 
-        if (context.Battle.OpponentMoney <= startingMoney * 0.2f)
+        RefreshMoneyState(context.Battle);
+    }
+
+    public void RefreshOpponentField(BattleState battle, RoundState round)
+    {
+        if (battle == null || round == null)
+            return;
+
+        RefreshMoneyState(battle);
+        int targetSpades = isYandereMode
+            ? Math.Min(3, Math.Max(1, lossStreak - 2))
+            : 0;
+        int transformedCards = 0;
+
+        round.RefreshOpponentVisibleCards((card, owner) =>
+        {
+            if (owner != Combatant.Opponent
+                || card.Suit != Suit.Hearts
+                || transformedCards >= targetSpades)
+            {
+                return card;
+            }
+
+            transformedCards++;
+            return new Card(Suit.Spades, card.Rank, card.ModifierId);
+        });
+    }
+
+    public int GetOpponentWinBonus(BattleState battle, RoundState round)
+    {
+        if (battle == null || round == null || round.BaseWager <= 0)
+            return 0;
+
+        int heartCount = 0;
+        int spadeCount = 0;
+        for (int i = 0; i < round.OpponentVisibleCards.Count; i++)
+        {
+            Suit suit = round.OpponentVisibleCards[i].Suit;
+            if (suit == Suit.Hearts)
+                heartCount++;
+            else if (suit == Suit.Spades)
+                spadeCount++;
+        }
+
+        long multiplier = heartCount + 1L;
+        for (int i = 0; i < spadeCount; i++)
+        {
+            multiplier *= 4L;
+            if (multiplier >= int.MaxValue)
+            {
+                multiplier = int.MaxValue;
+                break;
+            }
+        }
+
+        long bonus = multiplier * round.BaseWager;
+        return bonus >= int.MaxValue ? int.MaxValue : (int)bonus;
+    }
+
+    private void RefreshMoneyState(BattleState battle)
+    {
+        if (battle.OpponentMoney <= startingMoney * 0.2f)
         {
             PixelCrushers.DialogueSystem.DialogueLua.SetVariable("OverrideToLowAffinity", true);
             PixelCrushers.DialogueSystem.DialogueLua.SetVariable("OverrideToMidAffinity", false);
         }
-        else if (context.Battle.OpponentMoney <= startingMoney * 0.4f)
+        else if (battle.OpponentMoney <= startingMoney * 0.4f)
         {
             PixelCrushers.DialogueSystem.DialogueLua.SetVariable("OverrideToLowAffinity", false);
             PixelCrushers.DialogueSystem.DialogueLua.SetVariable("OverrideToMidAffinity", true);
@@ -180,10 +251,9 @@ public class Devil1Strategy : BasicDevilStrategy
             PixelCrushers.DialogueSystem.DialogueLua.SetVariable("OverrideToLowAffinity", false);
             PixelCrushers.DialogueSystem.DialogueLua.SetVariable("OverrideToMidAffinity", false);
         }
-        isYandereMode = context.Battle.OpponentMoney < startingMoney * 0.2f || lossStreak >= 3;
+
+        isYandereMode = battle.OpponentMoney < startingMoney * 0.2f || lossStreak >= 3;
     }
-    
-    // TODO: Heart card multiplier logic, change-to-spade on card play for n cards + spade multiplier based on yandere mode
 
     private void UpdateStreaks(RoundResolution resolution)
     {

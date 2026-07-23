@@ -7,6 +7,7 @@ public sealed class RoundState
     private readonly List<Card> _playerPlayedCards = new();
     private readonly List<Card> _opponentHand = new();
     private readonly List<Card> _opponentVisibleCards = new();
+    private readonly List<Card> _opponentOriginalVisibleCards = new();
     private readonly List<Combatant> _opponentVisibleCardOwners = new();
     private readonly List<Card> _sharedVisibleCards = new();
     private readonly List<Card> _lockedCards = new();
@@ -111,6 +112,17 @@ public sealed class RoundState
         _sharedVisibleCards.Add(card);
     }
 
+    public void RefreshOpponentVisibleCards(Func<Card, Combatant, Card> transform)
+    {
+        for (int i = 0; i < _opponentOriginalVisibleCards.Count; i++)
+        {
+            Card originalCard = _opponentOriginalVisibleCards[i];
+            _opponentVisibleCards[i] = transform != null
+                ? transform(originalCard, _opponentVisibleCardOwners[i])
+                : originalCard;
+        }
+    }
+
     public void TransformPlayerCards(Func<Card, Card> transform)
     {
         if (transform == null)
@@ -123,7 +135,10 @@ public sealed class RoundState
         for (int i = 0; i < _opponentVisibleCards.Count; i++)
         {
             if (_opponentVisibleCardOwners[i] == Combatant.Player)
+            {
+                _opponentOriginalVisibleCards[i] = transform(_opponentOriginalVisibleCards[i]);
                 _opponentVisibleCards[i] = transform(_opponentVisibleCards[i]);
+            }
         }
     }
 
@@ -290,8 +305,9 @@ public sealed class RoundState
         }
         else
         {
-            cards.AddRange(_opponentVisibleCards);
+            cards.AddRange(_opponentOriginalVisibleCards);
             _opponentVisibleCards.Clear();
+            _opponentOriginalVisibleCards.Clear();
             _opponentVisibleCardOwners.Clear();
         }
 
@@ -355,11 +371,12 @@ public sealed class RoundState
     {
         var cards = new List<Card>();
         cards.AddRange(_playerPlayedCards);
-        cards.AddRange(_opponentVisibleCards);
+        cards.AddRange(_opponentOriginalVisibleCards);
         cards.AddRange(_sharedVisibleCards);
 
         _playerPlayedCards.Clear();
         _opponentVisibleCards.Clear();
+        _opponentOriginalVisibleCards.Clear();
         _opponentVisibleCardOwners.Clear();
         _sharedVisibleCards.Clear();
         _lastPlayerHitCardIndex = -1;
@@ -384,24 +401,25 @@ public sealed class RoundState
 
     public IReadOnlyList<Card> TakeOpponentCardsForCleanup()
     {
-        var cards = new List<Card>();
-        cards.AddRange(_opponentVisibleCards);
+        var cards = new List<Card>(_opponentOriginalVisibleCards);
         _opponentVisibleCards.Clear();
+        _opponentOriginalVisibleCards.Clear();
         _opponentVisibleCardOwners.Clear();
         return cards;
     }
 
     public void TakeOpponentCardsForCleanup(ICollection<Card> playerOwnedCards, ICollection<Card> opponentOwnedCards)
     {
-        for (int i = 0; i < _opponentVisibleCards.Count; i++)
+        for (int i = 0; i < _opponentOriginalVisibleCards.Count; i++)
         {
             if (_opponentVisibleCardOwners[i] == Combatant.Player)
-                playerOwnedCards?.Add(_opponentVisibleCards[i]);
+                playerOwnedCards?.Add(_opponentOriginalVisibleCards[i]);
             else
-                opponentOwnedCards?.Add(_opponentVisibleCards[i]);
+                opponentOwnedCards?.Add(_opponentOriginalVisibleCards[i]);
         }
 
         _opponentVisibleCards.Clear();
+        _opponentOriginalVisibleCards.Clear();
         _opponentVisibleCardOwners.Clear();
     }
 
@@ -416,6 +434,7 @@ public sealed class RoundState
 
     private void AddOpponentVisibleCard(Card card, Combatant owner)
     {
+        _opponentOriginalVisibleCards.Add(card);
         _opponentVisibleCards.Add(card);
         _opponentVisibleCardOwners.Add(owner);
     }
