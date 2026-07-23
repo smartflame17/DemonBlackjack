@@ -1,6 +1,7 @@
 using TMPro;
 using UnityEngine;
 using UnityEngine.UI;
+using Coffee.UIEffects;
 
 public sealed class BattleUiCardView : MonoBehaviour
 {
@@ -12,6 +13,7 @@ public sealed class BattleUiCardView : MonoBehaviour
     [SerializeField] private RectTransform visualRoot;
     [SerializeField] private Image upgradeImage;
     [SerializeField] private TooltipTrigger tooltipTrigger;
+    [SerializeField] private UIEffect uiEffect;
 
     private Vector2 _baseAnchoredPosition;
     private bool _hasBasePosition;
@@ -27,7 +29,8 @@ public sealed class BattleUiCardView : MonoBehaviour
         visualRoot = cardImage != null ? cardImage.rectTransform : transform as RectTransform;
         if (button != null && button.targetGraphic == null)
             button.targetGraphic = image;
-
+        
+        uiEffect.edgeMode = EdgeMode.None;
         CacheBasePosition();
     }
 
@@ -132,6 +135,9 @@ public sealed class BattleUiCardView : MonoBehaviour
 
         if (upgradeImage == null)
             upgradeImage = FindChildImage("Upgrade");
+
+        uiEffect ??= GetComponent<UIEffect>() ?? gameObject.AddComponent<UIEffect>();
+        uiEffect.edgeMode = EdgeMode.None;
 
         tooltipTrigger ??= GetComponent<TooltipTrigger>() ?? gameObject.AddComponent<TooltipTrigger>();
 
