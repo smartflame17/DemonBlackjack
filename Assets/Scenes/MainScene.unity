@@ -2067,6 +2067,7 @@ GameObject:
   - component: {fileID: 146795208}
   - component: {fileID: 146795211}
   - component: {fileID: 146795210}
+  - component: {fileID: 146795212}
   m_Layer: 5
   m_Name: PlayerPlayPile
   m_TagString: Untagged
@@ -2171,6 +2172,19 @@ CanvasRenderer:
   m_PrefabAsset: {fileID: 0}
   m_GameObject: {fileID: 146795206}
   m_CullTransparentMesh: 1
+--- !u!114 &146795212
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 146795206}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: bd25ffb14e2a4cb3a6eaf86464e09674, type: 3}
+  m_Name:
+  m_EditorClassIdentifier: Assembly-CSharp::PokerHighlightController
+  battleController: {fileID: 1399201285}
 --- !u!1 &151781316
 GameObject:
   m_ObjectHideFlags: 0

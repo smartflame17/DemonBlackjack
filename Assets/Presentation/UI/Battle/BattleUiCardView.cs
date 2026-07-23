@@ -21,6 +21,11 @@ public sealed class BattleUiCardView : MonoBehaviour
     public Button Button => button;
     public RectTransform RectTransform => transform as RectTransform;
 
+    private void Awake()
+    {
+        SetPokerHighlight(false);
+    }
+
     public void Initialize(Image cardImage, TMP_Text cardLabel, Button cardButton)
     {
         image = cardImage;
@@ -29,8 +34,8 @@ public sealed class BattleUiCardView : MonoBehaviour
         visualRoot = cardImage != null ? cardImage.rectTransform : transform as RectTransform;
         if (button != null && button.targetGraphic == null)
             button.targetGraphic = image;
-        
-        uiEffect.edgeMode = EdgeMode.None;
+
+        SetPokerHighlight(false);
         CacheBasePosition();
     }
 
@@ -106,6 +111,14 @@ public sealed class BattleUiCardView : MonoBehaviour
             upgradeImage.color = color;
     }
 
+    public void SetPokerHighlight(bool highlighted)
+    {
+        EnsureReferences();
+
+        if (uiEffect != null)
+            uiEffect.edgeMode = highlighted ? EdgeMode.Shiny : EdgeMode.None;
+    }
+
     public void SetSelected(bool selected)
     {
         EnsureReferences();
@@ -136,8 +149,8 @@ public sealed class BattleUiCardView : MonoBehaviour
         if (upgradeImage == null)
             upgradeImage = FindChildImage("Upgrade");
 
-        uiEffect ??= GetComponent<UIEffect>() ?? gameObject.AddComponent<UIEffect>();
-        uiEffect.edgeMode = EdgeMode.None;
+        uiEffect ??= GetComponentInChildren<UIEffect>(true);
+        uiEffect ??= gameObject.AddComponent<UIEffect>();
 
         tooltipTrigger ??= GetComponent<TooltipTrigger>() ?? gameObject.AddComponent<TooltipTrigger>();
 
