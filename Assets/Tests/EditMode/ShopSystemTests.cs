@@ -91,10 +91,13 @@ public sealed class ShopSystemTests
 
         Assert.That(catalog.TryGetDefinition(ActiveItemResolver.RejectLastHit.ToUpperInvariant(), out ShopContentDefinition item), Is.True);
         Assert.That(item, Is.TypeOf<ActiveItemDefinition>());
+        Assert.That(catalog.TryGetDefinition(ActiveItemResolver.LeverageTriple.ToUpperInvariant(), out ShopContentDefinition leverage), Is.True);
+        Assert.That(leverage, Is.TypeOf<ActiveItemDefinition>());
         Assert.That(catalog.TryGetDefinition(RelicRuleResolver.BurstTwentyTwo.ToUpperInvariant(), out ShopContentDefinition relic), Is.True);
         Assert.That(relic, Is.TypeOf<RelicDefinition>());
         Assert.That(catalog.TryGetDefinition(CardModifierResolver.RankToHearts.ToUpperInvariant(), out ShopContentDefinition upgrade), Is.True);
         Assert.That(upgrade, Is.TypeOf<CardUpgradeDefinition>());
+        Assert.That(catalog.TryGetDefinition(ActiveItemResolver.DoubleWager, out _), Is.False);
         Assert.That(catalog.TryGetDefinition(string.Empty, out _), Is.False);
         Assert.That(catalog.TryGetDefinition("unknown_content", out _), Is.False);
 
@@ -358,8 +361,7 @@ public sealed class ShopSystemTests
         Assert.That(battle.RelicRuntimes[0].RelicId, Is.EqualTo(RelicRuleResolver.SuitOverride));
 
         Assert.That(battle.StartRound(battle.GetDefaultWager()), Is.True);
-        Assert.That(battle.StartRound(battle.GetDefaultWager()), Is.True);
-        Assert.That(battle.CurrentRound.PlayerBurstThreshold, Is.EqualTo(22));
+        Assert.That(battle.CurrentRound.PlayerBurstThreshold, Is.EqualTo(battle.Config.BurstThreshold));
         battle.Dispose();
     }
 
@@ -485,7 +487,6 @@ public sealed class ShopSystemTests
 
         battle.CleanupRound();
         Assert.That(battle.StartRound(battle.GetDefaultWager()), Is.True);
-        Assert.That(battle.StartRound(battle.GetDefaultWager()), Is.True);
         battle.CurrentRound.AddToOpponentHand(new Card(Suit.Spades, Rank.Ten));
         battle.CurrentRound.TryPlayOpponentCard(0, out Card ten);
         battle.EventBus.Publish(new CardPlayedEvent(Combatant.Opponent, ten));
@@ -594,7 +595,6 @@ public sealed class ShopSystemTests
         battle.TryPlayPlayerHandCardForEffect(IndexOfRankAndSuit(battle.CurrentRound.PlayerHand, Rank.Seven, Suit.Hearts));
         battle.CleanupRound();
 
-        Assert.That(battle.StartRound(battle.GetDefaultWager()), Is.True);
         Assert.That(battle.StartRound(battle.GetDefaultWager()), Is.True);
         battle.CurrentRound.AddToHand(new Card(Suit.Clubs, Rank.Seven));
         Assert.That(battle.TryPlayPlayerHandCardForEffect(IndexOfRankAndSuit(battle.CurrentRound.PlayerHand, Rank.Seven, Suit.Clubs)), Is.True);
@@ -740,6 +740,31 @@ public sealed class ShopSystemTests
     }
 
     [Test]
+    public void NumberValueModifiers_AdjustBlackjackScoreBeforeFinalScore()
+    {
+        ScoreResult doubled = ScoreResolver.Resolve(
+            new[] { new Card(Suit.Clubs, Rank.Eight, CardModifierResolver.DoubleCardValue) },
+            null,
+            21,
+            21);
+        ScoreResult halved = ScoreResolver.Resolve(
+            new[] { new Card(Suit.Clubs, Rank.Nine, CardModifierResolver.HalfCardValue) },
+            null,
+            21,
+            21);
+        ScoreResult joker = ScoreResolver.Resolve(
+            new[] { new Card(Suit.Clubs, Rank.Two, CardModifierResolver.CreateResolvedJokerValue(21)) },
+            null,
+            21,
+            21);
+
+        Assert.That(doubled.BlackjackScore, Is.EqualTo(16));
+        Assert.That(halved.BlackjackScore, Is.EqualTo(4));
+        Assert.That(joker.BlackjackScore, Is.EqualTo(21));
+        Assert.That(joker.IsBlackjack, Is.True);
+    }
+
+    [Test]
     public void CopyQueen_ContributesZeroBlackjackValueButKeepsPokerIdentity()
     {
         ScoreResult score = ScoreResolver.Resolve(
@@ -750,6 +775,32 @@ public sealed class ShopSystemTests
 
         Assert.That(score.BlackjackScore, Is.EqualTo(10));
         Assert.That(score.PokerRank, Is.EqualTo(PokerHandRank.Pair));
+    }
+
+    [Test]
+    public void FaceUtilityModifiers_ContributeZeroBlackjackValue()
+    {
+        string[] modifierIds =
+        {
+            CardModifierResolver.CopyQueen,
+            CardModifierResolver.OutsourceOpponentCard,
+            CardModifierResolver.DuplicateKing,
+            CardModifierResolver.DuplicateOpponentCard,
+            CardModifierResolver.HitTopDeckCard,
+            CardModifierResolver.SplitPreviousCard,
+            CardModifierResolver.ZeroThenForceHit
+        };
+
+        for (int i = 0; i < modifierIds.Length; i++)
+        {
+            ScoreResult score = ScoreResolver.Resolve(
+                new[] { new Card(Suit.Clubs, Rank.King, modifierIds[i]) },
+                null,
+                21,
+                21);
+
+            Assert.That(score.BlackjackScore, Is.EqualTo(0), modifierIds[i]);
+        }
     }
 
     [Test]
@@ -790,50 +841,48 @@ public sealed class ShopSystemTests
     }
 
     [Test]
-    public void CopyQueen_PlaysRandomHandCardWithPreviousCardSuit()
+    public void CopyQueen_PlaysMatchingSuitCardFromPlayerDeck()
     {
-        RunState run = CreateRunWithDeck(
-            CardData(Suit.Hearts, Rank.Five),
-            CardData(Suit.Clubs, Rank.Queen, CardModifierResolver.CopyQueen),
-            CardData(Suit.Hearts, Rank.Two),
-            CardData(Suit.Spades, Rank.Three));
-        var battle = new BattleState(run, new BattleConfig("test", 100, startingHandSize: 4));
-        battle.StartRound(battle.GetDefaultWager());
-        int playedEvents = 0;
-        battle.EventBus.Subscribe<CardPlayedEvent>(_ => playedEvents++);
-
-        Assert.That(battle.TryPlayPlayerHandCardForEffect(IndexOfRank(battle.CurrentRound.PlayerHand, Rank.Five)), Is.True);
-        Assert.That(battle.TryPlayPlayerHandCardForEffect(IndexOfRank(battle.CurrentRound.PlayerHand, Rank.Queen)), Is.True);
-
-        Assert.That(ContainsRank(battle.CurrentRound.PlayerPlayedCards, Rank.Two), Is.True);
-        Assert.That(ContainsRank(battle.CurrentRound.PlayerPlayedCards, Rank.Three), Is.False);
-        Assert.That(playedEvents, Is.EqualTo(3));
-
-        battle.Dispose();
-    }
-
-    [Test]
-    public void CopyQueen_DoesNothingWhenNoHandCardMatchesPreviousSuit()
-    {
-        RunState run = CreateRunWithDeck(
-            CardData(Suit.Hearts, Rank.Five),
-            CardData(Suit.Clubs, Rank.Queen, CardModifierResolver.CopyQueen),
-            CardData(Suit.Spades, Rank.Three));
+        RunState run = CreateRunWithDeck(RepeatCardData(Suit.Hearts, Rank.Two, 5));
         var battle = new BattleState(run, new BattleConfig("test", 100));
         battle.StartRound(battle.GetDefaultWager());
+        PlayPlayerCards(battle.CurrentRound, new Card(Suit.Hearts, Rank.Five));
+        battle.CurrentRound.AddToHand(new Card(Suit.Clubs, Rank.Queen, CardModifierResolver.CopyQueen));
+        int playedEvents = 0;
+        battle.EventBus.Subscribe<CardPlayedEvent>(eventData =>
+        {
+            if (eventData.Owner == Combatant.Player)
+                playedEvents++;
+        });
+
+        Assert.That(battle.TryPlayPlayerHandCardForEffect(IndexOfModifier(battle.CurrentRound.PlayerHand, CardModifierResolver.CopyQueen)), Is.True);
+
+        Assert.That(ContainsRank(battle.CurrentRound.PlayerPlayedCards, Rank.Two), Is.True);
+        Assert.That(playedEvents, Is.EqualTo(2));
+
+        battle.Dispose();
+    }
+
+    [Test]
+    public void CopyQueen_DoesNothingWhenNoDeckCardMatchesPreviousSuit()
+    {
+        RunState run = CreateRunWithDeck(RepeatCardData(Suit.Spades, Rank.Three, 5));
+        var battle = new BattleState(run, new BattleConfig("test", 100));
         battle.StartRound(battle.GetDefaultWager());
+        PlayPlayerCards(battle.CurrentRound, new Card(Suit.Hearts, Rank.Five));
+        battle.CurrentRound.AddToHand(new Card(Suit.Clubs, Rank.Queen, CardModifierResolver.CopyQueen));
+        int fieldBefore = battle.CurrentRound.PlayerPlayedCards.Count;
 
-        battle.TryPlayPlayerHandCardForEffect(IndexOfRank(battle.CurrentRound.PlayerHand, Rank.Five));
-        battle.TryPlayPlayerHandCardForEffect(IndexOfRank(battle.CurrentRound.PlayerHand, Rank.Queen));
+        battle.TryPlayPlayerHandCardForEffect(IndexOfModifier(battle.CurrentRound.PlayerHand, CardModifierResolver.CopyQueen));
 
-        Assert.That(battle.CurrentRound.PlayerPlayedCards.Count, Is.EqualTo(2));
+        Assert.That(battle.CurrentRound.PlayerPlayedCards.Count, Is.EqualTo(fieldBefore + 1));
         Assert.That(ContainsRank(battle.CurrentRound.PlayerPlayedCards, Rank.Three), Is.False);
 
         battle.Dispose();
     }
 
     [Test]
-    public void DuplicateKing_AddsBattleOnlyDuplicateOfPreviousCardToPlayerHand()
+    public void DuplicateKing_AddsBattleOnlyDuplicateOfPreviousCardToPlayerField()
     {
         RunState run = CreateRunWithDeck(
             CardData(Suit.Hearts, Rank.Nine, CardModifierResolver.NegativeRank),
@@ -846,28 +895,25 @@ public sealed class ShopSystemTests
         battle.TryPlayPlayerHandCardForEffect(IndexOfRank(battle.CurrentRound.PlayerHand, Rank.Nine));
         battle.TryPlayPlayerHandCardForEffect(IndexOfRank(battle.CurrentRound.PlayerHand, Rank.King));
 
-        Assert.That(ContainsModifier(battle.CurrentRound.PlayerHand, Rank.Nine, CardModifierResolver.NegativeRank), Is.True);
+        Assert.That(CountRank(battle.CurrentRound.PlayerPlayedCards, Rank.Nine), Is.EqualTo(2));
+        Assert.That(ContainsModifier(battle.CurrentRound.PlayerPlayedCards, Rank.Nine, CardModifierResolver.NegativeRank), Is.True);
         Assert.That(run.Deck.Count, Is.EqualTo(runDeckCount));
 
         battle.Dispose();
     }
 
     [Test]
-    public void HitLower_PlaysRandomLowerRankFromPlayerHand()
+    public void HitLower_PlaysRandomLowerRankFromPlayerDeck()
     {
-        RunState run = CreateRunWithDeck(
-            CardData(Suit.Clubs, Rank.Six, CardModifierResolver.HitLower),
-            CardData(Suit.Diamonds, Rank.Two),
-            CardData(Suit.Hearts, Rank.Seven));
+        RunState run = CreateRunWithDeck(RepeatCardData(Suit.Diamonds, Rank.Two, 5));
         var battle = new BattleState(run, new BattleConfig("test", 100));
         battle.StartRound(battle.GetDefaultWager());
-        battle.StartRound(battle.GetDefaultWager());
+        battle.CurrentRound.AddToHand(new Card(Suit.Clubs, Rank.Six, CardModifierResolver.HitLower));
 
         Assert.That(battle.TryPlayPlayerHandCardForEffect(IndexOfRank(battle.CurrentRound.PlayerHand, Rank.Six)), Is.True);
 
         Assert.That(ContainsRank(battle.CurrentRound.PlayerPlayedCards, Rank.Six), Is.True);
         Assert.That(ContainsRank(battle.CurrentRound.PlayerPlayedCards, Rank.Two), Is.True);
-        Assert.That(ContainsRank(battle.CurrentRound.PlayerPlayedCards, Rank.Seven), Is.False);
 
         battle.Dispose();
     }
@@ -875,10 +921,10 @@ public sealed class ShopSystemTests
     [Test]
     public void HitLower_DoesNothingWhenNoLowerRankExists()
     {
-        RunState run = CreateRunWithDeck(CardData(Suit.Clubs, Rank.Six, CardModifierResolver.HitLower));
+        RunState run = CreateRunWithDeck(RepeatCardData(Suit.Hearts, Rank.Seven, 5));
         var battle = new BattleState(run, new BattleConfig("test", 100));
         battle.StartRound(battle.GetDefaultWager());
-        battle.StartRound(battle.GetDefaultWager());
+        battle.CurrentRound.AddToHand(new Card(Suit.Clubs, Rank.Six, CardModifierResolver.HitLower));
 
         Assert.That(battle.TryPlayPlayerHandCardForEffect(IndexOfRank(battle.CurrentRound.PlayerHand, Rank.Six)), Is.True);
 
@@ -891,18 +937,216 @@ public sealed class ShopSystemTests
     [Test]
     public void HitLower_EffectPlayedCardPublishesCardPlayedEvent()
     {
-        RunState run = CreateRunWithDeck(
-            CardData(Suit.Clubs, Rank.Six, CardModifierResolver.HitLower),
-            CardData(Suit.Diamonds, Rank.Four, CardModifierResolver.HitLower));
+        RunState run = CreateRunWithDeck(RepeatCardData(Suit.Diamonds, Rank.Four, 5));
         var battle = new BattleState(run, new BattleConfig("test", 100));
         battle.StartRound(battle.GetDefaultWager());
+        battle.CurrentRound.AddToHand(new Card(Suit.Clubs, Rank.Six, CardModifierResolver.HitLower));
         var playedRanks = new List<Rank>();
         battle.EventBus.Subscribe<CardPlayedEvent>(eventData => playedRanks.Add(eventData.Card.Rank));
 
         Assert.That(battle.TryPlayPlayerHandCardForEffect(IndexOfRank(battle.CurrentRound.PlayerHand, Rank.Six)), Is.True);
 
         CollectionAssert.AreEqual(new[] { Rank.Six, Rank.Four }, playedRanks);
-        Assert.That(ContainsModifier(battle.CurrentRound.PlayerPlayedCards, Rank.Four, CardModifierResolver.HitLower), Is.True);
+        Assert.That(ContainsRank(battle.CurrentRound.PlayerPlayedCards, Rank.Four), Is.True);
+
+        battle.Dispose();
+    }
+
+    [Test]
+    public void HitHigher_PlaysRandomHigherRankFromPlayerDeck()
+    {
+        RunState run = CreateRunWithDeck(RepeatCardData(Suit.Spades, Rank.Nine, 5));
+        var battle = new BattleState(run, new BattleConfig("test", 100));
+        battle.StartRound(battle.GetDefaultWager());
+        battle.CurrentRound.AddToHand(new Card(Suit.Clubs, Rank.Six, CardModifierResolver.HitHigher));
+
+        Assert.That(battle.TryPlayPlayerHandCardForEffect(IndexOfRank(battle.CurrentRound.PlayerHand, Rank.Six)), Is.True);
+
+        Assert.That(ContainsRank(battle.CurrentRound.PlayerPlayedCards, Rank.Six), Is.True);
+        Assert.That(ContainsRank(battle.CurrentRound.PlayerPlayedCards, Rank.Nine), Is.True);
+
+        battle.Dispose();
+    }
+
+    [Test]
+    public void DrawRank_DrawsMatchingRankFromPlayerDeckToHand()
+    {
+        RunState run = CreateRunWithDeck(RepeatCardData(Suit.Diamonds, Rank.Eight, 5));
+        var battle = new BattleState(run, new BattleConfig("test", 100));
+        battle.StartRound(battle.GetDefaultWager());
+        int eightsBefore = CountRank(battle.CurrentRound.PlayerHand, Rank.Eight);
+        battle.CurrentRound.AddToHand(new Card(Suit.Clubs, Rank.Eight, CardModifierResolver.DrawRank));
+
+        Assert.That(battle.TryPlayPlayerHandCardForEffect(IndexOfModifier(battle.CurrentRound.PlayerHand, CardModifierResolver.DrawRank)), Is.True);
+
+        Assert.That(CountRank(battle.CurrentRound.PlayerHand, Rank.Eight), Is.EqualTo(eightsBefore + 1));
+
+        battle.Dispose();
+    }
+
+    [Test]
+    public void MoveOpponentToPlayer_MovesPreviousOpponentCardToPlayerField()
+    {
+        var battle = new BattleState(new RunState(1), new BattleConfig("test", 100));
+        battle.StartRound(battle.GetDefaultWager());
+        PlayOpponentCards(battle.CurrentRound, new Card(Suit.Diamonds, Rank.Seven));
+        battle.CurrentRound.AddToHand(new Card(Suit.Clubs, Rank.Jack, CardModifierResolver.MoveOpponentToPlayer));
+
+        Assert.That(battle.TryPlayPlayerHandCardForEffect(IndexOfModifier(battle.CurrentRound.PlayerHand, CardModifierResolver.MoveOpponentToPlayer)), Is.True);
+
+        Assert.That(ContainsRank(battle.CurrentRound.OpponentVisibleCards, Rank.Seven), Is.False);
+        Assert.That(ContainsRank(battle.CurrentRound.PlayerPlayedCards, Rank.Seven), Is.True);
+
+        battle.Dispose();
+    }
+
+    [Test]
+    public void DemoteOpponentCard_ReturnsPreviousOpponentCardToOpponentDeckBottom()
+    {
+        var battle = new BattleState(new RunState(1), new BattleConfig("test", 100));
+        battle.StartRound(battle.GetDefaultWager());
+        Card demoted = new(Suit.Hearts, Rank.Seven);
+        PlayOpponentCards(battle.CurrentRound, demoted);
+        battle.CurrentRound.AddToHand(new Card(Suit.Clubs, Rank.Jack, CardModifierResolver.DemoteOpponentCard));
+
+        Assert.That(battle.TryPlayPlayerHandCardForEffect(IndexOfModifier(battle.CurrentRound.PlayerHand, CardModifierResolver.DemoteOpponentCard)), Is.True);
+
+        Assert.That(ContainsRank(battle.CurrentRound.OpponentVisibleCards, Rank.Seven), Is.False);
+        Assert.That(battle.OpponentDrawPile[0], Is.EqualTo(demoted));
+
+        battle.Dispose();
+    }
+
+    [Test]
+    public void DuplicateOpponentCard_AddsCopyOfPreviousOpponentCardToPlayerField()
+    {
+        var battle = new BattleState(new RunState(1), new BattleConfig("test", 100));
+        battle.StartRound(battle.GetDefaultWager());
+        PlayOpponentCards(battle.CurrentRound, new Card(Suit.Diamonds, Rank.Eight));
+        battle.CurrentRound.AddToHand(new Card(Suit.Clubs, Rank.King, CardModifierResolver.DuplicateOpponentCard));
+
+        Assert.That(battle.TryPlayPlayerHandCardForEffect(IndexOfModifier(battle.CurrentRound.PlayerHand, CardModifierResolver.DuplicateOpponentCard)), Is.True);
+
+        Assert.That(ContainsRank(battle.CurrentRound.OpponentVisibleCards, Rank.Eight), Is.True);
+        Assert.That(ContainsRank(battle.CurrentRound.PlayerPlayedCards, Rank.Eight), Is.True);
+
+        battle.Dispose();
+    }
+
+    [Test]
+    public void HitTopDeckCard_PlaysCurrentPlayerDeckTopCard()
+    {
+        RunState run = CreateRunWithDeck(RepeatCardData(Suit.Spades, Rank.Five, 5));
+        var battle = new BattleState(run, new BattleConfig("test", 100));
+        battle.StartRound(battle.GetDefaultWager());
+        Card expected = battle.PlayerDrawPile[^1];
+        battle.CurrentRound.AddToHand(new Card(Suit.Clubs, Rank.King, CardModifierResolver.HitTopDeckCard));
+
+        Assert.That(battle.TryPlayPlayerHandCardForEffect(IndexOfModifier(battle.CurrentRound.PlayerHand, CardModifierResolver.HitTopDeckCard)), Is.True);
+
+        Assert.That(IndexOfRankAndSuit(battle.CurrentRound.PlayerPlayedCards, expected.Rank, expected.Suit), Is.GreaterThanOrEqualTo(0));
+
+        battle.Dispose();
+    }
+
+    [Test]
+    public void SplitPreviousCard_ReplacesPreviousNumberWithTwoHalfCards()
+    {
+        var battle = new BattleState(new RunState(1), new BattleConfig("test", 100));
+        battle.StartRound(battle.GetDefaultWager());
+        PlayPlayerCards(battle.CurrentRound, new Card(Suit.Hearts, Rank.Nine));
+        battle.CurrentRound.AddToHand(new Card(Suit.Clubs, Rank.King, CardModifierResolver.SplitPreviousCard));
+
+        Assert.That(battle.TryPlayPlayerHandCardForEffect(IndexOfModifier(battle.CurrentRound.PlayerHand, CardModifierResolver.SplitPreviousCard)), Is.True);
+
+        Assert.That(ContainsRank(battle.CurrentRound.PlayerPlayedCards, Rank.Nine), Is.False);
+        Assert.That(ContainsRank(battle.CurrentRound.PlayerPlayedCards, Rank.Four), Is.True);
+        Assert.That(ContainsRank(battle.CurrentRound.PlayerPlayedCards, Rank.Five), Is.True);
+
+        battle.Dispose();
+    }
+
+    [Test]
+    public void TriggerPreviousEffect_TriggersPreviousCardEffectOnce()
+    {
+        RunState run = CreateRunWithDeck(RepeatCardData(Suit.Diamonds, Rank.Four, 5));
+        var battle = new BattleState(run, new BattleConfig("test", 100));
+        battle.StartRound(battle.GetDefaultWager());
+        PlayPlayerCards(battle.CurrentRound, new Card(Suit.Clubs, Rank.Six, CardModifierResolver.HitLower));
+        battle.CurrentRound.AddToHand(new Card(Suit.Hearts, Rank.Two, CardModifierResolver.TriggerPreviousEffect));
+
+        Assert.That(battle.TryPlayPlayerHandCardForEffect(IndexOfModifier(battle.CurrentRound.PlayerHand, CardModifierResolver.TriggerPreviousEffect)), Is.True);
+
+        Assert.That(ContainsRank(battle.CurrentRound.PlayerPlayedCards, Rank.Four), Is.True);
+
+        battle.Dispose();
+    }
+
+    [Test]
+    public void TriggerPreviousEffect_DoesNotChainThroughAnotherTriggerPreviousEffect()
+    {
+        RunState run = CreateRunWithDeck(RepeatCardData(Suit.Diamonds, Rank.Four, 5));
+        var battle = new BattleState(run, new BattleConfig("test", 100));
+        battle.StartRound(battle.GetDefaultWager());
+        PlayPlayerCards(
+            battle.CurrentRound,
+            new Card(Suit.Clubs, Rank.Six, CardModifierResolver.HitLower),
+            new Card(Suit.Hearts, Rank.Two, CardModifierResolver.TriggerPreviousEffect));
+        battle.CurrentRound.AddToHand(new Card(Suit.Spades, Rank.Three, CardModifierResolver.TriggerPreviousEffect));
+
+        Assert.That(battle.TryPlayPlayerHandCardForEffect(IndexOfModifier(battle.CurrentRound.PlayerHand, CardModifierResolver.TriggerPreviousEffect)), Is.True);
+
+        Assert.That(ContainsRank(battle.CurrentRound.PlayerPlayedCards, Rank.Four), Is.False);
+
+        battle.Dispose();
+    }
+
+    [Test]
+    public void DiscardLowestNumber_DiscardsLowestPlayerNumberCard()
+    {
+        var battle = new BattleState(new RunState(1), new BattleConfig("test", 100));
+        battle.StartRound(battle.GetDefaultWager());
+        Card lowest = new(Suit.Hearts, Rank.Two);
+        PlayPlayerCards(battle.CurrentRound, new Card(Suit.Clubs, Rank.Five), lowest);
+        battle.CurrentRound.AddToHand(new Card(Suit.Spades, Rank.Eight, CardModifierResolver.DiscardLowestNumber));
+
+        Assert.That(battle.TryPlayPlayerHandCardForEffect(IndexOfModifier(battle.CurrentRound.PlayerHand, CardModifierResolver.DiscardLowestNumber)), Is.True);
+
+        Assert.That(ContainsRank(battle.CurrentRound.PlayerPlayedCards, Rank.Two), Is.False);
+        Assert.That(battle.PlayerDiscardPile[0], Is.EqualTo(lowest));
+
+        battle.Dispose();
+    }
+
+    [Test]
+    public void JokerValue_ReplacesPlayedCardWithResolvedRandomValue()
+    {
+        var battle = new BattleState(new RunState(1), new BattleConfig("test", 100));
+        battle.StartRound(battle.GetDefaultWager());
+        battle.CurrentRound.AddToHand(new Card(Suit.Clubs, Rank.Two, CardModifierResolver.JokerValue));
+
+        Assert.That(battle.TryPlayPlayerHandCardForEffect(IndexOfModifier(battle.CurrentRound.PlayerHand, CardModifierResolver.JokerValue)), Is.True);
+
+        Card resolved = battle.CurrentRound.PlayerPlayedCards[^1];
+        Assert.That(CardModifierResolver.TryGetResolvedJokerValue(resolved.ModifierId, out int value), Is.True);
+        CollectionAssert.Contains(new[] { 1, 2, 12, 21 }, value);
+
+        battle.Dispose();
+    }
+
+    [Test]
+    public void ZeroThenForceHit_PlaysTopDeckCardAfterZeroValueTrigger()
+    {
+        RunState run = CreateRunWithDeck(RepeatCardData(Suit.Spades, Rank.Six, 5));
+        var battle = new BattleState(run, new BattleConfig("test", 100));
+        battle.StartRound(battle.GetDefaultWager());
+        Card expected = battle.PlayerDrawPile[^1];
+        battle.CurrentRound.AddToHand(new Card(Suit.Clubs, Rank.Seven, CardModifierResolver.ZeroThenForceHit));
+
+        Assert.That(battle.TryPlayPlayerHandCardForEffect(IndexOfModifier(battle.CurrentRound.PlayerHand, CardModifierResolver.ZeroThenForceHit)), Is.True);
+
+        Assert.That(IndexOfRankAndSuit(battle.CurrentRound.PlayerPlayedCards, expected.Rank, expected.Suit), Is.GreaterThanOrEqualTo(0));
+        Assert.That(battle.CurrentRound.PlayerScore.BlackjackScore, Is.EqualTo(expected.BlackjackValue));
 
         battle.Dispose();
     }
@@ -1088,7 +1332,6 @@ public sealed class ShopSystemTests
 
         Assert.That(run.TryPurchaseRankUpgrade(Rank.Jack, CardModifierResolver.RankToClubs, 10).Succeeded, Is.True);
         Assert.That(battle.StartRound(battle.GetDefaultWager()), Is.True);
-        Assert.That(battle.StartRound(battle.GetDefaultWager()), Is.True);
 
         Assert.That(ContainsUpgradedRank(battle.CurrentRound.PlayerHand, Rank.Jack, CardModifierResolver.RankToClubs), Is.True);
 
@@ -1128,6 +1371,82 @@ public sealed class ShopSystemTests
         Assert.That(battle.CurrentRound.PlayerPlayedCards.Count, Is.EqualTo(0));
         Assert.That(battle.PlayerDiscardPile.Count, Is.EqualTo(1));
         Assert.That(battle.PlayerDiscardPile[0], Is.EqualTo(hitCard));
+    }
+
+    [Test]
+    public void LeverageTriple_AddsTwoExtraMatchingStakes()
+    {
+        var run = new RunState(1, startingMoney: 100);
+        run.AddActiveItem(ActiveItemResolver.LeverageTriple);
+        var battle = new BattleState(run, new BattleConfig("test", 100, baseWager: 10));
+        battle.StartRound(battle.GetDefaultWager());
+
+        Assert.That(battle.TryUseActiveItem(ActiveItemResolver.LeverageTriple), Is.True);
+
+        Assert.That(battle.CurrentRound.WagerMultiplier, Is.EqualTo(3));
+        Assert.That(battle.CurrentRound.EffectiveWager, Is.EqualTo(30));
+        Assert.That(battle.CurrentRound.Pot, Is.EqualTo(60));
+        Assert.That(run.Money, Is.EqualTo(70));
+        Assert.That(battle.OpponentMoney, Is.EqualTo(70));
+        Assert.That(run.HasActiveItem(ActiveItemResolver.LeverageTriple), Is.False);
+
+        battle.Dispose();
+    }
+
+    [Test]
+    public void BurstThresholdPlusThree_IncreasesPlayerBurstThresholdForCurrentRound()
+    {
+        var run = new RunState(1);
+        run.AddActiveItem(ActiveItemResolver.BurstThresholdPlusThree);
+        var battle = new BattleState(run, new BattleConfig("test", 100));
+        battle.StartRound(battle.GetDefaultWager());
+        int before = battle.CurrentRound.PlayerBurstThreshold;
+
+        Assert.That(battle.TryUseActiveItem(ActiveItemResolver.BurstThresholdPlusThree), Is.True);
+
+        Assert.That(battle.CurrentRound.PlayerBurstThreshold, Is.EqualTo(before + 3));
+        Assert.That(run.HasActiveItem(ActiveItemResolver.BurstThresholdPlusThree), Is.False);
+
+        battle.Dispose();
+    }
+
+    [Test]
+    public void ReturnPlayerFieldCardToHand_ReturnsLatestFieldCard()
+    {
+        var run = new RunState(1);
+        run.AddActiveItem(ActiveItemResolver.ReturnPlayerFieldCardToHand);
+        var battle = new BattleState(run, new BattleConfig("test", 100));
+        battle.StartRound(battle.GetDefaultWager());
+        Card fieldCard = new(Suit.Hearts, Rank.Eight);
+        battle.CurrentRound.TryPlayHitCard(fieldCard);
+        int handBefore = battle.CurrentRound.PlayerHand.Count;
+
+        Assert.That(battle.TryUseActiveItem(ActiveItemResolver.ReturnPlayerFieldCardToHand), Is.True);
+
+        Assert.That(battle.CurrentRound.PlayerPlayedCards.Count, Is.EqualTo(0));
+        Assert.That(battle.CurrentRound.PlayerHand.Count, Is.EqualTo(handBefore + 1));
+        Assert.That(ContainsRank(battle.CurrentRound.PlayerHand, Rank.Eight), Is.True);
+        Assert.That(run.HasActiveItem(ActiveItemResolver.ReturnPlayerFieldCardToHand), Is.False);
+
+        battle.Dispose();
+    }
+
+    [Test]
+    public void DrawTwoSuitActiveItem_DrawsTwoMatchingSuitCardsPastNormalHandSize()
+    {
+        RunState run = CreateRunWithDeck(RepeatCardData(Suit.Hearts, Rank.Two, 5));
+        run.AddActiveItem(ActiveItemResolver.DrawTwoHearts);
+        var battle = new BattleState(run, new BattleConfig("test", 100));
+        battle.StartRound(battle.GetDefaultWager());
+        int before = battle.CurrentRound.PlayerHand.Count;
+
+        Assert.That(battle.TryUseActiveItem(ActiveItemResolver.DrawTwoHearts), Is.True);
+
+        Assert.That(battle.CurrentRound.PlayerHand.Count, Is.EqualTo(before + 2));
+        Assert.That(CountSuit(battle.CurrentRound.PlayerHand, Suit.Hearts), Is.EqualTo(before + 2));
+        Assert.That(run.HasActiveItem(ActiveItemResolver.DrawTwoHearts), Is.False);
+
+        battle.Dispose();
     }
 
     [Test]
@@ -1326,7 +1645,7 @@ public sealed class ShopSystemTests
     }
 
     [Test]
-    public void BurstPlayer_CanKeepPlayingAndPaysEachBurstCard()
+    public void BlackjackWinner_ReceivesCommittedPotWithoutExtraPayout()
     {
         var run = new RunState(1, startingMoney: 500);
         var battle = new BattleState(run, new BattleConfig("test", 500, new StandingDevilStrategy(), baseWager: 10));
@@ -1339,9 +1658,9 @@ public sealed class ShopSystemTests
         Assert.That(battle.TryStand(), Is.True);
 
         Assert.That(battle.CombatHistory[^1].Winner, Is.EqualTo(Combatant.Player));
-        Assert.That(battle.CombatHistory[^1].OpponentMoneyLost, Is.EqualTo(10));
-        Assert.That(run.Money, Is.EqualTo(520));
-        Assert.That(battle.OpponentMoney, Is.EqualTo(480));
+        Assert.That(battle.CombatHistory[^1].OpponentMoneyLost, Is.EqualTo(0));
+        Assert.That(run.Money, Is.EqualTo(510));
+        Assert.That(battle.OpponentMoney, Is.EqualTo(490));
     }
 
     [Test]
@@ -1361,7 +1680,7 @@ public sealed class ShopSystemTests
         Assert.That(battle.TryStand(), Is.True);
 
         Assert.That(ScoreResolver.ResolvePoker(battle.CurrentRound.GetPokerCardsForPlayerPayout()).Rank, Is.EqualTo(PokerHandRank.Straight));
-        Assert.That(battle.CombatHistory[^1].OpponentMoneyLost, Is.EqualTo(40)); // Poker payout is outside the blackjack pot.
+        Assert.That(battle.CombatHistory[^1].OpponentMoneyLost, Is.EqualTo(40));
         Assert.That(battle.CombatHistory[^1].PlayerMoneyLost, Is.EqualTo(0));
         Assert.That(run.Money, Is.EqualTo(530));
         Assert.That(battle.OpponentMoney, Is.EqualTo(470));
@@ -1771,6 +2090,29 @@ public sealed class ShopSystemTests
         }
 
         return -1;
+    }
+
+    private static int IndexOfModifier(IReadOnlyList<Card> cards, string modifierId)
+    {
+        for (int i = 0; i < cards.Count; i++)
+        {
+            if (cards[i].ModifierId == modifierId)
+                return i;
+        }
+
+        return -1;
+    }
+
+    private static int CountRank(IReadOnlyList<Card> cards, Rank rank)
+    {
+        int count = 0;
+        for (int i = 0; i < cards.Count; i++)
+        {
+            if (cards[i].Rank == rank)
+                count++;
+        }
+
+        return count;
     }
 
     private static Suit SuitForModifier(string modifierId)
