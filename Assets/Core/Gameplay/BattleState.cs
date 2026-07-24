@@ -745,6 +745,7 @@ public sealed class BattleState
         PublishScoreEvents(Combatant.Opponent, opponentScore, opponentPoker);
         ResolveRealtimeMoney(playerPoker, opponentPoker);
         CommandQueue.Enqueue(new VisualCommand(VisualCommandType.ScoresResolved, $"{playerScore.FinalScore}:{opponentScore.FinalScore}"));
+        //TODO: we require game over check every resolve
     }
 
     private void ResolveRealtimeMoney(PokerResult playerPoker, PokerResult opponentPoker)
@@ -774,6 +775,7 @@ public sealed class BattleState
                 AddPlayerMoney(lost);
                 CurrentRound.RecordMoneyLost(Combatant.Opponent, lost);
             }
+            global::EventBus.Publish(new MoneyTransferReasonEvent(MoneyTransferReason.PokerPayout, lost));
         }
         // Bruh
         // else if (CurrentRound.OpponentScore.IsBlackjack && !CurrentRound.PlayerScore.IsBlackjack)
@@ -807,7 +809,7 @@ public sealed class BattleState
             if (lost > 0)
                 AddPlayerMoney(lost);
         }
-
+        global::EventBus.Publish(new MoneyTransferReasonEvent(MoneyTransferReason.BurstPenalty, lost));
         CurrentRound.RecordMoneyLost(combatant, lost);
         CurrentRound.MarkBurstPenaltyResolved(combatant);
     }

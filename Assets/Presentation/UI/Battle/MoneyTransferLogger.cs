@@ -11,7 +11,10 @@ public class MoneyTransferLogger : MonoBehaviour
     [SerializeField] private BattleController battleController;
 
     private ScopedEventBus subscribedBattleBus;
-    private int roundResultDelta;
+    private int roundResult;
+    private int blackjackResult;
+    private int burstPenalty;
+    private int pokerResult;
 
     void Awake()
     {
@@ -32,7 +35,7 @@ public class MoneyTransferLogger : MonoBehaviour
         entryFeeText.color = Color.white; // Reset color to default
         blackjackResultText.text = "0";
         blackjackResultText.color = Color.white; // Reset color to default
-        roundResultDelta = 0;
+        roundResult = 0;
         burstPenaltyText.text = "0";
         burstPenaltyText.color = Color.white; // Reset color to default
         pokerResultText.text = "0";
@@ -85,29 +88,27 @@ public class MoneyTransferLogger : MonoBehaviour
         switch (eventData.Reason)
         {
             case MoneyTransferReason.InitialWager:
-                entryFeeText.text = $"-{eventData.Delta}";
-                if (eventData.Delta > 0)
-                    entryFeeText.color = Color.red; // Set color to red for negative values
-                else
-                    entryFeeText.color = Color.green; // Set color to green for positive values
+                entryFeeText.text = $"{eventData.Delta}";
                 break;
             case MoneyTransferReason.BlackjackPayout:
-                roundResultDelta = eventData.Delta;
+                roundResult += eventData.Delta;
                 RefreshRoundResultText();
                 break;
             case MoneyTransferReason.DevilAbilityPayout:
-                roundResultDelta += eventData.Delta;
+                roundResult -= eventData.Delta;
                 RefreshRoundResultText();
                 break;
             case MoneyTransferReason.BurstPenalty:
-                burstPenaltyText.text = $"{eventData.Delta}";
-                if (eventData.Delta < 0)
+                burstPenalty += eventData.Delta;
+                burstPenaltyText.text = $"-{burstPenalty}";
+                if (burstPenalty < 0)
                     burstPenaltyText.color = Color.red; // Set color to red for negative values
                 else
                     burstPenaltyText.color = Color.green; // Set color to green for positive values
                 break;
             case MoneyTransferReason.PokerPayout:
-                pokerResultText.text = $"{eventData.Delta}";
+                pokerResult += eventData.Delta;
+                pokerResultText.text = $"{pokerResult}";
                 if (eventData.Delta < 0)
                     pokerResultText.color = Color.red; // Set color to red for negative values
                 else
@@ -121,8 +122,8 @@ public class MoneyTransferLogger : MonoBehaviour
 
     private void RefreshRoundResultText()
     {
-        blackjackResultText.text = $"{roundResultDelta}";
-        blackjackResultText.color = roundResultDelta < 0 ? Color.red : Color.green;
+        blackjackResultText.text = $"{roundResult}";
+        blackjackResultText.color = roundResult < 0 ? Color.red : Color.green;
     }
 
 }
