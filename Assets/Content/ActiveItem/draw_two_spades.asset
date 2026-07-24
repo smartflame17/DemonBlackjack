@@ -1,0 +1,19 @@
+%YAML 1.1
+%TAG !u! tag:unity3d.com,2011:
+--- !u!114 &11400000
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 0}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 0120147e47e8f6644943f45da9786627, type: 3}
+  m_Name: draw_two_spades
+  m_EditorClassIdentifier: Assembly-CSharp::ActiveItemDefinition
+  id: draw_two_spades
+  displayName: "\uB0B4\uC815\uC790 \uBA74\uC811: \uC2A4\uD398\uC774\uB4DC"
+  description: "\uB371\uC5D0\uC11C \uC2A4\uD398\uC774\uB4DC \uCE74\uB4DC 2\uC7A5\uC744
+    \uC190\uD328\uB85C \uB4DC\uB85C\uC6B0\uD569\uB2C8\uB2E4."
+  price: 10

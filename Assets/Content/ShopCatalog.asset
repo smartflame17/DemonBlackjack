@@ -13,9 +13,15 @@ MonoBehaviour:
   m_Name: ShopCatalog
   m_EditorClassIdentifier: Assembly-CSharp::ShopCatalog
   activeItems:
-  - {fileID: 11400000, guid: 55b00d89020d96f42988ec2e3cd36de8, type: 2}
+  - {fileID: 11400000, guid: 622a004e21c1fc14d81af7de26dff984, type: 2}
   - {fileID: 11400000, guid: 65f5da7b60265f64ea6e83b232d13d3d, type: 2}
   - {fileID: 11400000, guid: 168b39be9ecd1d34092d92732d5fd858, type: 2}
+  - {fileID: 11400000, guid: 8f9aec402b9b64548a66477f4f90378b, type: 2}
+  - {fileID: 11400000, guid: fb0e42e6ba1aca940a0a0e430bc66e26, type: 2}
+  - {fileID: 11400000, guid: f8e5d9c51be669648a9d612da68df5c4, type: 2}
+  - {fileID: 11400000, guid: 74be6427ca675ca4cb87b74a2c2406cc, type: 2}
+  - {fileID: 11400000, guid: 7bf460f7117bccf4fb92a308be6d7ec1, type: 2}
+  - {fileID: 11400000, guid: f30d0e83ce2b72c438adc04cdddc8540, type: 2}
   relics:
   - {fileID: 11400000, guid: 81e21a1a6d970884a9590b5b7a19873a, type: 2}
   - {fileID: 11400000, guid: 075ef54a7fe1d554f8d3992e73ffea95, type: 2}
