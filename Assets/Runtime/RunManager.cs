@@ -109,6 +109,15 @@ public class RunManager : MonoBehaviour, IDataPersistence
         return true;
     }
 
+    public bool ContinueImmediatelyAfterRound()
+    {
+        if (RunState == null || RunState.Phase != RunPhase.Battle || battleController == null)
+            return false;
+        battleController.CompletePendingVisualTransition();
+        SetPhase(RunPhase.Battle);
+        return true;
+    }
+
     public bool ContinueFromShop()
     {
         if (RunState == null || RunState.Phase != RunPhase.Shop || battleController == null)

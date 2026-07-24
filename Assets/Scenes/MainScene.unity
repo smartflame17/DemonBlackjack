@@ -22941,6 +22941,7 @@ MonoBehaviour:
   roundResultPanel: {fileID: 1450920645}
   roundResultText: {fileID: 1923911676}
   toShopButton: {fileID: 118463398}
+  nextRoundButton: {fileID: 842087217}
   battleResultPanel: {fileID: 1169989696}
   rewardViewRoot: {fileID: 1854722664}
   backToMapButton: {fileID: 360843436}
