@@ -2,9 +2,6 @@ using UnityEngine;
 
 public class BattleController : MonoBehaviour
 {
-    [SerializeField] private bool startFirstRoundOnInitialize;
-    [SerializeField] private bool autoStartNextRoundAfterVisuals;
-
     public BattleState BattleState { get; private set; }
     public CommandQueue CommandQueue => BattleState?.CommandQueue;
     public bool HasActiveBattle => BattleState != null && !BattleState.IsBattleOver;
@@ -19,27 +16,17 @@ public class BattleController : MonoBehaviour
         BattleState = new BattleState(runState, config);
         BattleState.EventBus.Subscribe<BattleEndedEvent>(OnBattleEnded);
         BattleState.Initialize();
-
-        if (startFirstRoundOnInitialize)
-            StartNextRound();
-    }
-
-    public void StartNextRound()
-    {
-        StartNextRound(-1);
     }
 
     public bool StartNextRound(int wager)
     {
-        return StartNextRound(wager, true);
-    }
-
-    public bool StartNextRound(int wager, bool playerAcceptsOpponentWager)
-    {
         if (BattleState == null || BattleState.IsBattleOver || IsWaitingForVisuals)
             return false;
 
-        return BattleState.StartRound(wager, playerAcceptsOpponentWager);
+        bool started = BattleState.StartRound(wager);
+        if (started)
+            Debug.Log($"<color=blue>[Round]</color> Wager: {wager}, Player phase started");
+        return started;
     }
 
     public bool TryPlayCard(int handIndex)
@@ -67,6 +54,16 @@ public class BattleController : MonoBehaviour
         bool result = activeBattle.TryStand();
         MarkWaitingForCompletedRound(activeBattle);
         return result;
+    }
+
+    public bool TryUseActiveItem(string itemId)
+    {
+        return !IsWaitingForVisuals && BattleState != null && BattleState.TryUseActiveItem(itemId);
+    }
+
+    public bool CanUseActiveItem(string itemId)
+    {
+        return !IsWaitingForVisuals && BattleState != null && BattleState.CanUseActiveItem(itemId);
     }
 
     public RoundResolution EndPlayerPhase()
@@ -114,16 +111,16 @@ public class BattleController : MonoBehaviour
         else if (activeBattle.Phase == BattlePhase.Cleanup)
         {
             activeBattle.CleanupRound();
-
-            if (BattleState == activeBattle && !activeBattle.IsBattleOver && autoStartNextRoundAfterVisuals)
-                StartNextRound();
         }
     }
 
     public void CleanupBattle()
     {
         if (BattleState != null)
+        {
             BattleState.EventBus.Unsubscribe<BattleEndedEvent>(OnBattleEnded);
+            BattleState.Dispose();
+        }
 
         IsWaitingForVisuals = false;
         _pendingBattleEndedEvent = null;

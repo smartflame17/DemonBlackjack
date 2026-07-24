@@ -10,6 +10,18 @@ public readonly struct ScoreCalculatedEvent
     public ScoreResult Score { get; }
 }
 
+public readonly struct PokerResolvedEvent
+{
+    public PokerResolvedEvent(Combatant combatant, PokerResult poker)
+    {
+        Combatant = combatant;
+        Poker = poker;
+    }
+
+    public Combatant Combatant { get; }
+    public PokerResult Poker { get; }
+}
+
 public readonly struct BurstAttemptedEvent
 {
     public BurstAttemptedEvent(Combatant combatant, int score, int threshold, bool willBurst)
@@ -36,6 +48,18 @@ public readonly struct BurstOccurredEvent
 
     public Combatant Combatant { get; }
     public int Score { get; }
+}
+
+public readonly struct BurstThresholdChangedEvent
+{
+    public BurstThresholdChangedEvent(Combatant combatant, int threshold)
+    {
+        Combatant = combatant;
+        Threshold = threshold;
+    }
+
+    public Combatant Combatant { get; }
+    public int Threshold { get; }
 }
 
 public readonly struct BlackjackAchievedEvent

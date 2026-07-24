@@ -40,6 +40,34 @@ public sealed class Deck
         return true;
     }
 
+    public bool TryDrawWhere(Predicate<Card> predicate, Random random, out Card card)
+    {
+        if (predicate == null)
+        {
+            card = default;
+            return false;
+        }
+
+        var matchingIndices = new List<int>();
+        for (int i = 0; i < _drawPile.Count; i++)
+        {
+            if (predicate(_drawPile[i]))
+                matchingIndices.Add(i);
+        }
+
+        if (matchingIndices.Count == 0)
+        {
+            card = default;
+            return false;
+        }
+
+        random ??= new Random(0);
+        int drawIndex = matchingIndices[random.Next(matchingIndices.Count)];
+        card = _drawPile[drawIndex];
+        _drawPile.RemoveAt(drawIndex);
+        return true;
+    }
+
     public void Discard(Card card)
     {
         _discardPile.Add(card);
@@ -51,6 +79,20 @@ public sealed class Deck
             return;
 
         _discardPile.AddRange(cards);
+    }
+
+    public void PlaceAtBottom(Card card)
+    {
+        _drawPile.Insert(0, card);
+    }
+
+    public void TransformCards(Func<Card, Card> transform)
+    {
+        if (transform == null)
+            return;
+
+        TransformCards(_drawPile, transform);
+        TransformCards(_discardPile, transform);
     }
 
     public bool ReshuffleDiscardIntoDraw()
@@ -73,7 +115,12 @@ public sealed class Deck
         }
     }
 
-// TODO: Based on gameplay designer's request, this method may be altered to generate a custom starting deck
+    private static void TransformCards(List<Card> cards, Func<Card, Card> transform)
+    {
+        for (int i = 0; i < cards.Count; i++)
+            cards[i] = transform(cards[i]);
+    }
+
     public static List<Card> CreateStandardDeck()
     {
         var cards = new List<Card>(52);
@@ -82,6 +129,19 @@ public sealed class Deck
         {
             foreach (Rank rank in Enum.GetValues(typeof(Rank)))
                 cards.Add(new Card(suit, rank));
+        }
+
+        return cards;
+    }
+
+    public static List<Card> CreateAllHeartsDeck(int duplicateCount = 4)
+    {
+        var cards = new List<Card>(13 * duplicateCount);
+
+        for (int i = 0; i < duplicateCount; i++)
+        {
+            foreach (Rank rank in Enum.GetValues(typeof(Rank)))
+            cards.Add(new Card(Suit.Hearts, rank));
         }
 
         return cards;

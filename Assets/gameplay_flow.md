@@ -4,9 +4,9 @@ This document describes the intended MVP gameplay flow for the pure C# layer und
 
 ## 1. Run Resource Model
 
-`RunState` stores one persistent survival resource: money. Health and money are no longer separate systems.
+`RunState` stores one persistent survival resource: money.
 
-The player starts a run with 100 money. The player loses the run when money reaches 0. Legacy HP-facing API may remain temporarily as a presentation compatibility shim, but gameplay logic should read and write money.
+The player starts a run with 100 money. The player loses the run when money reaches 0. Gameplay logic and presentation code should read and write money.
 
 `RunState` also stores persistent run data:
 
@@ -56,19 +56,15 @@ The player's money is stored on `RunState`; the opponent's money is stored on `B
 
 The player and devil do not share a battle deck. The player battle deck is created from `RunState.Deck`. The devil battle deck is created through `IDevilStrategy.CreateStartingDeck`. The default devil strategy returns a standard 52-card deck equivalent to the player default, but character-specific strategies can provide different starting decks later.
 
-## 3. Round Start And Wager
+## 3. Round Start, Hand Refill, And Wager
 
-A battle consists of rounds. At the start of each round, the combatant with initiative proposes the wager.
+A battle consists of rounds. `BattleState.StartRound` is the single round-start operation: it creates the round state, restores carried-over hand cards, refills empty hands, commits both stakes, publishes the round-start notifications, and advances to the player phase.
 
-Valid wager options are 10, 20, 30, ..., 100. A proposed wager can exceed one side's current money, but the final stake is capped by each combatant's money. If either side has less money than the final proposed wager, that side is forced all in for its remaining money. If the wager-deciding side has less than the minimum wager value, that side has no choice but to propose an all-in wager.
+The wager is fixed per battle by `BattleConfig.BaseWager`. The presentation layer refreshes the value through `BattleState.GetDefaultWager` immediately before starting each round so gameplay modifiers can affect that value later without restoring a wager-selection step. Each combatant's committed stake is capped by their available money, so a combatant with less money than the configured wager goes all in.
 
 Initiative alternates by round. The player acts first on odd rounds, starting with round 1; the opponent acts first on even rounds.
 
-When the player proposes a wager, the devil strategy chooses whether to accept it or decline by reducing it. Higher affinity biases random decisions toward outcomes beneficial to the player. For wager decisions this means accepting player-proposed wagers and accepting player requests to lower a devil-proposed wager.
-
-When the devil has initiative, `IDevilStrategy` chooses the proposed wager. Until player-side wager UI exists, gameplay code may default the player response to accepting the proposed wager.
-
-After a wager is negotiated, both combatants stake their final committed amounts. Player money decreases through `RunState`; opponent money decreases through `BattleState`. The pot is the sum of both committed amounts.
+Player money decreases through `RunState`; opponent money decreases through `BattleState`. The pot is the sum of both committed amounts. There is no runtime wager proposal, acceptance, or decline step.
 
 ## 4. Hand Refill
 
@@ -90,11 +86,11 @@ On a player turn, gameplay input can choose:
 
 - `stand`: do nothing and pass the turn
 - `hit`: immediately draw the first card from the draw pile, play it, and end the turn
-- `play`: play one or more cards from the player's hand, then end the turn
+- `play`: play one card from the player's hand, then end the turn
 
-`stand` and `hit` end the turn immediately. Playing a hand card does not automatically end the turn, because a combatant can play as many hand cards as desired during a play turn. The presentation layer should keep its play/confirm control disabled until at least one card has been played in that turn, but UI implementation is intentionally deferred.
+`stand`, `hit`, and playing one hand card end the turn. A combatant can play at most one hand card during a play turn, so the presentation layer should keep its play/confirm control disabled until exactly one card is selected.
 
-On an opponent turn, `IDevilStrategy` chooses whether to stand, hit, or play cards from hand. The default strategy uses shared blackjack-oriented logic to avoid bursting when possible.
+On an opponent turn, `IDevilStrategy` chooses whether to stand, hit, or play one card from hand. The default strategy uses shared blackjack-oriented logic to avoid bursting when possible.
 
 ## 6. Score And Burst Checks
 
@@ -114,7 +110,7 @@ After each turn, `BattleState` resolves current scores with `ScoreResolver`.
 
 If either combatant bursts, the round resolves immediately. A burst means immediate loss of the round. If both combatants burst in the same turn, the round is a draw.
 
-Burst also makes the bursting combatant lose half of their current money. This penalty is applied to money, not HP. If a combatant has only 1 money, the penalty removes that last money so battle end can be reached.
+Burst also makes the bursting combatant lose half of their current money. If a combatant has only 1 money, the penalty removes that last money so battle end can be reached.
 
 ## 7. Round Resolution
 
@@ -136,9 +132,7 @@ If player money reaches 0, the battle ends as a loss. If opponent money reaches 
 
 ## 8. Between Rounds
 
-After round cleanup, the battle moves back to `PreRound`.
-
-Longer-term design calls for dialogue events or shops between rounds where the player can refine their deck or buy upgrades. These features are undecided. For now, gameplay only exposes continuing to the next round and skips between-round logic.
+After round cleanup, the battle moves back to `PreRound`. The battle UI displays `RoundStartPanel` for its configured delay and then starts the next round automatically with the latest default wager.
 
 ## 9. Battle End And Run Update
 
@@ -161,8 +155,7 @@ Longer-term design calls for dialogue events or shops between rounds where the p
 - choosing to stand, hit, or play during an opponent turn
 - choosing which hand cards to play
 - choosing the wager when the devil has initiative
-- choosing whether to accept or reduce the player's wager
-- choosing whether to accept or reject the player's request to reduce a devil-proposed wager
+- choosing whether to accept or decline the player's wager
 - creating the devil's starting deck
 - registering and unregistering affinity hooks on the global event bus, battle event bus, or both
 - exposing character-specific global modifiers

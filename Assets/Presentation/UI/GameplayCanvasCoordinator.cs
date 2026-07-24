@@ -8,7 +8,10 @@ public sealed class GameplayCanvasCoordinator : MonoBehaviour
     [SerializeField] private Canvas mapCanvas;
     [SerializeField] private Canvas shopCanvas;
     [SerializeField] private Canvas debugCanvas;
-    [SerializeField] private Button battleTestButton;
+    [SerializeField] private Button devil1BattleButton;
+    [SerializeField] private Button devil2BattleButton;
+    [SerializeField] private Button devil3BattleButton;
+    [SerializeField] private Button devil4BattleButton;
     [SerializeField] private bool keepDebugCanvasVisible = true;
 
     private void Awake()
@@ -21,16 +24,43 @@ public sealed class GameplayCanvasCoordinator : MonoBehaviour
         shopCanvas ??= FindCanvas("ShopUI");
         debugCanvas ??= FindCanvas("DebugCanvas");
 
-        if (battleTestButton == null)
-            battleTestButton = GameObject.Find("BattleTestButton")?.GetComponent<Button>();
+        if (shopCanvas != null && shopCanvas.GetComponent<ShopUi>() == null)
+            shopCanvas.gameObject.AddComponent<ShopUi>();
+
+        if (shopCanvas != null)
+        {
+            shopCanvas.overrideSorting = true;
+            shopCanvas.sortingOrder = battleCanvas != null ? battleCanvas.sortingOrder + 1 : 10;
+            CanvasGroup group = shopCanvas.GetComponent<CanvasGroup>() ?? shopCanvas.gameObject.AddComponent<CanvasGroup>();
+            group.interactable = true;
+            group.blocksRaycasts = true;
+        }
+
+        if (devil1BattleButton == null)
+            devil1BattleButton = GameObject.Find("Devil1BattleButton")?.GetComponent<Button>();
+
+        if (devil2BattleButton == null)
+            devil2BattleButton = GameObject.Find("Devil2BattleButton")?.GetComponent<Button>();
+
+        if (devil3BattleButton == null)
+            devil3BattleButton = GameObject.Find("Devil3BattleButton")?.GetComponent<Button>();
+
+        if (devil4BattleButton == null)
+            devil4BattleButton = GameObject.Find("Devil4BattleButton")?.GetComponent<Button>();
     }
 
     private void OnEnable()
     {
         EventBus.Subscribe<RunPhaseChangedEvent>(OnRunPhaseChanged);
 
-        if (battleTestButton != null)
-            battleTestButton.onClick.AddListener(StartBattle);
+        if (devil1BattleButton != null)
+            devil1BattleButton.onClick.AddListener(StartDevil1Battle);
+        if (devil2BattleButton != null)
+            devil2BattleButton.onClick.AddListener(StartDevil2Battle);
+        if (devil3BattleButton != null)
+            devil3BattleButton.onClick.AddListener(StartDevil3Battle);
+        if (devil4BattleButton != null)
+            devil4BattleButton.onClick.AddListener(StartDevil4Battle);
 
         ApplyPhase(runManager != null && runManager.RunState != null ? runManager.RunState.Phase : RunPhase.Map);
     }
@@ -39,13 +69,50 @@ public sealed class GameplayCanvasCoordinator : MonoBehaviour
     {
         EventBus.Unsubscribe<RunPhaseChangedEvent>(OnRunPhaseChanged);
 
-        if (battleTestButton != null)
-            battleTestButton.onClick.RemoveListener(StartBattle);
+        if (devil1BattleButton != null)
+            devil1BattleButton.onClick.RemoveListener(StartDevil1Battle);
+        if (devil2BattleButton != null)
+            devil2BattleButton.onClick.RemoveListener(StartDevil2Battle);
+        if (devil3BattleButton != null)
+            devil3BattleButton.onClick.RemoveListener(StartDevil3Battle);
+        if (devil4BattleButton != null)
+            devil4BattleButton.onClick.RemoveListener(StartDevil4Battle);
     }
 
-    private void StartBattle()
+    private void StartDevil1Battle()
     {
-        runManager?.StartBattle();
+        Debug.Log("Starting devil1 battle");
+        StartBattle("devil1", new BattleConfig("devil1", 1000, new Devil1Strategy(), devilId:"devil1"));
+    }
+
+    private void StartDevil2Battle()
+    {
+        Debug.Log("Starting devil2 battle");
+        StartBattle("devil2");
+    }
+
+    private void StartDevil3Battle()
+    {
+        Debug.Log("Starting devil3 battle");
+        StartBattle("devil3");
+    }
+
+    private void StartDevil4Battle()
+    {
+        Debug.Log("Starting devil4 battle");
+        StartBattle("devil4");
+    }
+
+    private void StartBattle(string devilId, BattleConfig config = null)
+    {
+        if (runManager == null)
+            return;
+
+        if (config == null)
+        {
+            config = new BattleConfig(devilId, 1000, devilStrategy: new BasicDevilStrategy(), devilId: devilId);
+        }
+        runManager.StartBattle(config);
     }
 
     private void OnRunPhaseChanged(RunPhaseChangedEvent eventData)
@@ -55,7 +122,7 @@ public sealed class GameplayCanvasCoordinator : MonoBehaviour
 
     private void ApplyPhase(RunPhase phase)
     {
-        if (phase != RunPhase.Battle && battleCanvas != null)
+        if (phase != RunPhase.Battle && phase != RunPhase.Shop && battleCanvas != null)
         {
             battleCanvas.GetComponent<BattleUiPresenter>()?.ClearGeneratedBattleCards();
             ClearGeneratedCardsUnder(battleCanvas.transform, "PlayerHand");
@@ -63,10 +130,33 @@ public sealed class GameplayCanvasCoordinator : MonoBehaviour
             ClearGeneratedCardsUnder(battleCanvas.transform, "PlayPile");
         }
 
-        SetCanvasActive(battleCanvas, phase == RunPhase.Battle);
+        SetCanvasActive(battleCanvas, phase == RunPhase.Battle || phase == RunPhase.Shop);
         SetCanvasActive(mapCanvas, phase == RunPhase.Map || phase == RunPhase.Encounter || phase == RunPhase.Rewards);
+        // Apply battle init button interactability on map canvas
+        if (runManager.RunState != null)
+            SetBattleButtonsByProgression(runManager.RunState.DevilProgression);
+
         SetCanvasActive(shopCanvas, phase == RunPhase.Shop);
         SetCanvasActive(debugCanvas, keepDebugCanvasVisible);
+    }
+
+    private void SetBattleButtonsByProgression(int DevilProgression)
+    {
+        if (DevilProgression > 1)
+        {
+            devil1BattleButton.interactable = false;
+            devil1BattleButton.GetComponent<Image>().color = new Color(0.0f, 0.0f, 0.0f, 1f);
+        }
+        if (DevilProgression > 2)
+        {
+            devil2BattleButton.interactable = false;
+            devil2BattleButton.GetComponent<Image>().color = new Color(0.0f, 0.0f, 0.0f, 1f);
+        }
+        if (DevilProgression > 3)
+        {
+            devil3BattleButton.interactable = false;
+            devil3BattleButton.GetComponent<Image>().color = new Color(0.0f, 0.0f, 0.0f, 1f);
+        }
     }
 
     private static void SetCanvasActive(Canvas canvas, bool active)

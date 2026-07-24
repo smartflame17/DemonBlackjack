@@ -16,8 +16,19 @@ public sealed class GameplayAssetRegistry : ScriptableObject
     [SerializeField] private Sprite defaultDevilSprite;
     [SerializeField] private List<DevilSpriteEntry> devilSprites = new();
 
+    [Header("Shop Fallbacks")]
+    [SerializeField] private Sprite defaultActiveItemSprite;
+    [SerializeField] private Sprite defaultRelicSprite;
+    [SerializeField] private Sprite defaultCardUpgradeSprite;
+    [SerializeField] private List<IdSpriteEntry> activeItemSprites = new();
+    [SerializeField] private List<IdSpriteEntry> relicSprites = new();
+    [SerializeField] private List<IdSpriteEntry> cardUpgradeSprites = new();
+
     private Dictionary<CardKey, Sprite> _cardLookup;
     private Dictionary<string, Sprite> _devilLookup;
+    private Dictionary<string, Sprite> _activeItemLookup;
+    private Dictionary<string, Sprite> _relicLookup;
+    private Dictionary<string, Sprite> _cardUpgradeLookup;
 
     public Sprite DefaultCardFront => defaultCardFront;
     public Sprite CardBack => cardBack != null ? cardBack : defaultCardFront;
@@ -40,19 +51,57 @@ public sealed class GameplayAssetRegistry : ScriptableObject
 
     public Sprite GetDevilSprite(string devilId)
     {
+        return GetDevilSpriteByEmotion(devilId, "default");
+    }
+
+    // Queries devil sprite with additional string parameter for specific emotions
+    public Sprite GetDevilSpriteByEmotion(string devilId, string emotion)
+    {
         if (string.IsNullOrWhiteSpace(devilId))
             return defaultDevilSprite;
 
         EnsureDevilLookup();
-        return _devilLookup.TryGetValue(devilId, out Sprite sprite) && sprite != null
+        if (string.IsNullOrWhiteSpace(emotion))
+        {
+            Debug.LogWarning($"GetDevilSpriteByEmotion called with empty emotion for devilId: {devilId}. Returning default devil sprite.");
+            return _devilLookup.TryGetValue(devilId, out Sprite defaultEmotionSprite) && defaultEmotionSprite != null
+                ? defaultEmotionSprite
+                : defaultDevilSprite;
+        }
+        return _devilLookup.TryGetValue(devilId + "_" + emotion, out Sprite sprite) && sprite != null
             ? sprite
             : defaultDevilSprite;
     }
+
+    public Sprite GetActiveItemSprite(string id) => GetIdSprite(id, activeItemSprites, ref _activeItemLookup, defaultActiveItemSprite != null ? defaultActiveItemSprite : defaultCardFront);
+    public Sprite GetRelicSprite(string id) => GetIdSprite(id, relicSprites, ref _relicLookup, defaultRelicSprite != null ? defaultRelicSprite : defaultCardFront);
+    public Sprite GetCardUpgradeSprite(string id) => GetIdSprite(id, cardUpgradeSprites, ref _cardUpgradeLookup, defaultCardUpgradeSprite != null ? defaultCardUpgradeSprite : defaultCardFront);
 
     private void OnValidate()
     {
         _cardLookup = null;
         _devilLookup = null;
+        _activeItemLookup = null;
+        _relicLookup = null;
+        _cardUpgradeLookup = null;
+    }
+
+    private static Sprite GetIdSprite(string id, List<IdSpriteEntry> entries, ref Dictionary<string, Sprite> lookup, Sprite fallback)
+    {
+        if (string.IsNullOrWhiteSpace(id))
+            return fallback;
+
+        if (lookup == null)
+        {
+            lookup = new Dictionary<string, Sprite>(StringComparer.OrdinalIgnoreCase);
+            for (int i = 0; i < entries.Count; i++)
+            {
+                if (!string.IsNullOrWhiteSpace(entries[i].Id))
+                    lookup[entries[i].Id] = entries[i].Sprite;
+            }
+        }
+
+        return lookup.TryGetValue(id, out Sprite sprite) && sprite != null ? sprite : fallback;
     }
 
     private void EnsureCardLookup()
@@ -113,6 +162,16 @@ public sealed class GameplayAssetRegistry : ScriptableObject
             }
         }
     }
+}
+
+[Serializable]
+public struct IdSpriteEntry
+{
+    [SerializeField] private string id;
+    [SerializeField] private Sprite sprite;
+
+    public string Id => id;
+    public Sprite Sprite => sprite;
 }
 
 [Serializable]

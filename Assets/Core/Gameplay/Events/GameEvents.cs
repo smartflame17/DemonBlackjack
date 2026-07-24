@@ -1,17 +1,17 @@
 public readonly struct BattleStartedEvent
 {
-    public BattleStartedEvent(string encounterId, int seed, int playerHp, int opponentHp)
+    public BattleStartedEvent(string encounterId, int seed, int playerMoney, int opponentMoney)
     {
         EncounterId = encounterId;
         Seed = seed;
-        PlayerHp = playerHp;
-        OpponentHp = opponentHp;
+        PlayerMoney = playerMoney;
+        OpponentMoney = opponentMoney;
     }
 
     public string EncounterId { get; }
     public int Seed { get; }
-    public int PlayerHp { get; }
-    public int OpponentHp { get; }
+    public int PlayerMoney { get; }
+    public int OpponentMoney { get; }
 }
 
 public readonly struct BattleEndedEvent
@@ -22,18 +22,6 @@ public readonly struct BattleEndedEvent
     }
 
     public BattleResult Result { get; }
-}
-
-public readonly struct GoldChangedEvent
-{
-    public GoldChangedEvent(int currentGold, int delta)
-    {
-        CurrentGold = currentGold;
-        Delta = delta;
-    }
-
-    public int CurrentGold { get; }
-    public int Delta { get; }
 }
 
 public readonly struct MoneyChangedEvent
@@ -48,6 +36,31 @@ public readonly struct MoneyChangedEvent
     public Combatant Owner { get; }
     public int CurrentMoney { get; }
     public int Delta { get; }
+}
+// For informing ui why money has changed. Fire this event for every money transfer manually.
+// TODO: Consider adding multipliers for better ui representation later.
+public readonly struct MoneyTransferReasonEvent
+{
+    public MoneyTransferReasonEvent(MoneyTransferReason reason, int delta)
+    {
+        Reason = reason;
+        Delta = delta;
+    }
+
+    public MoneyTransferReason Reason { get; }
+    public int Delta { get; }
+}
+
+public readonly struct DeathPreventedEvent
+{
+    public DeathPreventedEvent(Combatant target, bool wasPrevented)
+    {
+        Target = target;
+        WasPrevented = wasPrevented;
+    }
+
+    public Combatant Target { get; }
+    public bool WasPrevented { get; }
 }
 
 public readonly struct ItemUsedEvent
@@ -88,4 +101,14 @@ public readonly struct BattlePhaseChangedEvent
     }
 
     public BattlePhase Phase { get; }
+}
+
+public readonly struct DevilTurnChoiceEvent
+{
+    public DevilTurnChoiceEvent(DevilTurnChoice choice)
+    {
+        Choice = choice;
+    }
+
+    public DevilTurnChoice Choice { get; }
 }

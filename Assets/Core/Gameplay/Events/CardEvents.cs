@@ -34,6 +34,18 @@ public readonly struct CardPlayedEvent
     public Card Card { get; }
 }
 
+public readonly struct PlayerHitUsedEvent
+{
+    public PlayerHitUsedEvent(int roundNumber, Card card)
+    {
+        RoundNumber = roundNumber;
+        Card = card;
+    }
+
+    public int RoundNumber { get; }
+    public Card Card { get; }
+}
+
 public readonly struct CardDiscardedEvent
 {
     public CardDiscardedEvent(Combatant owner, Card card)
@@ -48,12 +60,14 @@ public readonly struct CardDiscardedEvent
 
 public readonly struct DeckShuffledEvent
 {
-    public DeckShuffledEvent(int reshuffleCount, int deckCount)
+    public DeckShuffledEvent(Combatant owner, int reshuffleCount, int deckCount)
     {
+        Owner = owner;
         ReshuffleCount = reshuffleCount;
         DeckCount = deckCount;
     }
 
+    public Combatant Owner { get; }
     public int ReshuffleCount { get; }
     public int DeckCount { get; }
 }
