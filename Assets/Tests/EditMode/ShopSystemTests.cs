@@ -1632,6 +1632,217 @@ public sealed class ShopSystemTests
         Assert.That(strategy.GetDialogueId(), Is.Null);
     }
 
+    [TestCase(3, 0, 40)]
+    [TestCase(2, 1, 120)]
+    [TestCase(0, 2, 160)]
+    [TestCase(0, 3, 640)]
+    public void Devil1Strategy_OpponentWinBonusUsesHeartAndSpadeMultipliers(
+        int heartCount,
+        int spadeCount,
+        int expectedBonus)
+    {
+        RunState run = CreateRunWithDeck(TenTwos());
+        run.AddMoney(1000);
+        var strategy = new Devil1Strategy(startMoney: 2000);
+        var battle = new BattleState(
+            run,
+            new BattleConfig("devil1", 2000, strategy, baseWager: 10));
+        Assert.That(battle.StartRound(battle.GetDefaultWager()), Is.True);
+        PlayOpponentSuitCards(battle.CurrentRound, Suit.Hearts, heartCount);
+        PlayOpponentSuitCards(battle.CurrentRound, Suit.Spades, spadeCount);
+        battle.CurrentRound.SetScores(CreateScoreResult(5), CreateScoreResult(10));
+
+        int abilityDelta = 0;
+        EventBus.Subscribe<MoneyTransferReasonEvent>(eventData =>
+        {
+            if (eventData.Reason == MoneyTransferReason.DevilAbilityPayout)
+                abilityDelta += eventData.Delta;
+        });
+        int playerMoneyBeforeResolution = battle.PlayerMoney;
+
+        RoundResolution resolution = MoneyResolver.ResolveRound(battle, battle.CurrentRound, false);
+
+        Assert.That(resolution.Winner, Is.EqualTo(Combatant.Opponent));
+        Assert.That(resolution.PlayerMoneyLost, Is.EqualTo(expectedBonus));
+        Assert.That(playerMoneyBeforeResolution - battle.PlayerMoney, Is.EqualTo(expectedBonus));
+        Assert.That(abilityDelta, Is.EqualTo(-expectedBonus));
+        battle.Dispose();
+    }
+
+    [TestCase(3, 1)]
+    [TestCase(4, 2)]
+    [TestCase(5, 3)]
+    [TestCase(7, 3)]
+    public void Devil1Strategy_LossStreakForcesCappedTemporarySpades(int lossStreak, int expectedSpades)
+    {
+        var strategy = new Devil1Strategy(startMoney: 1000);
+        var battle = new BattleState(
+            CreateRunWithDeck(TenTwos()),
+            new BattleConfig("devil1", 1000, strategy, baseWager: 10));
+        Assert.That(battle.StartRound(battle.GetDefaultWager()), Is.True);
+        PlayOpponentSuitCards(battle.CurrentRound, Suit.Hearts, 4);
+        SetField(strategy, "lossStreak", lossStreak);
+
+        ((IDevilOpponentFieldModifier)strategy).RefreshOpponentField(battle, battle.CurrentRound);
+
+        Assert.That(CountSuit(battle.CurrentRound.OpponentVisibleCards, Suit.Spades), Is.EqualTo(expectedSpades));
+        Assert.That(CountSuit(battle.CurrentRound.OpponentVisibleCards, Suit.Hearts), Is.EqualTo(4 - expectedSpades));
+        battle.Dispose();
+    }
+
+    [Test]
+    public void Devil1Strategy_LowMoneyForcesOneSpadeAndRestoresCanonicalHeart()
+    {
+        var strategy = new Devil1Strategy(startMoney: 1000);
+        var battle = new BattleState(
+            CreateRunWithDeck(TenTwos()),
+            new BattleConfig("devil1", 190, strategy, baseWager: 10));
+        Assert.That(battle.StartRound(battle.GetDefaultWager()), Is.True);
+        PlayOpponentSuitCards(battle.CurrentRound, Suit.Hearts, 1);
+        ((IDevilOpponentFieldModifier)strategy).RefreshOpponentField(battle, battle.CurrentRound);
+        Assert.That(battle.CurrentRound.OpponentVisibleCards[0].Suit, Is.EqualTo(Suit.Spades));
+
+        battle.AddOpponentMoney(30);
+        Assert.That(battle.CurrentRound.OpponentVisibleCards[0].Suit, Is.EqualTo(Suit.Hearts));
+
+        battle.LoseOpponentMoney(30);
+        Assert.That(battle.CurrentRound.OpponentVisibleCards[0].Suit, Is.EqualTo(Suit.Spades));
+        battle.CleanupRound();
+
+        Assert.That(battle.OpponentDiscardPile.Count, Is.EqualTo(1));
+        Assert.That(battle.OpponentDiscardPile[0].Suit, Is.EqualTo(Suit.Hearts));
+        battle.Dispose();
+    }
+
+    [Test]
+    public void Devil1Strategy_TransformsOnlyDevilOwnedCardsButCountsTheWholeOpponentPile()
+    {
+        var strategy = new Devil1Strategy(startMoney: 1000);
+        var battle = new BattleState(
+            CreateRunWithDeck(TenTwos()),
+            new BattleConfig("devil1", 1000, strategy, baseWager: 10));
+        Assert.That(battle.StartRound(battle.GetDefaultWager()), Is.True);
+        SetField(strategy, "lossStreak", 3);
+        PlayOpponentSuitCards(battle.CurrentRound, Suit.Hearts, 1);
+
+        Assert.That(battle.CurrentRound.TryPlayHitCard(new Card(Suit.Hearts, Rank.Two)), Is.True);
+        Assert.That(battle.CurrentRound.TryPlayHitCard(new Card(Suit.Clubs, Rank.King)), Is.True);
+        Assert.That(battle.TryMovePreviousPlayerPlayedCardToOpponent(out _), Is.True);
+        Assert.That(battle.CurrentRound.TryPlayHitCard(new Card(Suit.Spades, Rank.Three)), Is.True);
+        Assert.That(battle.CurrentRound.TryPlayHitCard(new Card(Suit.Diamonds, Rank.Queen)), Is.True);
+        Assert.That(battle.TryMovePreviousPlayerPlayedCardToOpponent(out _), Is.True);
+
+        ((IDevilOpponentFieldModifier)strategy).RefreshOpponentField(battle, battle.CurrentRound);
+
+        Assert.That(battle.CurrentRound.OpponentVisibleCards[0].Suit, Is.EqualTo(Suit.Spades));
+        Assert.That(battle.CurrentRound.OpponentVisibleCards[1].Suit, Is.EqualTo(Suit.Hearts));
+        Assert.That(battle.CurrentRound.OpponentVisibleCards[2].Suit, Is.EqualTo(Suit.Spades));
+        Assert.That(strategy.GetOpponentWinBonus(battle, battle.CurrentRound), Is.EqualTo(320));
+        battle.Dispose();
+    }
+
+    [TestCase(DevilTurnChoice.Hit)]
+    [TestCase(DevilTurnChoice.Play)]
+    public void OpponentFieldModifier_AppliesToHitAndHandPlayEvents(DevilTurnChoice choice)
+    {
+        var strategy = new TransformingFixedChoiceDevilStrategy(choice);
+        var battle = new BattleState(
+            CreateRunWithDeck(TenTwos()),
+            new BattleConfig("test", 500, strategy, startingHandSize: 1, baseWager: 10));
+        Assert.That(battle.StartRound(battle.GetDefaultWager()), Is.True);
+
+        int playedEvents = 0;
+        Card playedCard = default;
+        Card drawnCard = default;
+        battle.EventBus.Subscribe<CardPlayedEvent>(eventData =>
+        {
+            if (eventData.Owner != Combatant.Opponent)
+                return;
+
+            playedEvents++;
+            playedCard = eventData.Card;
+        });
+        battle.EventBus.Subscribe<CardDrawnEvent>(eventData =>
+        {
+            if (eventData.Owner == Combatant.Opponent)
+                drawnCard = eventData.Card;
+        });
+
+        Assert.That(battle.TryStand(), Is.True);
+
+        Assert.That(playedEvents, Is.EqualTo(1));
+        Assert.That(playedCard.Suit, Is.EqualTo(Suit.Spades));
+        Assert.That(battle.CurrentRound.OpponentVisibleCards[0].Suit, Is.EqualTo(Suit.Spades));
+        if (choice == DevilTurnChoice.Hit)
+            Assert.That(drawnCard.Suit, Is.EqualTo(Suit.Hearts));
+        battle.Dispose();
+    }
+
+    [TestCase(10, 5)]
+    [TestCase(10, 10)]
+    public void Devil1Strategy_DoesNotApplyBonusWithoutOpponentWin(int playerScore, int opponentScore)
+    {
+        var strategy = new Devil1Strategy(startMoney: 1000);
+        var battle = new BattleState(
+            CreateRunWithDeck(TenTwos()),
+            new BattleConfig("devil1", 1000, strategy, baseWager: 10));
+        Assert.That(battle.StartRound(battle.GetDefaultWager()), Is.True);
+        PlayOpponentSuitCards(battle.CurrentRound, Suit.Hearts, 3);
+        battle.CurrentRound.SetScores(CreateScoreResult(playerScore), CreateScoreResult(opponentScore));
+        int abilityEvents = 0;
+        EventBus.Subscribe<MoneyTransferReasonEvent>(eventData =>
+        {
+            if (eventData.Reason == MoneyTransferReason.DevilAbilityPayout)
+                abilityEvents++;
+        });
+
+        RoundResolution resolution = MoneyResolver.ResolveRound(battle, battle.CurrentRound, false);
+
+        Assert.That(resolution.PlayerMoneyLost, Is.EqualTo(0));
+        Assert.That(abilityEvents, Is.EqualTo(0));
+        battle.Dispose();
+    }
+
+    [Test]
+    public void Devil1Strategy_BonusUsesBaseWagerAfterWagerDoubles()
+    {
+        var strategy = new Devil1Strategy(startMoney: 1000);
+        var battle = new BattleState(
+            CreateRunWithDeck(TenTwos()),
+            new BattleConfig("devil1", 1000, strategy, baseWager: 10));
+        Assert.That(battle.StartRound(battle.GetDefaultWager()), Is.True);
+        Assert.That(battle.DoubleCurrentRoundWager(), Is.True);
+        PlayOpponentSuitCards(battle.CurrentRound, Suit.Hearts, 3);
+        battle.CurrentRound.SetScores(CreateScoreResult(5), CreateScoreResult(10));
+
+        RoundResolution resolution = MoneyResolver.ResolveRound(battle, battle.CurrentRound, false);
+
+        Assert.That(battle.CurrentRound.BaseWager, Is.EqualTo(10));
+        Assert.That(battle.CurrentRound.EffectiveWager, Is.EqualTo(20));
+        Assert.That(resolution.PlayerMoneyLost, Is.EqualTo(40));
+        battle.Dispose();
+    }
+
+    [Test]
+    public void Devil1Strategy_BonusIsCappedByRemainingPlayerMoney()
+    {
+        RunState run = CreateRunWithDeck(TenTwos());
+        run.AddMoney(-75);
+        var strategy = new Devil1Strategy(startMoney: 1000);
+        var battle = new BattleState(
+            run,
+            new BattleConfig("devil1", 1000, strategy, baseWager: 10));
+        Assert.That(battle.StartRound(battle.GetDefaultWager()), Is.True);
+        PlayOpponentSuitCards(battle.CurrentRound, Suit.Hearts, 3);
+        battle.CurrentRound.SetScores(CreateScoreResult(5), CreateScoreResult(10));
+
+        RoundResolution resolution = MoneyResolver.ResolveRound(battle, battle.CurrentRound, false);
+
+        Assert.That(resolution.PlayerMoneyLost, Is.EqualTo(15));
+        Assert.That(battle.PlayerMoney, Is.EqualTo(0));
+        battle.Dispose();
+    }
+
     [Test]
     public void BattleController_StartNextRoundHonorsLifecycleGuards()
     {
@@ -1897,6 +2108,20 @@ public sealed class ShopSystemTests
         }
     }
 
+    private static void PlayOpponentSuitCards(RoundState round, Suit suit, int count)
+    {
+        for (int i = 0; i < count; i++)
+        {
+            Rank rank = (Rank)((i % 13) + 1);
+            PlayOpponentCards(round, new Card(suit, rank));
+        }
+    }
+
+    private static ScoreResult CreateScoreResult(int score)
+    {
+        return new ScoreResult(score, score, PokerHandRank.HighCard, 0, false, false);
+    }
+
     private static void CreateShopPanel(Transform parent)
     {
         GameObject panel = new("ShopPanel");
@@ -1978,6 +2203,41 @@ public sealed class ShopSystemTests
         public void UpdateDevilState(DevilStateUpdateContext context) { }
         public string GetDialogueId() => "test";
         public IEnumerable<Modifier> GetGlobalModifiers(RunState runState) => new List<Modifier>();
+    }
+
+    private sealed class TransformingFixedChoiceDevilStrategy : IDevilStrategy, IDevilOpponentFieldModifier
+    {
+        private readonly DevilTurnChoice _choice;
+
+        public TransformingFixedChoiceDevilStrategy(DevilTurnChoice choice)
+        {
+            _choice = choice;
+        }
+
+        public int DrawValue => 1;
+        public DevilTurnChoice ChooseTurnAction(BattleState battle, RoundState round) => _choice;
+        public int ChooseCardIndex(BattleState battle, RoundState round) => 0;
+        public IEnumerable<Card> CreateStartingDeck(RunState runState, BattleConfig config) =>
+            new[]
+            {
+                new Card(Suit.Hearts, Rank.Two),
+                new Card(Suit.Hearts, Rank.Three),
+                new Card(Suit.Hearts, Rank.Four),
+                new Card(Suit.Hearts, Rank.Five)
+            };
+        public void RegisterAffinityHooks(BattleState battle) { }
+        public void UnregisterAffinityHooks(BattleState battle) { }
+        public void UpdateDevilState(DevilStateUpdateContext context) { }
+        public string GetDialogueId() => "test";
+        public IEnumerable<Modifier> GetGlobalModifiers(RunState runState) => new List<Modifier>();
+
+        public void RefreshOpponentField(BattleState battle, RoundState round)
+        {
+            round.RefreshOpponentVisibleCards((card, owner) =>
+                owner == Combatant.Opponent && card.Suit == Suit.Hearts
+                    ? new Card(Suit.Spades, card.Rank, card.ModifierId)
+                    : card);
+        }
     }
 
     private sealed class RecordingDevilStrategy : IDevilStrategy

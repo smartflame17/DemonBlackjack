@@ -112,5 +112,6 @@ public enum MoneyTransferReason
     InitialWager,
     PokerPayout,
     BurstPenalty,
-    BlackjackPayout
+    BlackjackPayout,
+    DevilAbilityPayout
 }

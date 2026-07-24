@@ -13,13 +13,29 @@ public static class MoneyResolver
         Combatant? winner = DetermineWinner(round.PlayerScore, round.OpponentScore);
         int opponentMoneyLost = round.OpponentMoneyLost;
         int playerMoneyLost = round.PlayerMoneyLost;
-
+        int opponentWinBonus = winner == Combatant.Opponent
+            ? Math.Max(0, battle.GetOpponentWinBonus(round))
+            : 0;
+        //WARNING: now that burst transfer is realtime, we dont need round end burst transfer?
         int wager = Math.Max(0, round.EffectiveWager);
         if (wager > 0 && applyBurstPenalty)
             ResolveBurstTransfers(battle, round, wager, ref opponentMoneyLost, ref playerMoneyLost);
 
         ResolveBlackjackPot(battle, round, winner);
 
+        // Devil ability payout at end
+        if (opponentWinBonus > 0)
+        {
+            int lost = TransferPlayerToOpponent(battle, opponentWinBonus);
+            if (lost > 0)
+            {
+                playerMoneyLost += lost;
+                round.RecordMoneyLost(Combatant.Player, lost);
+                EventBus.Publish(new MoneyTransferReasonEvent(MoneyTransferReason.DevilAbilityPayout, -lost));
+            }
+        }
+
+        // WARNING: Like burst transfer, we dont need round end poker transfer?
         if (battle.PlayerMoney > 0 && wager > 0)
             ResolvePlayerPokerPayout(battle, round, wager, ref opponentMoneyLost);
 

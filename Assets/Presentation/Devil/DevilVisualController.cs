@@ -73,6 +73,14 @@ public class DevilVisualController : MonoBehaviour
         TransitionToSprite(defaultSprite, () => _currentEmotionId = null);
     }
 
+    public void OnConversationEnd(Transform actor)
+    {
+        if (devilSprite == null || assetRegistry == null) return;
+
+        Sprite defaultSprite = assetRegistry.GetDevilSprite(_currentDevilId);
+        TransitionToSprite(defaultSprite, () => _currentEmotionId = null);
+    }
+
     private void TransitionToSprite(Sprite newSprite, TweenCallback onChanged = null)
     {
         if (devilSprite == null || newSprite == null)

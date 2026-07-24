@@ -137,10 +137,10 @@ public class DevilDialogueController : MonoBehaviour
 
     private void OnRoundEnded(RoundEndedEvent @event)
     {
-        // TODO: add IDevilStrategy interface to get the correct conversation ID for round end
         roundEndConversationId = _devilStrategy.GetDialogueId();
         if (string.IsNullOrWhiteSpace(roundEndConversationId)) return;
-        
+        if (battleController.BattleState.IsBattleOver) return;
+
         Debug.Log($"DevilDialogueController: OnRoundEnded, using conversation ID: {roundEndConversationId}");
         DialogueManager.StartConversation(roundEndConversationId, transform);
     }

@@ -94,6 +94,7 @@ public sealed class BattleState
             this,
             CurrentRound,
             DevilStateUpdatePoint.RoundStarted));
+        RefreshDevilOpponentField();
         EventBus.Publish(new RoundStartedEvent(RoundNumber));
         CommandQueue.Enqueue(new VisualCommand(VisualCommandType.RoundStarted, $"{RoundNumber}:{proposedWager}"));
 
@@ -396,6 +397,8 @@ public sealed class BattleState
         int previous = OpponentMoney;
         OpponentMoney = Math.Max(0, OpponentMoney + delta);
         int actualDelta = OpponentMoney - previous;
+        if (actualDelta != 0)
+            RefreshDevilOpponentField();
         EventBus.Publish(new MoneyChangedEvent(Combatant.Opponent, OpponentMoney, actualDelta));
         CommandQueue.Enqueue(new VisualCommand(VisualCommandType.MoneyChanged, $"{Combatant.Opponent}:{OpponentMoney}"));
         return actualDelta;
@@ -634,6 +637,7 @@ public sealed class BattleState
             this,
             CurrentRound,
             DevilStateUpdatePoint.OpponentTurnStarted));
+        RefreshDevilOpponentField();
         DevilTurnChoice choice = Config.DevilStrategy.ChooseTurnAction(this, CurrentRound);
         EventBus.Publish(new DevilTurnChoiceEvent(choice));
         if (choice == DevilTurnChoice.Stand)
@@ -657,8 +661,11 @@ public sealed class BattleState
         if (!TryDrawCard(Combatant.Opponent, out Card card))
             return;
 
+        Card drawnCard = card;
         CurrentRound.PlayOpponentHitCard(card);
-        EventBus.Publish(new CardDrawnEvent(Combatant.Opponent, card, _opponentDeck.RemainingCards));
+        RefreshDevilOpponentField();
+        card = CurrentRound.OpponentVisibleCards[^1];
+        EventBus.Publish(new CardDrawnEvent(Combatant.Opponent, drawnCard, _opponentDeck.RemainingCards));
         EventBus.Publish(new CardPlayedEvent(Combatant.Opponent, card));
         CommandQueue.Enqueue(new VisualCommand(VisualCommandType.CardsPlayed, card.ToString()));
     }
@@ -679,6 +686,8 @@ public sealed class BattleState
                 return;
         }
 
+        RefreshDevilOpponentField();
+        card = CurrentRound.OpponentVisibleCards[^1];
         EventBus.Publish(new CardPlayedEvent(Combatant.Opponent, card));
         CommandQueue.Enqueue(new VisualCommand(VisualCommandType.CardsPlayed, card.ToString()));
     }
@@ -736,6 +745,7 @@ public sealed class BattleState
         PublishScoreEvents(Combatant.Opponent, opponentScore, opponentPoker);
         ResolveRealtimeMoney(playerPoker, opponentPoker);
         CommandQueue.Enqueue(new VisualCommand(VisualCommandType.ScoresResolved, $"{playerScore.FinalScore}:{opponentScore.FinalScore}"));
+        //TODO: we require game over check every resolve
     }
 
     private void ResolveRealtimeMoney(PokerResult playerPoker, PokerResult opponentPoker)
@@ -765,6 +775,7 @@ public sealed class BattleState
                 AddPlayerMoney(lost);
                 CurrentRound.RecordMoneyLost(Combatant.Opponent, lost);
             }
+            global::EventBus.Publish(new MoneyTransferReasonEvent(MoneyTransferReason.PokerPayout, lost));
         }
         // Bruh
         // else if (CurrentRound.OpponentScore.IsBlackjack && !CurrentRound.PlayerScore.IsBlackjack)
@@ -798,7 +809,7 @@ public sealed class BattleState
             if (lost > 0)
                 AddPlayerMoney(lost);
         }
-
+        global::EventBus.Publish(new MoneyTransferReasonEvent(MoneyTransferReason.BurstPenalty, lost));
         CurrentRound.RecordMoneyLost(combatant, lost);
         CurrentRound.MarkBurstPenaltyResolved(combatant);
     }
@@ -822,6 +833,7 @@ public sealed class BattleState
             CurrentRound,
             DevilStateUpdatePoint.RoundResolved,
             resolution));
+        RefreshDevilOpponentField();
         SetPhase(BattlePhase.PostRound);
         EventBus.Publish(new RoundEndedEvent(RoundNumber));
 
@@ -850,6 +862,22 @@ public sealed class BattleState
     {
         EventBus.Publish(new CardPlayedEvent(Combatant.Player, card));
         CommandQueue.Enqueue(new VisualCommand(VisualCommandType.CardsPlayed, card.ToString()));
+    }
+
+    internal int GetOpponentWinBonus(RoundState round)
+    {
+        return Config.DevilStrategy is IDevilRoundPayoutModifier payoutModifier
+            ? payoutModifier.GetOpponentWinBonus(this, round)
+            : 0;
+    }
+
+    private void RefreshDevilOpponentField()
+    {
+        if (CurrentRound != null
+            && Config.DevilStrategy is IDevilOpponentFieldModifier fieldModifier)
+        {
+            fieldModifier.RefreshOpponentField(this, CurrentRound);
+        }
     }
 
     private void PublishScoreEvents(Combatant combatant, ScoreResult score, PokerResult poker)
