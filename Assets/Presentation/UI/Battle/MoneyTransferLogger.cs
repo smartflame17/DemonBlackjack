@@ -101,7 +101,7 @@ public class MoneyTransferLogger : MonoBehaviour
             case MoneyTransferReason.BurstPenalty:
                 burstPenalty += eventData.Delta;
                 burstPenaltyText.text = $"-{burstPenalty}";
-                if (burstPenalty < 0)
+                if (burstPenalty > 0)
                     burstPenaltyText.color = Color.red; // Set color to red for negative values
                 else
                     burstPenaltyText.color = Color.green; // Set color to green for positive values
