@@ -81,6 +81,11 @@ public sealed class Deck
         _discardPile.AddRange(cards);
     }
 
+    public void PlaceAtBottom(Card card)
+    {
+        _drawPile.Insert(0, card);
+    }
+
     public void TransformCards(Func<Card, Card> transform)
     {
         if (transform == null)
@@ -116,7 +121,6 @@ public sealed class Deck
             cards[i] = transform(cards[i]);
     }
 
-// TODO: Based on gameplay designer's request, this method may be altered to generate a custom starting deck
     public static List<Card> CreateStandardDeck()
     {
         var cards = new List<Card>(52);

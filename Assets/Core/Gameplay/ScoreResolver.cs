@@ -12,7 +12,7 @@ public static class ScoreResolver
         PokerResult poker = ResolvePoker(cards);
 
         int modifiedScore = ApplyModifiers(blackjackScore, 1, modifiers);
-        bool isBlackjack = modifiedScore == targetScore;    // fk you codex for adding arbitrary card.Count==2
+        bool isBlackjack = modifiedScore == targetScore;
 
         return new ScoreResult(blackjackScore, modifiedScore, poker.Rank, poker.Multiplier, isBurst, isBlackjack);
     }
@@ -23,18 +23,17 @@ public static class ScoreResolver
         return new PokerResult(rank, GetPokerMultiplier(rank), cardIndices);
     }
 
-    private static int ResolveBlackjackScore(IReadOnlyList<Card> cards) // TODO: apply any attached modifiers before evaluating
+    private static int ResolveBlackjackScore(IReadOnlyList<Card> cards)
     {
         int score = 0;
         int aces = 0;
 
         foreach (Card card in cards)
         {
-            bool negativeRank = string.Equals(card.ModifierId, CardModifierResolver.NegativeRank, StringComparison.Ordinal);
-            bool copyQueen = string.Equals(card.ModifierId, CardModifierResolver.CopyQueen, StringComparison.Ordinal);
-            score += copyQueen ? 0 : negativeRank ? -card.BlackjackValue : card.BlackjackValue;
+            int value = ResolveCardBlackjackValue(card, out bool usesSoftAce);
+            score += value;
 
-            if (card.Rank == Rank.Ace && !negativeRank)
+            if (usesSoftAce)
                 aces++;
         }
 
@@ -45,6 +44,40 @@ public static class ScoreResolver
         }
 
         return score;
+    }
+
+    private static int ResolveCardBlackjackValue(Card card, out bool usesSoftAce)
+    {
+        usesSoftAce = false;
+
+        if (CardModifierResolver.TryGetResolvedJokerValue(card.ModifierId, out int jokerValue))
+            return jokerValue;
+
+        if (string.Equals(card.ModifierId, CardModifierResolver.NegativeRank, StringComparison.Ordinal))
+            return -card.BlackjackValue;
+
+        if (IsZeroValueModifier(card.ModifierId))
+            return 0;
+
+        if (string.Equals(card.ModifierId, CardModifierResolver.DoubleCardValue, StringComparison.Ordinal))
+            return card.BlackjackValue * 2;
+
+        if (string.Equals(card.ModifierId, CardModifierResolver.HalfCardValue, StringComparison.Ordinal))
+            return card.BlackjackValue / 2;
+
+        usesSoftAce = card.Rank == Rank.Ace;
+        return card.BlackjackValue;
+    }
+
+    private static bool IsZeroValueModifier(string modifierId)
+    {
+        return string.Equals(modifierId, CardModifierResolver.CopyQueen, StringComparison.Ordinal)
+            || string.Equals(modifierId, CardModifierResolver.OutsourceOpponentCard, StringComparison.Ordinal)
+            || string.Equals(modifierId, CardModifierResolver.DuplicateKing, StringComparison.Ordinal)
+            || string.Equals(modifierId, CardModifierResolver.DuplicateOpponentCard, StringComparison.Ordinal)
+            || string.Equals(modifierId, CardModifierResolver.HitTopDeckCard, StringComparison.Ordinal)
+            || string.Equals(modifierId, CardModifierResolver.SplitPreviousCard, StringComparison.Ordinal)
+            || string.Equals(modifierId, CardModifierResolver.ZeroThenForceHit, StringComparison.Ordinal);
     }
 
     private static int ApplyModifiers(int baseScore, int pokerMultiplier, IReadOnlyList<Modifier> modifiers)

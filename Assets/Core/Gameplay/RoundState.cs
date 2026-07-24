@@ -107,6 +107,17 @@ public sealed class RoundState
         return true;
     }
 
+    public bool TrySetWagerMultiplier(int wagerMultiplier, int playerStakeDelta, int opponentStakeDelta)
+    {
+        if (!WagerCommitted || wagerMultiplier <= WagerMultiplier || playerStakeDelta <= 0 || opponentStakeDelta <= 0)
+            return false;
+
+        PlayerStake += playerStakeDelta;
+        OpponentStake += opponentStakeDelta;
+        WagerMultiplier = wagerMultiplier;
+        return true;
+    }
+
     public void AddSharedVisibleCard(Card card)
     {
         _sharedVisibleCards.Add(card);
@@ -207,6 +218,16 @@ public sealed class RoundState
         return true;
     }
 
+    public bool TryReplaceLastPlayerPlayedCard(Card card)
+    {
+        int index = _playerPlayedCards.Count - 1;
+        if (index < 0)
+            return false;
+
+        _playerPlayedCards[index] = card;
+        return true;
+    }
+
     public void PlayOpponentHitCard(Card card)
     {
         AddOpponentVisibleCard(card, Combatant.Opponent);
@@ -227,6 +248,32 @@ public sealed class RoundState
         return true;
     }
 
+    public bool TryGetLastPlayerPlayedCard(out Card card)
+    {
+        int index = _playerPlayedCards.Count - 1;
+        if (index < 0)
+        {
+            card = default;
+            return false;
+        }
+
+        card = _playerPlayedCards[index];
+        return true;
+    }
+
+    public bool TryGetPreviousOpponentVisibleCard(out Card card)
+    {
+        int index = _opponentVisibleCards.Count - 1;
+        if (index < 0)
+        {
+            card = default;
+            return false;
+        }
+
+        card = _opponentVisibleCards[index];
+        return true;
+    }
+
     public bool TryMovePreviousPlayerPlayedCardToOpponent(out Card card)
     {
         int previousIndex = _playerPlayedCards.Count - 2;
@@ -244,6 +291,106 @@ public sealed class RoundState
             _lastPlayerHitCardIndex = -1;
 
         AddOpponentVisibleCard(card, Combatant.Player);
+        return true;
+    }
+
+    public bool TryMovePreviousOpponentVisibleCardToPlayer(out Card card)
+    {
+        if (!TryRemovePreviousOpponentVisibleCard(out card, out _))
+            return false;
+
+        _playerPlayedCards.Add(card);
+        _lastPlayerHitCardIndex = _playerPlayedCards.Count - 1;
+        PlayerPlayedThisTurn = true;
+        PlayerStood = false;
+        return true;
+    }
+
+    public bool TryRemovePreviousOpponentVisibleCard(out Card card, out Combatant owner)
+    {
+        int index = _opponentVisibleCards.Count - 1;
+        if (index < 0)
+        {
+            card = default;
+            owner = default;
+            return false;
+        }
+
+        card = _opponentVisibleCards[index];
+        owner = _opponentVisibleCardOwners[index];
+        _opponentVisibleCards.RemoveAt(index);
+        _opponentVisibleCardOwners.RemoveAt(index);
+        return true;
+    }
+
+    public bool TryRemovePreviousPlayerPlayedNumberCard(out Card card)
+    {
+        int previousIndex = _playerPlayedCards.Count - 2;
+        if (previousIndex < 0 || !IsSplittableNumberRank(_playerPlayedCards[previousIndex].Rank))
+        {
+            card = default;
+            return false;
+        }
+
+        card = _playerPlayedCards[previousIndex];
+        _playerPlayedCards.RemoveAt(previousIndex);
+        if (_lastPlayerHitCardIndex > previousIndex)
+            _lastPlayerHitCardIndex--;
+        else if (_lastPlayerHitCardIndex == previousIndex)
+            _lastPlayerHitCardIndex = -1;
+
+        return true;
+    }
+
+    public bool TryRemoveLowestPlayerNumberCard(out Card card)
+    {
+        int selectedIndex = -1;
+        int selectedRankValue = int.MaxValue;
+        for (int i = 0; i < _playerPlayedCards.Count; i++)
+        {
+            Rank rank = _playerPlayedCards[i].Rank;
+            if (!IsNumberRank(rank))
+                continue;
+
+            int value = (int)rank;
+            if (value >= selectedRankValue)
+                continue;
+
+            selectedIndex = i;
+            selectedRankValue = value;
+        }
+
+        if (selectedIndex < 0)
+        {
+            card = default;
+            return false;
+        }
+
+        card = _playerPlayedCards[selectedIndex];
+        _playerPlayedCards.RemoveAt(selectedIndex);
+        if (_lastPlayerHitCardIndex > selectedIndex)
+            _lastPlayerHitCardIndex--;
+        else if (_lastPlayerHitCardIndex == selectedIndex)
+            _lastPlayerHitCardIndex = -1;
+
+        return true;
+    }
+
+    public bool TryReturnLastPlayerFieldCardToHand(out Card card)
+    {
+        int index = _playerPlayedCards.Count - 1;
+        if (index < 0)
+        {
+            card = default;
+            return false;
+        }
+
+        card = _playerPlayedCards[index];
+        _playerPlayedCards.RemoveAt(index);
+        _playerHand.Add(card);
+        if (_lastPlayerHitCardIndex >= _playerPlayedCards.Count)
+            _lastPlayerHitCardIndex = _playerPlayedCards.Count - 1;
+
         return true;
     }
 
@@ -344,7 +491,6 @@ public sealed class RoundState
     {
         var cards = new List<Card>();
         cards.AddRange(_playerPlayedCards);
-        //cards.AddRange(_opponentVisibleCards);
         cards.AddRange(_sharedVisibleCards);
         return cards;
     }
@@ -437,6 +583,16 @@ public sealed class RoundState
         _opponentOriginalVisibleCards.Add(card);
         _opponentVisibleCards.Add(card);
         _opponentVisibleCardOwners.Add(owner);
+    }
+
+    private static bool IsNumberRank(Rank rank)
+    {
+        return rank >= Rank.Ace && rank <= Rank.Ten;
+    }
+
+    private static bool IsSplittableNumberRank(Rank rank)
+    {
+        return rank >= Rank.Two && rank <= Rank.Ten;
     }
 
     private static void TransformCards(List<Card> cards, Func<Card, Card> transform)
