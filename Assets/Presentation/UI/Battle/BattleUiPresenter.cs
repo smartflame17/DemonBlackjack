@@ -52,6 +52,7 @@ public sealed class BattleUiPresenter : MonoBehaviour
     [SerializeField] private GameObject battleResultPanel;
     [SerializeField] private RectTransform rewardViewRoot;
     [SerializeField] private Button backToMapButton;
+    [SerializeField] private TMP_Text backToMapButtonText;
 
     [Header("Card Animation")]
     [SerializeField] private Vector2 cardDrawStartOffset = new(1200f, 0f);
@@ -230,6 +231,11 @@ public sealed class BattleUiPresenter : MonoBehaviour
         bool roundFinished = battle.Phase == BattlePhase.Cleanup;
         bool battleFinished = battle.Phase == BattlePhase.BattleEnd;
         SetPanels(shouldStartRound, roundFinished, battleFinished);
+
+        if (runManager != null && runManager.RunState.Money > 0)
+            backToMapButtonText.text = "다음 단계로";
+        else backToMapButtonText.text = "메인 화면으로";
+        
         RefreshRoundResult(battle);
         RefreshBattleResult(battle);
         SetTurnButtons(battle.Phase == BattlePhase.PlayerPhase && !battleController.IsWaitingForVisuals, _selectedHandIndices.Count > 0);
@@ -366,7 +372,17 @@ public sealed class BattleUiPresenter : MonoBehaviour
     {
         ClearBattleCardViews();
         battleController?.CompletePendingVisualTransition();
-        runManager?.ReturnToMap();
+        if (runManager != null && runManager.RunState.Money > 0)
+        {
+            backToMapButtonText.text = "다음 단계로";
+            runManager?.ReturnToMap();
+        }
+        else
+        {
+            backToMapButtonText.text = "메인 화면으로";
+            SceneTransitionManager.Instance?.LoadScene("MenuScene");
+        }
+        
         Refresh();
     }
 

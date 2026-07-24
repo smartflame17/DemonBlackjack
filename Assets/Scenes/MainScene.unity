@@ -7914,7 +7914,7 @@ MonoBehaviour:
   devil2BattleButton: {fileID: 1109111272}
   devil3BattleButton: {fileID: 662458918}
   devil4BattleButton: {fileID: 425738047}
-  keepDebugCanvasVisible: 1
+  keepDebugCanvasVisible: 0
 --- !u!1 &565534110
 GameObject:
   m_ObjectHideFlags: 0
@@ -22944,6 +22944,7 @@ MonoBehaviour:
   battleResultPanel: {fileID: 1169989696}
   rewardViewRoot: {fileID: 1854722664}
   backToMapButton: {fileID: 360843436}
+  backToMapButtonText: {fileID: 2088801437}
   cardDrawStartOffset: {x: 1200, y: 0}
   cardDiscardEndOffset: {x: -1200, y: 0}
   cardDrawDurationSeconds: 0.28
@@ -32902,7 +32903,7 @@ GameObject:
   - component: {fileID: 2088801438}
   - component: {fileID: 2088801437}
   m_Layer: 5
-  m_Name: Text (TMP)
+  m_Name: BackToMapButtonText
   m_TagString: Untagged
   m_Icon: {fileID: 0}
   m_NavMeshLayer: 0
@@ -32947,7 +32948,7 @@ MonoBehaviour:
   m_OnCullStateChanged:
     m_PersistentCalls:
       m_Calls: []
-  m_text: Map
+  m_text: "\uB2E4\uC74C \uB2E8\uACC4\uB85C"
   m_isRightToLeft: 0
   m_fontAsset: {fileID: 11400000, guid: 8f586378b4e144a9851e7b34d9b748ee, type: 2}
   m_sharedMaterial: {fileID: 2180264, guid: 8f586378b4e144a9851e7b34d9b748ee, type: 2}
