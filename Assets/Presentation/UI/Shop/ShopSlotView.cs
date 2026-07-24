@@ -71,8 +71,8 @@ public sealed class ShopSlotView : MonoBehaviour
             _image.sprite = sprite;
         if (_priceText != null)
             _priceText.text = $"${Mathf.Max(0, price)}";
-        if (_label != null)
-            _label.text = label;
+        // if (_label != null)
+        //     _label.text = label;
         if (_button == null)
             return;
 
