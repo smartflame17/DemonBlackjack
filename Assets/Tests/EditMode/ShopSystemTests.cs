@@ -2282,9 +2282,13 @@ public sealed class ShopSystemTests
 
             BattleUiPresenter presenter = presenterObject.AddComponent<BattleUiPresenter>();
             ConfigureTurnHandoffTestPresenter(presenter, controller);
+            RoundState round = controller.BattleState.CurrentRound;
+            int playedCardCount = round.PlayerPlayedCards.Count;
 
             Assert.That(presenter.CanPlayerAct, Is.True);
             Assert.That(presenter.TryHitFromDraggedDeck(), Is.True);
+            Assert.That(round.PlayerPlayedCards.Count, Is.EqualTo(playedCardCount + 1));
+            Assert.That(round.PlayerScore.BlackjackScore, Is.GreaterThan(0));
             Assert.That(presenter.CanPlayerAct, Is.False);
             Assert.That(presenter.TryHitFromDraggedDeck(), Is.False);
             Assert.That(strategy.TurnCount, Is.Zero);
@@ -2304,9 +2308,8 @@ public sealed class ShopSystemTests
         }
     }
 
-    [TestCase("Hit")]
-    [TestCase("EndPlayerPhase")]
-    public void BattleUiPresenter_NonStandHandoffAdvancesOpponentExactlyOnce(string actionName)
+    [Test]
+    public void BattleUiPresenter_CardPlayHandoffAdvancesOpponentExactlyOnce()
     {
         var controllerObject = new UnityEngine.GameObject("Controller");
         var presenterObject = new UnityEngine.GameObject("Presenter");
@@ -2324,11 +2327,10 @@ public sealed class ShopSystemTests
 
             BattleState battle = controller.BattleState;
             RoundState round = battle.CurrentRound;
-            if (actionName == "EndPlayerPhase")
-                Assert.That(controller.TryPlayCard(0), Is.True);
+            Assert.That(controller.TryPlayCard(0), Is.True);
 
             PrepareTurnHandoff(presenter, battle, round);
-            IEnumerator routine = CreateTurnHandoffRoutine(presenter, battle, round, actionName);
+            IEnumerator routine = CreateTurnHandoffRoutine(presenter, battle, round, "EndPlayerPhase");
             int delayCount = RunRoutineToCompletion(routine);
 
             Assert.That(delayCount, Is.EqualTo(1));
@@ -2341,6 +2343,35 @@ public sealed class ShopSystemTests
             UnityEngine.Object.DestroyImmediate(presenterObject);
             UnityEngine.Object.DestroyImmediate(controllerObject);
         }
+    }
+
+    [Test]
+    public void BattleState_HitWithoutEndingTurnDefersOpponentHandoff()
+    {
+        var strategy = new SequenceDevilStrategy(DevilTurnChoice.Stand);
+        var battle = new BattleState(
+            CreateRunWithDeck(TenTwos()),
+            new BattleConfig("test", 500, strategy, baseWager: 10));
+        int playerTurnEndedCount = 0;
+        battle.EventBus.Subscribe<PlayerTurnEndedEvent>(_ => playerTurnEndedCount++);
+        Assert.That(battle.StartRound(battle.GetDefaultWager()), Is.True);
+        RoundState round = battle.CurrentRound;
+        int playedCardCount = round.PlayerPlayedCards.Count;
+
+        Assert.That(battle.TryHitWithoutEndingTurn(), Is.True);
+
+        Assert.That(round.PlayerPlayedCards.Count, Is.EqualTo(playedCardCount + 1));
+        Assert.That(round.PlayerScore.BlackjackScore, Is.GreaterThan(0));
+        Assert.That(strategy.TurnCount, Is.Zero);
+        Assert.That(playerTurnEndedCount, Is.Zero);
+        Assert.That(battle.Phase, Is.EqualTo(BattlePhase.PlayerPhase));
+
+        battle.EndPlayerPhase();
+
+        Assert.That(strategy.TurnCount, Is.EqualTo(1));
+        Assert.That(playerTurnEndedCount, Is.EqualTo(1));
+        Assert.That(battle.Phase, Is.EqualTo(BattlePhase.PlayerPhase));
+        battle.Dispose();
     }
 
     [Test]
