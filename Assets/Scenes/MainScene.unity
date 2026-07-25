@@ -22320,6 +22320,8 @@ MonoBehaviour:
   hitButton: {fileID: 373806427}
   roundStartPanel: {fileID: 818130447}
   roundStartDelaySeconds: 2
+  opponentTurnDelayMinSeconds: 0.75
+  opponentTurnDelayMaxSeconds: 1.5
   deckViewPanel: {fileID: 2100000005}
   viewPileButton: {fileID: 134017602}
   playerHandImage: {fileID: 1399937904}
