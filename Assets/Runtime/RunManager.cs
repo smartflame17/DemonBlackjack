@@ -113,8 +113,10 @@ public class RunManager : MonoBehaviour, IDataPersistence
     {
         if (RunState == null || RunState.Phase != RunPhase.Battle || battleController == null)
             return false;
+        int roundNumber = battleController.BattleState != null ? battleController.BattleState.RoundNumber : 0;
         battleController.CompletePendingVisualTransition();
         SetPhase(RunPhase.Battle);
+        EventBus.Publish(new ShopClosedEvent(roundNumber));     // We publish event here for compatibility with existing code that expects a ShopClosedEvent after a round ends, even if no shop was opened.
         return true;
     }
 
