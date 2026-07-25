@@ -1,4 +1,5 @@
 #if UNITY_EDITOR && UNITY_INCLUDE_TESTS
+using System.Collections;
 using System.Collections.Generic;
 using System.Reflection;
 using TMPro;
@@ -2234,6 +2235,198 @@ public sealed class ShopSystemTests
         }
     }
 
+    [Test]
+    public void BattleUiPresenter_OpponentTurnDelayDefaultsAndReversedBoundsAreNormalized()
+    {
+        var target = new UnityEngine.GameObject("Presenter");
+        try
+        {
+            BattleUiPresenter presenter = target.AddComponent<BattleUiPresenter>();
+
+            Assert.That(GetField<float>(presenter, "opponentTurnDelayMinSeconds"), Is.EqualTo(0.75f));
+            Assert.That(GetField<float>(presenter, "opponentTurnDelayMaxSeconds"), Is.EqualTo(1.5f));
+
+            SetField(presenter, "opponentTurnDelayMinSeconds", 2f);
+            SetField(presenter, "opponentTurnDelayMaxSeconds", 0.5f);
+            Invoke(presenter, "OnValidate");
+
+            Assert.That(GetField<float>(presenter, "opponentTurnDelayMinSeconds"), Is.EqualTo(0.5f));
+            Assert.That(GetField<float>(presenter, "opponentTurnDelayMaxSeconds"), Is.EqualTo(2f));
+
+            SetField(presenter, "opponentTurnDelayMinSeconds", -2f);
+            SetField(presenter, "opponentTurnDelayMaxSeconds", -1f);
+            Invoke(presenter, "OnValidate");
+
+            Assert.That(GetField<float>(presenter, "opponentTurnDelayMinSeconds"), Is.Zero);
+            Assert.That(GetField<float>(presenter, "opponentTurnDelayMaxSeconds"), Is.Zero);
+        }
+        finally
+        {
+            UnityEngine.Object.DestroyImmediate(target);
+        }
+    }
+
+    [Test]
+    public void BattleUiPresenter_PendingHandoffLocksInputAndCancelsWhenDisabled()
+    {
+        var controllerObject = new UnityEngine.GameObject("Controller");
+        var presenterObject = new UnityEngine.GameObject("Presenter");
+        try
+        {
+            var strategy = new SequenceDevilStrategy(DevilTurnChoice.Stand);
+            BattleController controller = controllerObject.AddComponent<BattleController>();
+            controller.InitializeBattle(
+                CreateRunWithDeck(TenTwos()),
+                new BattleConfig("test", 500, strategy, baseWager: 10));
+            Assert.That(controller.StartNextRound(controller.BattleState.GetDefaultWager()), Is.True);
+
+            BattleUiPresenter presenter = presenterObject.AddComponent<BattleUiPresenter>();
+            ConfigureTurnHandoffTestPresenter(presenter, controller);
+
+            Assert.That(presenter.CanPlayerAct, Is.True);
+            Assert.That(presenter.TryHitFromDraggedDeck(), Is.True);
+            Assert.That(presenter.CanPlayerAct, Is.False);
+            Assert.That(presenter.TryHitFromDraggedDeck(), Is.False);
+            Assert.That(strategy.TurnCount, Is.Zero);
+            Assert.That(controller.BattleState.Phase, Is.EqualTo(BattlePhase.PlayerPhase));
+
+            Invoke(presenter, "OnDisable");
+            presenterObject.SetActive(false);
+
+            Assert.That(GetField<bool>(presenter, "_turnHandoffPending"), Is.False);
+            Assert.That(strategy.TurnCount, Is.Zero);
+            Assert.That(controller.BattleState.Phase, Is.EqualTo(BattlePhase.PlayerPhase));
+        }
+        finally
+        {
+            UnityEngine.Object.DestroyImmediate(presenterObject);
+            UnityEngine.Object.DestroyImmediate(controllerObject);
+        }
+    }
+
+    [TestCase("Hit")]
+    [TestCase("EndPlayerPhase")]
+    public void BattleUiPresenter_NonStandHandoffAdvancesOpponentExactlyOnce(string actionName)
+    {
+        var controllerObject = new UnityEngine.GameObject("Controller");
+        var presenterObject = new UnityEngine.GameObject("Presenter");
+        try
+        {
+            var strategy = new SequenceDevilStrategy(DevilTurnChoice.Stand);
+            BattleController controller = controllerObject.AddComponent<BattleController>();
+            controller.InitializeBattle(
+                CreateRunWithDeck(TenTwos()),
+                new BattleConfig("test", 500, strategy, baseWager: 10));
+            Assert.That(controller.StartNextRound(controller.BattleState.GetDefaultWager()), Is.True);
+
+            BattleUiPresenter presenter = presenterObject.AddComponent<BattleUiPresenter>();
+            ConfigureTurnHandoffTestPresenter(presenter, controller);
+
+            BattleState battle = controller.BattleState;
+            RoundState round = battle.CurrentRound;
+            if (actionName == "EndPlayerPhase")
+                Assert.That(controller.TryPlayCard(0), Is.True);
+
+            PrepareTurnHandoff(presenter, battle, round);
+            IEnumerator routine = CreateTurnHandoffRoutine(presenter, battle, round, actionName);
+            int delayCount = RunRoutineToCompletion(routine);
+
+            Assert.That(delayCount, Is.EqualTo(1));
+            Assert.That(strategy.TurnCount, Is.EqualTo(1));
+            Assert.That(GetField<bool>(presenter, "_turnHandoffPending"), Is.False);
+            Assert.That(battle.Phase, Is.EqualTo(BattlePhase.PlayerPhase));
+        }
+        finally
+        {
+            UnityEngine.Object.DestroyImmediate(presenterObject);
+            UnityEngine.Object.DestroyImmediate(controllerObject);
+        }
+    }
+
+    [Test]
+    public void BattleUiPresenter_StandAutomaticallyAdvancesUntilOpponentStands()
+    {
+        var controllerObject = new UnityEngine.GameObject("Controller");
+        var presenterObject = new UnityEngine.GameObject("Presenter");
+        try
+        {
+            var strategy = new SequenceDevilStrategy(
+                DevilTurnChoice.Hit,
+                DevilTurnChoice.Play,
+                DevilTurnChoice.Stand);
+            BattleController controller = controllerObject.AddComponent<BattleController>();
+            controller.InitializeBattle(
+                CreateRunWithDeck(TenTwos()),
+                new BattleConfig("test", 500, strategy, baseWager: 10));
+            Assert.That(controller.StartNextRound(controller.BattleState.GetDefaultWager()), Is.True);
+
+            BattleUiPresenter presenter = presenterObject.AddComponent<BattleUiPresenter>();
+            ConfigureTurnHandoffTestPresenter(presenter, controller);
+
+            BattleState battle = controller.BattleState;
+            RoundState round = battle.CurrentRound;
+            PrepareTurnHandoff(presenter, battle, round);
+            IEnumerator routine = CreateTurnHandoffRoutine(presenter, battle, round, "Stand");
+            int delayCount = RunRoutineToCompletion(routine);
+
+            Assert.That(delayCount, Is.EqualTo(3));
+            Assert.That(strategy.TurnCount, Is.EqualTo(3));
+            Assert.That(round.PlayerStood, Is.True);
+            Assert.That(round.OpponentStood, Is.True);
+            Assert.That(battle.Phase, Is.EqualTo(BattlePhase.Cleanup));
+            Assert.That(controller.IsWaitingForVisuals, Is.True);
+            Assert.That(GetField<bool>(presenter, "_turnHandoffPending"), Is.False);
+        }
+        finally
+        {
+            UnityEngine.Object.DestroyImmediate(presenterObject);
+            UnityEngine.Object.DestroyImmediate(controllerObject);
+        }
+    }
+
+    [Test]
+    public void BattleUiPresenter_StaleHandoffDoesNotActOnReplacementBattle()
+    {
+        var controllerObject = new UnityEngine.GameObject("Controller");
+        var presenterObject = new UnityEngine.GameObject("Presenter");
+        try
+        {
+            var originalStrategy = new SequenceDevilStrategy(DevilTurnChoice.Stand);
+            BattleController controller = controllerObject.AddComponent<BattleController>();
+            controller.InitializeBattle(
+                CreateRunWithDeck(TenTwos()),
+                new BattleConfig("original", 500, originalStrategy, baseWager: 10));
+            Assert.That(controller.StartNextRound(controller.BattleState.GetDefaultWager()), Is.True);
+
+            BattleUiPresenter presenter = presenterObject.AddComponent<BattleUiPresenter>();
+            ConfigureTurnHandoffTestPresenter(presenter, controller);
+
+            BattleState originalBattle = controller.BattleState;
+            RoundState originalRound = originalBattle.CurrentRound;
+            PrepareTurnHandoff(presenter, originalBattle, originalRound);
+            IEnumerator routine = CreateTurnHandoffRoutine(presenter, originalBattle, originalRound, "Stand");
+            Assert.That(routine.MoveNext(), Is.True);
+
+            var replacementStrategy = new SequenceDevilStrategy(DevilTurnChoice.Stand);
+            controller.InitializeBattle(
+                CreateRunWithDeck(TenTwos()),
+                new BattleConfig("replacement", 500, replacementStrategy, baseWager: 10));
+            Assert.That(controller.StartNextRound(controller.BattleState.GetDefaultWager()), Is.True);
+
+            Assert.That(routine.MoveNext(), Is.False);
+
+            Assert.That(originalStrategy.TurnCount, Is.Zero);
+            Assert.That(replacementStrategy.TurnCount, Is.Zero);
+            Assert.That(controller.BattleState.Phase, Is.EqualTo(BattlePhase.PlayerPhase));
+            Assert.That(GetField<bool>(presenter, "_turnHandoffPending"), Is.False);
+        }
+        finally
+        {
+            UnityEngine.Object.DestroyImmediate(presenterObject);
+            UnityEngine.Object.DestroyImmediate(controllerObject);
+        }
+    }
+
     private static bool ContainsUpgradedRank(IReadOnlyList<Card> cards, Rank rank, string modifierId)
     {
         for (int i = 0; i < cards.Count; i++)
@@ -2500,6 +2693,61 @@ public sealed class ShopSystemTests
         field.SetValue(target, value);
     }
 
+    private static T GetField<T>(object target, string fieldName)
+    {
+        FieldInfo field = target.GetType().GetField(fieldName, BindingFlags.Instance | BindingFlags.NonPublic);
+        Assert.That(field, Is.Not.Null, fieldName);
+        return (T)field.GetValue(target);
+    }
+
+    private static void PrepareTurnHandoff(BattleUiPresenter presenter, BattleState battle, RoundState round)
+    {
+        SetField(presenter, "_turnHandoffPending", true);
+        SetField(presenter, "_scheduledTurnBattle", battle);
+        SetField(presenter, "_scheduledTurnRound", round);
+    }
+
+    private static void ConfigureTurnHandoffTestPresenter(BattleUiPresenter presenter, BattleController controller)
+    {
+        SetField(presenter, "battleController", controller);
+        SetField(presenter, "opponentTurnDelayMinSeconds", 0f);
+        SetField(presenter, "opponentTurnDelayMaxSeconds", 0f);
+
+        var labelObject = new GameObject(
+            "BackToMapButtonText",
+            typeof(RectTransform),
+            typeof(TextMeshProUGUI));
+        labelObject.transform.SetParent(presenter.transform);
+        SetField(presenter, "backToMapButtonText", labelObject.GetComponent<TextMeshProUGUI>());
+    }
+
+    private static IEnumerator CreateTurnHandoffRoutine(
+        BattleUiPresenter presenter,
+        BattleState battle,
+        RoundState round,
+        string actionName)
+    {
+        System.Type actionType = typeof(BattleUiPresenter).GetNestedType("TurnHandoffAction", BindingFlags.NonPublic);
+        Assert.That(actionType, Is.Not.Null);
+        object action = System.Enum.Parse(actionType, actionName);
+        MethodInfo method = typeof(BattleUiPresenter).GetMethod("RunTurnHandoff", BindingFlags.Instance | BindingFlags.NonPublic);
+        Assert.That(method, Is.Not.Null);
+        return (IEnumerator)method.Invoke(presenter, new[] { battle, round, action });
+    }
+
+    private static int RunRoutineToCompletion(IEnumerator routine, int maximumSteps = 20)
+    {
+        int delayCount = 0;
+        while (delayCount < maximumSteps && routine.MoveNext())
+        {
+            Assert.That(routine.Current, Is.Null, "Zero-delay handoffs should yield one frame.");
+            delayCount++;
+        }
+
+        Assert.That(delayCount, Is.LessThan(maximumSteps), "Turn handoff routine did not terminate.");
+        return delayCount;
+    }
+
     private static void SetAutoProperty(object target, string propertyName, object value)
     {
         FieldInfo field = target.GetType().GetField($"<{propertyName}>k__BackingField", BindingFlags.Instance | BindingFlags.NonPublic);
@@ -2540,6 +2788,43 @@ public sealed class ShopSystemTests
         public DevilTurnChoice ChooseTurnAction(BattleState battle, RoundState round) => _choice;
         public int ChooseCardIndex(BattleState battle, RoundState round) => 0;
         public IEnumerable<Card> CreateStartingDeck(RunState runState, BattleConfig config) => new List<Card>();
+        public void RegisterAffinityHooks(BattleState battle) { }
+        public void UnregisterAffinityHooks(BattleState battle) { }
+        public void UpdateDevilState(DevilStateUpdateContext context) { }
+        public string GetDialogueId() => "test";
+        public IEnumerable<Modifier> GetGlobalModifiers(RunState runState) => new List<Modifier>();
+    }
+
+    private sealed class SequenceDevilStrategy : IDevilStrategy
+    {
+        private readonly DevilTurnChoice[] _choices;
+
+        public SequenceDevilStrategy(params DevilTurnChoice[] choices)
+        {
+            _choices = choices;
+        }
+
+        public int DrawValue => 3;
+        public int TurnCount { get; private set; }
+
+        public DevilTurnChoice ChooseTurnAction(BattleState battle, RoundState round)
+        {
+            int choiceIndex = System.Math.Min(TurnCount, _choices.Length - 1);
+            TurnCount++;
+            return _choices[choiceIndex];
+        }
+
+        public int ChooseCardIndex(BattleState battle, RoundState round) => 0;
+        public IEnumerable<Card> CreateStartingDeck(RunState runState, BattleConfig config) =>
+            new[]
+            {
+                new Card(Suit.Hearts, Rank.Two),
+                new Card(Suit.Hearts, Rank.Three),
+                new Card(Suit.Hearts, Rank.Four),
+                new Card(Suit.Hearts, Rank.Five),
+                new Card(Suit.Hearts, Rank.Six),
+                new Card(Suit.Hearts, Rank.Seven)
+            };
         public void RegisterAffinityHooks(BattleState battle) { }
         public void UnregisterAffinityHooks(BattleState battle) { }
         public void UpdateDevilState(DevilStateUpdateContext context) { }
