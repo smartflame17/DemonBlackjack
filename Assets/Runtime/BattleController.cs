@@ -45,6 +45,13 @@ public class BattleController : MonoBehaviour
         return result;
     }
 
+    public bool TryHitWithoutEndingTurn()
+    {
+        return !IsWaitingForVisuals
+            && BattleState != null
+            && BattleState.TryHitWithoutEndingTurn();
+    }
+
     public bool TryStand()
     {
         if (IsWaitingForVisuals || BattleState == null)

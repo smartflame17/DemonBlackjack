@@ -123,7 +123,6 @@ public sealed class BattleUiPresenter : MonoBehaviour
     private enum TurnHandoffAction
     {
         EndPlayerPhase,
-        Hit,
         Stand
     }
 
@@ -294,7 +293,13 @@ public sealed class BattleUiPresenter : MonoBehaviour
             return false;
 
         _selectedHandIndices.Clear();
-        bool hit = ScheduleTurnHandoff(TurnHandoffAction.Hit);
+        if (!battleController.TryHitWithoutEndingTurn())
+        {
+            Refresh();
+            return false;
+        }
+
+        bool hit = ScheduleTurnHandoff(TurnHandoffAction.EndPlayerPhase);
         Refresh();
         return hit;
     }
@@ -384,9 +389,7 @@ public sealed class BattleUiPresenter : MonoBehaviour
 
     private void Hit()
     {
-        _selectedHandIndices.Clear();
-        ScheduleTurnHandoff(TurnHandoffAction.Hit);
-        Refresh();
+        TryHitFromDraggedDeck();
     }
 
     private void OpenShop()
@@ -509,8 +512,6 @@ public sealed class BattleUiPresenter : MonoBehaviour
             case TurnHandoffAction.EndPlayerPhase:
                 battleController.EndPlayerPhase();
                 return true;
-            case TurnHandoffAction.Hit:
-                return battleController.TryHit();
             case TurnHandoffAction.Stand:
                 return battleController.TryStand();
             default:

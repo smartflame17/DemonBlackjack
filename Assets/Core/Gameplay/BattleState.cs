@@ -128,6 +128,23 @@ public sealed class BattleState
 
     public bool TryHit()
     {
+        if (!TryHitCard())
+            return false;
+
+        return CompletePlayerTurn();
+    }
+
+    public bool TryHitWithoutEndingTurn()
+    {
+        if (!TryHitCard())
+            return false;
+
+        ResolveScores();
+        return true;
+    }
+
+    private bool TryHitCard()
+    {
         if (Phase != BattlePhase.PlayerPhase || CurrentRound == null)
             return false;
 
@@ -141,7 +158,7 @@ public sealed class BattleState
 
         EventBus.Publish(new PlayerHitUsedEvent(RoundNumber, card));
         PublishPlayerCardPlayed(card);
-        return CompletePlayerTurn();
+        return true;
     }
 
     public bool TryStand()
