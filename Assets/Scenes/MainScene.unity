@@ -1839,9 +1839,9 @@ RectTransform:
   - {fileID: 1657620040}
   m_Father: {fileID: 1447430189}
   m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
-  m_AnchorMin: {x: 0, y: 1}
-  m_AnchorMax: {x: 0, y: 1}
-  m_AnchoredPosition: {x: 120.9899, y: -61.30195}
+  m_AnchorMin: {x: 0, y: 0}
+  m_AnchorMax: {x: 0, y: 0}
+  m_AnchoredPosition: {x: 0, y: 0}
   m_SizeDelta: {x: 160, y: 80}
   m_Pivot: {x: 0.5, y: 0.5}
 --- !u!114 &118463398
@@ -5241,8 +5241,8 @@ RectTransform:
   m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
   m_AnchorMin: {x: 0, y: 0}
   m_AnchorMax: {x: 1, y: 1}
-  m_AnchoredPosition: {x: -375.3, y: 0}
-  m_SizeDelta: {x: -1068, y: 6}
+  m_AnchoredPosition: {x: -387.9, y: 0}
+  m_SizeDelta: {x: -1333.219, y: 6}
   m_Pivot: {x: 0.5, y: 0.5}
 --- !u!114 &417832717
 MonoBehaviour:
@@ -11463,9 +11463,9 @@ RectTransform:
   - {fileID: 581499841}
   m_Father: {fileID: 1447430189}
   m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
-  m_AnchorMin: {x: 0, y: 1}
-  m_AnchorMax: {x: 0, y: 1}
-  m_AnchoredPosition: {x: 120.9899, y: -183.90585}
+  m_AnchorMin: {x: 0, y: 0}
+  m_AnchorMax: {x: 0, y: 0}
+  m_AnchoredPosition: {x: 0, y: 0}
   m_SizeDelta: {x: 160, y: 80}
   m_Pivot: {x: 0.5, y: 0.5}
 --- !u!114 &842087217
@@ -13866,6 +13866,7 @@ GameObject:
   - component: {fileID: 1088814750}
   - component: {fileID: 1088814749}
   - component: {fileID: 1088814751}
+  - component: {fileID: 1088814752}
   m_Layer: 5
   m_Name: MoneyLog
   m_TagString: Untagged
@@ -13955,6 +13956,18 @@ MonoBehaviour:
   burstPenaltyText: {fileID: 901702102}
   pokerResultText: {fileID: 581613779}
   battleController: {fileID: 1399201285}
+--- !u!225 &1088814752
+CanvasGroup:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 1088814747}
+  m_Enabled: 1
+  m_Alpha: 1
+  m_Interactable: 1
+  m_BlocksRaycasts: 1
+  m_IgnoreParentGroups: 0
 --- !u!1 &1092893229
 GameObject:
   m_ObjectHideFlags: 0
@@ -21751,7 +21764,7 @@ RectTransform:
   m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
   m_AnchorMin: {x: 0, y: 0}
   m_AnchorMax: {x: 1, y: 1}
-  m_AnchoredPosition: {x: -275.4, y: 0}
+  m_AnchoredPosition: {x: -229, y: 0}
   m_SizeDelta: {x: 0, y: 0}
   m_Pivot: {x: 0.5, y: 0.5}
 --- !u!114 &1313127642
@@ -22437,7 +22450,6 @@ RectTransform:
   - {fileID: 1198707300}
   - {fileID: 87297320}
   - {fileID: 1320003881}
-  - {fileID: 1088814748}
   - {fileID: 1683771061}
   - {fileID: 647403621}
   - {fileID: 2027324736}
@@ -22446,6 +22458,7 @@ RectTransform:
   - {fileID: 199694684}
   - {fileID: 1092893230}
   - {fileID: 1450920646}
+  - {fileID: 1088814748}
   - {fileID: 1169989697}
   - {fileID: 1399937904}
   m_Father: {fileID: 0}
@@ -23322,7 +23335,7 @@ GameObject:
   m_Icon: {fileID: 0}
   m_NavMeshLayer: 0
   m_StaticEditorFlags: 0
-  m_IsActive: 0
+  m_IsActive: 1
 --- !u!224 &1450920646
 RectTransform:
   m_ObjectHideFlags: 0
@@ -23408,7 +23421,7 @@ MonoBehaviour:
   m_EditorClassIdentifier: Assembly-CSharp::RoundResultPanel
   roundResultText: {fileID: 1923911676}
   battleController: {fileID: 1399201285}
-  fadeDuration: 1
+  fadeDuration: 2.5
 --- !u!1 &1451857649
 GameObject:
   m_ObjectHideFlags: 0
@@ -26611,10 +26624,10 @@ MonoBehaviour:
     onConversationStart:
       m_PersistentCalls:
         m_Calls:
-        - m_Target: {fileID: 1088814751}
-          m_TargetAssemblyTypeName: MoneyTransferLogger, Assembly-CSharp
-          m_MethodName: HideLoggerPanel
-          m_Mode: 1
+        - m_Target: {fileID: 1450920649}
+          m_TargetAssemblyTypeName: UnityEngine.CanvasGroup, UnityEngine
+          m_MethodName: set_alpha
+          m_Mode: 4
           m_Arguments:
             m_ObjectArgument: {fileID: 0}
             m_ObjectArgumentAssemblyTypeName: UnityEngine.Object, UnityEngine
@@ -26623,7 +26636,7 @@ MonoBehaviour:
             m_StringArgument: 
             m_BoolArgument: 0
           m_CallState: 2
-        - m_Target: {fileID: 1450920649}
+        - m_Target: {fileID: 1088814752}
           m_TargetAssemblyTypeName: UnityEngine.CanvasGroup, UnityEngine
           m_MethodName: set_alpha
           m_Mode: 4
@@ -26638,19 +26651,19 @@ MonoBehaviour:
     onConversationEnd:
       m_PersistentCalls:
         m_Calls:
-        - m_Target: {fileID: 1088814751}
-          m_TargetAssemblyTypeName: MoneyTransferLogger, Assembly-CSharp
-          m_MethodName: ShowLoggerPanel
-          m_Mode: 1
+        - m_Target: {fileID: 1450920649}
+          m_TargetAssemblyTypeName: UnityEngine.CanvasGroup, UnityEngine
+          m_MethodName: set_alpha
+          m_Mode: 4
           m_Arguments:
             m_ObjectArgument: {fileID: 0}
             m_ObjectArgumentAssemblyTypeName: UnityEngine.Object, UnityEngine
             m_IntArgument: 0
-            m_FloatArgument: 0
+            m_FloatArgument: 1
             m_StringArgument: 
             m_BoolArgument: 0
           m_CallState: 2
-        - m_Target: {fileID: 1450920649}
+        - m_Target: {fileID: 1088814752}
           m_TargetAssemblyTypeName: UnityEngine.CanvasGroup, UnityEngine
           m_MethodName: set_alpha
           m_Mode: 4
