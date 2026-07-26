@@ -7,7 +7,7 @@ public sealed class Deck
     private readonly List<Card> _discardPile;
     private readonly Random _random;
 
-    public Deck(IEnumerable<Card> cards, int seed)
+    public Deck(IEnumerable<Card> cards, int seed, bool shuffle = true, bool cardsAreDrawOrder = false)
     {
         if (cards == null)
             throw new ArgumentNullException(nameof(cards));
@@ -15,7 +15,10 @@ public sealed class Deck
         _drawPile = new List<Card>(cards);
         _discardPile = new List<Card>();
         _random = new Random(seed);
-        ShuffleDrawPile();
+        if (cardsAreDrawOrder)
+            _drawPile.Reverse();
+        if (shuffle)
+            ShuffleDrawPile();
     }
 
     public IReadOnlyList<Card> DrawPile => _drawPile;

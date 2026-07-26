@@ -29,8 +29,10 @@ public sealed class BattleState
         CommandQueue = new CommandQueue();
         OpponentMoney = config.OpponentStartingMoney;
         BattleSeed = runState.CreateBattleSeed();
-        _playerDeck = new Deck(runState.CreateBattleDeck(), BattleSeed);
-        _opponentDeck = new Deck(config.DevilStrategy.CreateStartingDeck(runState, config), BattleSeed + 17);
+        IReadOnlyList<Card> playerDeck = config.HasPlayerDeckOverride ? config.PlayerDeckOverride : runState.CreateBattleDeck();
+        IEnumerable<Card> opponentDeck = config.HasOpponentDeckOverride ? config.OpponentDeckOverride : config.DevilStrategy.CreateStartingDeck(runState, config);
+        _playerDeck = new Deck(playerDeck, BattleSeed, !config.HasPlayerDeckOverride, config.HasPlayerDeckOverride);
+        _opponentDeck = new Deck(opponentDeck, BattleSeed + 17, !config.HasOpponentDeckOverride, config.HasOpponentDeckOverride);
         _random = new Random(BattleSeed);
         _activeModifiers.AddRange(config.InitialModifiers);
         _activeModifiers.AddRange(config.DevilStrategy.GetGlobalModifiers(runState));

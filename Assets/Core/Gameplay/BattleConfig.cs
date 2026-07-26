@@ -13,7 +13,9 @@ public sealed class BattleConfig
         int burstThreshold = 21,
         int baseWager = 10,
         string devilId = null,
-        IEnumerable<Modifier> initialModifiers = null)
+        IEnumerable<Modifier> initialModifiers = null,
+        IEnumerable<Card> playerDeckOverride = null,
+        IEnumerable<Card> opponentDeckOverride = null)
     {
         EncounterId = string.IsNullOrWhiteSpace(encounterId) ? "default" : encounterId;
         DevilId = string.IsNullOrWhiteSpace(devilId) ? EncounterId : devilId;
@@ -24,6 +26,8 @@ public sealed class BattleConfig
         BurstThreshold = burstThreshold <= 0 ? 21 : burstThreshold;
         BaseWager = Math.Max(1, baseWager);
         InitialModifiers = initialModifiers?.ToList() ?? new List<Modifier>();
+        PlayerDeckOverride = playerDeckOverride?.ToList();
+        OpponentDeckOverride = opponentDeckOverride?.ToList();
     }
 
     public string EncounterId { get; }
@@ -35,4 +39,8 @@ public sealed class BattleConfig
     public int BurstThreshold { get; }
     public int BaseWager { get; }
     public IReadOnlyList<Modifier> InitialModifiers { get; }
+    public IReadOnlyList<Card> PlayerDeckOverride { get; }
+    public IReadOnlyList<Card> OpponentDeckOverride { get; }
+    public bool HasPlayerDeckOverride => PlayerDeckOverride != null && PlayerDeckOverride.Count > 0;
+    public bool HasOpponentDeckOverride => OpponentDeckOverride != null && OpponentDeckOverride.Count > 0;
 }
