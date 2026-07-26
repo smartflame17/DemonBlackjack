@@ -31,7 +31,7 @@ public static class MoneyResolver
             {
                 playerMoneyLost += lost;
                 round.RecordMoneyLost(Combatant.Player, lost);
-                EventBus.Publish(new MoneyTransferReasonEvent(MoneyTransferReason.DevilAbilityPayout, -lost));
+                EventBus.Publish(new MoneyTransferReasonEvent(MoneyTransferReason.DevilAbilityPayout, lost));
             }
         }
 
