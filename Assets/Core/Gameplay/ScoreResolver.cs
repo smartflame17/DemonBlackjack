@@ -99,7 +99,7 @@ public static class ScoreResolver
         return Math.Max(0, score * Math.Max(1, pokerMultiplier));
     }
 
-    private static int GetPokerMultiplier(PokerHandRank rank)
+    public static int GetPokerMultiplier(PokerHandRank rank)
     {
         return rank switch
         {
