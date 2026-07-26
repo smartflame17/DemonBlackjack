@@ -12,15 +12,13 @@ public static class MoneyResolver
             throw new ArgumentNullException(nameof(round));
 
         Combatant? winner = DetermineWinner(round.PlayerScore, round.OpponentScore);
-        int opponentMoneyLost = round.OpponentMoneyLost;
-        int playerMoneyLost = round.PlayerMoneyLost;
         int opponentWinBonus = winner == Combatant.Opponent
             ? Math.Max(0, battle.GetOpponentWinBonus(round))
             : 0;
         //WARNING: now that burst transfer is realtime, we dont need round end burst transfer?
         int wager = Math.Max(0, round.EffectiveWager);
         if (wager > 0 && applyBurstPenalty)
-            ResolveBurstTransfers(battle, round, wager, ref opponentMoneyLost, ref playerMoneyLost);
+            ResolveBurstTransfers(battle, round, wager);
 
         ResolveBlackjackPot(battle, round, winner);
 
@@ -30,7 +28,6 @@ public static class MoneyResolver
             int lost = TransferPlayerToOpponent(battle, opponentWinBonus);
             if (lost > 0)
             {
-                playerMoneyLost += lost;
                 round.RecordMoneyLost(Combatant.Player, lost);
                 EventBus.Publish(new MoneyTransferReasonEvent(MoneyTransferReason.DevilAbilityPayout, lost));
             }
@@ -38,9 +35,9 @@ public static class MoneyResolver
 
         // WARNING: Like burst transfer, we dont need round end poker transfer?
         if (battle.PlayerMoney > 0 && wager > 0)
-            ResolvePlayerPokerPayout(battle, round, wager, ref opponentMoneyLost);
+            ResolvePlayerPokerPayout(battle, round, wager);
 
-        return new RoundResolution(winner, opponentMoneyLost, playerMoneyLost);
+        return new RoundResolution(winner, round.OpponentMoneyLost, round.PlayerMoneyLost);
     }
 
     public static Combatant? DetermineWinner(ScoreResult player, ScoreResult opponent)
@@ -63,12 +60,10 @@ public static class MoneyResolver
         return player.FinalScore > opponent.FinalScore ? Combatant.Player : Combatant.Opponent;
     }
 
-    private static void ResolveBurstTransfers(
+    public static void ResolveBurstTransfers(
         BattleState battle,
         RoundState round,
-        int wager,
-        ref int opponentMoneyLost,
-        ref int playerMoneyLost)
+        int wager)
     {
         int playerBurstOffset = Math.Max(0, round.PlayerScore.BlackjackScore - round.PlayerBurstThreshold);
         if (playerBurstOffset > 0 && !round.PlayerBurstPenaltyResolved)
@@ -79,7 +74,6 @@ public static class MoneyResolver
             // Version 2: Fixed amount
             int amount = playerBurstOffset * 50;
             int lost = TransferPlayerToOpponent(battle, amount);
-            playerMoneyLost += lost;
             round.RecordMoneyLost(Combatant.Player, lost);
             round.MarkBurstPenaltyResolved(Combatant.Player);
             EventBus.Publish(new MoneyTransferReasonEvent(MoneyTransferReason.BurstPenalty, amount));
@@ -94,7 +88,6 @@ public static class MoneyResolver
             // Version 2: Fixed amount
             int amount = opponentBurstOffset * 50;
             int lost = TransferOpponentToPlayer(battle, amount);
-            opponentMoneyLost += lost;
             round.RecordMoneyLost(Combatant.Opponent, lost);
             round.MarkBurstPenaltyResolved(Combatant.Opponent);
             EventBus.Publish(new MoneyTransferReasonEvent(MoneyTransferReason.BurstPenalty, -amount));
@@ -125,7 +118,7 @@ public static class MoneyResolver
         }
     }
 
-    private static void ResolvePlayerPokerPayout(BattleState battle, RoundState round, int wager, ref int opponentMoneyLost)
+    public static void ResolvePlayerPokerPayout(BattleState battle, RoundState round, int wager)
     {
         IReadOnlyList<Card> cards = round.GetPokerCardsForPlayerPayout();
         PokerResult poker = ScoreResolver.ResolvePoker(cards);
@@ -133,7 +126,8 @@ public static class MoneyResolver
         if (payout <= 0)
             return;
 
-        opponentMoneyLost += TransferOpponentToPlayer(battle, payout);
+        int lost = TransferOpponentToPlayer(battle, payout);
+        round.RecordMoneyLost(Combatant.Opponent, lost);
         EventBus.Publish(new MoneyTransferReasonEvent(MoneyTransferReason.PokerPayout, payout));
     }
 

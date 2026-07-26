@@ -1037,12 +1037,12 @@ public sealed class BattleState
 
         PublishScoreEvents(Combatant.Player, playerScore, playerPoker);
         PublishScoreEvents(Combatant.Opponent, opponentScore, opponentPoker);
-        ResolveRealtimeMoney(playerPoker);
+        ResolveRealtimeMoney();
         CommandQueue.Enqueue(new VisualCommand(VisualCommandType.ScoresResolved, $"{playerScore.FinalScore}:{opponentScore.FinalScore}"));
         //TODO: we require game over check every resolve
     }
 
-    private void ResolveRealtimeMoney(PokerResult playerPoker)
+    private void ResolveRealtimeMoney()
     {
         if (CurrentRound == null || CurrentRound.EffectiveWager <= 0)
             return;
@@ -1052,57 +1052,14 @@ public sealed class BattleState
         if (!playerPlayed && !opponentPlayed)
             return;
 
-        ResolveRealtimePokerPayout(playerPoker);
-        if (playerPlayed)
-            ResolveRealtimeBurstPenalty(Combatant.Player, CurrentRound.PlayerScore, CurrentRound.PlayerBurstThreshold);
-        if (opponentPlayed)
-            ResolveRealtimeBurstPenalty(Combatant.Opponent, CurrentRound.OpponentScore, CurrentRound.OpponentBurstThreshold);
-    }
-
-    private void ResolveRealtimePokerPayout(PokerResult playerPoker)
-    {
-        int payout = MoneyResolver.CalculatePokerPayout(
-            CurrentRound.PlayerPlayedCards,
-            playerPoker,
+        MoneyResolver.ResolvePlayerPokerPayout(
+            this,
+            CurrentRound,
             CurrentRound.EffectiveWager);
-        if (payout > 0)
-        {
-            int lost = LoseOpponentMoney(payout);
-            if (lost > 0)
-            {
-                AddPlayerMoney(lost);
-                CurrentRound.RecordMoneyLost(Combatant.Opponent, lost);
-            }
-            global::EventBus.Publish(new MoneyTransferReasonEvent(MoneyTransferReason.PokerPayout, lost));
-        }
-    }
-
-    // TODO: Refactor this to use MoneyResolver.ResolveBurstTransfers() instead of duplicating the logic here
-    private void ResolveRealtimeBurstPenalty(Combatant combatant, ScoreResult score, int threshold)
-    {
-        int burstOffset = Math.Max(0, score.BlackjackScore - threshold);
-        if (burstOffset <= 0)
-            return;
-
-        //int amount = burstOffset * CurrentRound.EffectiveWager;
-        // Version 2: Fixed amount
-        int amount = burstOffset * 50;
-        int lost;
-        if (combatant == Combatant.Player)
-        {
-            lost = LosePlayerMoney(amount);
-            if (lost > 0)
-                AddOpponentMoney(lost);
-        }
-        else
-        {
-            lost = LoseOpponentMoney(amount);
-            if (lost > 0)
-                AddPlayerMoney(lost);
-        }
-        global::EventBus.Publish(new MoneyTransferReasonEvent(MoneyTransferReason.BurstPenalty, lost));
-        CurrentRound.RecordMoneyLost(combatant, lost);
-        CurrentRound.MarkBurstPenaltyResolved(combatant);
+        MoneyResolver.ResolveBurstTransfers(
+            this,
+            CurrentRound,
+            CurrentRound.EffectiveWager);
     }
 
     private int GetOpponentBlackjackBonus()
