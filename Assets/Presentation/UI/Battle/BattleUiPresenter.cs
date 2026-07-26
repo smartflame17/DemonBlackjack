@@ -247,9 +247,10 @@ public sealed class BattleUiPresenter : MonoBehaviour
         RenderPlayPile(round, _suppressRoundPilesUntilNextRound && battle.Phase == BattlePhase.Cleanup);
         AnimateCardChanges(round, animationContext);
 
+        bool suppressBlockingPanels = battleController != null && battleController.InputGate != null;
         bool roundFinished = battle.Phase == BattlePhase.Cleanup;
-        bool battleFinished = battle.Phase == BattlePhase.BattleEnd;
-        SetPanels(shouldStartRound, roundFinished, battleFinished);
+        bool battleFinished = battle.Phase == BattlePhase.BattleEnd && !suppressBlockingPanels;
+        SetPanels(shouldStartRound && !suppressBlockingPanels, roundFinished, battleFinished);
 
         if (runManager != null && runManager.RunState.Money > 0)
             backToMapButtonText.text = "다음 단계로";

@@ -6,6 +6,7 @@ public class BattleController : MonoBehaviour
     public CommandQueue CommandQueue => BattleState?.CommandQueue;
     public bool HasActiveBattle => BattleState != null && !BattleState.IsBattleOver;
     public bool IsWaitingForVisuals { get; private set; }
+    public IBattleInputGate InputGate { get; set; }
 
     private BattleEndedEvent? _pendingBattleEndedEvent;
 
@@ -23,6 +24,9 @@ public class BattleController : MonoBehaviour
         if (BattleState == null || BattleState.IsBattleOver || IsWaitingForVisuals)
             return false;
 
+        if (InputGate != null && !InputGate.CanStartRound(BattleState, wager))
+            return false;
+
         bool started = BattleState.StartRound(wager);
         if (started)
             Debug.Log($"<color=blue>[Round]</color> Wager: {wager}, Player phase started");
@@ -31,7 +35,10 @@ public class BattleController : MonoBehaviour
 
     public bool TryPlayCard(int handIndex)
     {
-        return !IsWaitingForVisuals && BattleState != null && BattleState.TryPlayCard(handIndex);
+        return !IsWaitingForVisuals
+            && BattleState != null
+            && (InputGate == null || InputGate.CanPlayCard(BattleState, handIndex))
+            && BattleState.TryPlayCard(handIndex);
     }
 
     public bool TryHit()
@@ -40,6 +47,9 @@ public class BattleController : MonoBehaviour
             return false;
 
         BattleState activeBattle = BattleState;
+        if (InputGate != null && !InputGate.CanHit(activeBattle))
+            return false;
+
         bool result = activeBattle.TryHit();
         MarkWaitingForCompletedRound(activeBattle);
         return result;
@@ -49,6 +59,7 @@ public class BattleController : MonoBehaviour
     {
         return !IsWaitingForVisuals
             && BattleState != null
+            && (InputGate == null || InputGate.CanHit(BattleState))
             && BattleState.TryHitWithoutEndingTurn();
     }
 
@@ -58,19 +69,30 @@ public class BattleController : MonoBehaviour
             return false;
 
         BattleState activeBattle = BattleState;
+        if (InputGate != null && !InputGate.CanStand(activeBattle))
+            return false;
+
         bool result = activeBattle.TryStand();
+        if (result)
+            InputGate?.NotifyStandAccepted(activeBattle);
         MarkWaitingForCompletedRound(activeBattle);
         return result;
     }
 
     public bool TryUseActiveItem(string itemId)
     {
-        return !IsWaitingForVisuals && BattleState != null && BattleState.TryUseActiveItem(itemId);
+        return !IsWaitingForVisuals
+            && BattleState != null
+            && (InputGate == null || InputGate.CanUseActiveItem(BattleState, itemId))
+            && BattleState.TryUseActiveItem(itemId);
     }
 
     public bool CanUseActiveItem(string itemId)
     {
-        return !IsWaitingForVisuals && BattleState != null && BattleState.CanUseActiveItem(itemId);
+        return !IsWaitingForVisuals
+            && BattleState != null
+            && (InputGate == null || InputGate.CanUseActiveItem(BattleState, itemId))
+            && BattleState.CanUseActiveItem(itemId);
     }
 
     public RoundResolution EndPlayerPhase()
@@ -132,6 +154,7 @@ public class BattleController : MonoBehaviour
         IsWaitingForVisuals = false;
         _pendingBattleEndedEvent = null;
         BattleState = null;
+        InputGate = null;
     }
 
     private void OnDestroy()
