@@ -1664,11 +1664,173 @@ public sealed class ShopSystemTests
         Assert.That(battle.OpponentMoney, Is.EqualTo(490));
     }
 
+    [TestCaseSource(nameof(PokerPayoutCases))]
+    public void PokerPayout_UsesPerRankFormula(
+        PokerHandRank expectedRank,
+        Card[] cards,
+        int wager,
+        int expectedPayout)
+    {
+        PokerResult poker = ScoreResolver.ResolvePoker(cards);
+
+        Assert.That(poker.Rank, Is.EqualTo(expectedRank));
+        Assert.That(MoneyResolver.CalculatePokerPayout(cards, poker, wager), Is.EqualTo(expectedPayout));
+    }
+
+    [Test]
+    public void PokerPayout_NonPayingInputsReturnZero()
+    {
+        Card[] cards =
+        {
+            new(Suit.Clubs, Rank.Five),
+            new(Suit.Hearts, Rank.Five)
+        };
+        PokerResult pair = ScoreResolver.ResolvePoker(cards);
+
+        Assert.That(MoneyResolver.CalculatePokerPayout(cards, pair, 0), Is.Zero);
+        Assert.That(MoneyResolver.CalculatePokerPayout(cards, pair, -10), Is.Zero);
+        Assert.That(
+            MoneyResolver.CalculatePokerPayout(
+                cards,
+                new PokerResult(PokerHandRank.Pair, 0, new[] { 0, 1 }),
+                10),
+            Is.Zero);
+        Assert.That(
+            MoneyResolver.CalculatePokerPayout(
+                cards,
+                new PokerResult(PokerHandRank.Pair, 2, new int[0]),
+                10),
+            Is.Zero);
+    }
+
+    [Test]
+    public void PokerPayout_UsesRawAceRankForPairAndStraight()
+    {
+        Card[] pairCards =
+        {
+            new(Suit.Clubs, Rank.Ace),
+            new(Suit.Hearts, Rank.Ace)
+        };
+        PokerResult pair = ScoreResolver.ResolvePoker(pairCards);
+        Card[] straightCards =
+        {
+            new(Suit.Clubs, Rank.Ace),
+            new(Suit.Diamonds, Rank.Two),
+            new(Suit.Hearts, Rank.Three),
+            new(Suit.Spades, Rank.Four),
+            new(Suit.Clubs, Rank.Five)
+        };
+        PokerResult straight = ScoreResolver.ResolvePoker(straightCards);
+
+        Assert.That(MoneyResolver.CalculatePokerPayout(pairCards, pair, 10), Is.EqualTo(40));
+        Assert.That(MoneyResolver.CalculatePokerPayout(straightCards, straight, 10), Is.EqualTo(1000));
+    }
+
+    [Test]
+    public void FlushPayout_DividesAfterMultiplication()
+    {
+        Card[] cards =
+        {
+            new(Suit.Clubs, Rank.Ace),
+            new(Suit.Clubs, Rank.Two),
+            new(Suit.Clubs, Rank.Four),
+            new(Suit.Clubs, Rank.Six),
+            new(Suit.Clubs, Rank.Eight)
+        };
+        PokerResult poker = ScoreResolver.ResolvePoker(cards);
+
+        Assert.That(poker.Rank, Is.EqualTo(PokerHandRank.Flush));
+        Assert.That(MoneyResolver.CalculatePokerPayout(cards, poker, 10), Is.EqualTo(168));
+    }
+
+    [TestCaseSource(nameof(PokerBestSubsetCases))]
+    public void ResolvePoker_SelectsBestMinimumSizeSubset(
+        PokerHandRank expectedRank,
+        Card[] cards,
+        int expectedPayout)
+    {
+        PokerResult poker = ScoreResolver.ResolvePoker(cards);
+
+        Assert.That(poker.Rank, Is.EqualTo(expectedRank));
+        CollectionAssert.AreEqual(new[] { 1, 2, 3, 4, 5 }, poker.CardIndices);
+        Assert.That(MoneyResolver.CalculatePokerPayout(cards, poker, 10), Is.EqualTo(expectedPayout));
+    }
+
+    [Test]
+    public void ResolvePoker_RoyalFlushUsesFixedFiveCardSequence()
+    {
+        Card[] sixCardRoyal =
+        {
+            new(Suit.Clubs, Rank.Nine),
+            new(Suit.Clubs, Rank.Ten),
+            new(Suit.Clubs, Rank.Jack),
+            new(Suit.Clubs, Rank.Queen),
+            new(Suit.Clubs, Rank.King),
+            new(Suit.Clubs, Rank.Ace)
+        };
+        Card[] fourCardRoyal =
+        {
+            new(Suit.Clubs, Rank.Ten),
+            new(Suit.Clubs, Rank.Jack),
+            new(Suit.Clubs, Rank.Queen),
+            new(Suit.Clubs, Rank.King)
+        };
+
+        PokerResult royal = ScoreResolver.ResolvePoker(sixCardRoyal);
+        PokerResult tooShort = ScoreResolver.ResolvePoker(fourCardRoyal);
+
+        Assert.That(royal.Rank, Is.EqualTo(PokerHandRank.RoyalFlush));
+        CollectionAssert.AreEqual(new[] { 1, 2, 3, 4, 5 }, royal.CardIndices);
+        Assert.That(tooShort.Rank, Is.EqualTo(PokerHandRank.HighCard));
+        Assert.That(tooShort.CardIndices, Is.Empty);
+    }
+
+    [Test]
+    public void RealtimePokerPayout_UsesPerRankCalculator()
+    {
+        var run = new RunState(1, startingMoney: 1000);
+        var battle = new BattleState(run, new BattleConfig("test", 1000, new StandingDevilStrategy(), baseWager: 10));
+        Assert.That(battle.StartRound(battle.GetDefaultWager()), Is.True);
+        PlayPlayerCards(
+            battle.CurrentRound,
+            new Card(Suit.Clubs, Rank.Five),
+            new Card(Suit.Hearts, Rank.Five));
+        int playerMoneyBeforePayout = battle.PlayerMoney;
+        int opponentMoneyBeforePayout = battle.OpponentMoney;
+
+        Invoke(battle, "ResolveScores");
+
+        Assert.That(battle.PlayerMoney - playerMoneyBeforePayout, Is.EqualTo(200));
+        Assert.That(opponentMoneyBeforePayout - battle.OpponentMoney, Is.EqualTo(200));
+        Assert.That(battle.CurrentRound.OpponentMoneyLost, Is.EqualTo(200));
+        battle.Dispose();
+    }
+
+    [Test]
+    public void RealtimePokerPayout_IsCappedByOpponentMoney()
+    {
+        var run = new RunState(1, startingMoney: 1000);
+        var battle = new BattleState(run, new BattleConfig("test", 100, new StandingDevilStrategy(), baseWager: 10));
+        Assert.That(battle.StartRound(battle.GetDefaultWager()), Is.True);
+        PlayPlayerCards(
+            battle.CurrentRound,
+            new Card(Suit.Clubs, Rank.King),
+            new Card(Suit.Hearts, Rank.King));
+        int availableOpponentMoney = battle.OpponentMoney;
+
+        Invoke(battle, "ResolveScores");
+
+        Assert.That(availableOpponentMoney, Is.EqualTo(90));
+        Assert.That(battle.OpponentMoney, Is.EqualTo(0));
+        Assert.That(battle.CurrentRound.OpponentMoneyLost, Is.EqualTo(availableOpponentMoney));
+        battle.Dispose();
+    }
+
     [Test]
     public void PokerPayout_UsesCombinedPlayedOpponentAndSharedCards()
     {
         var run = new RunState(1, startingMoney: 500);
-        var battle = new BattleState(run, new BattleConfig("test", 500, new StandingDevilStrategy(), baseWager: 10));
+        var battle = new BattleState(run, new BattleConfig("test", 5000, new StandingDevilStrategy(), baseWager: 10));
         battle.StartRound(battle.GetDefaultWager());
         battle.StartRound(battle.GetDefaultWager());
         PlayPlayerCards(battle.CurrentRound, new Card(Suit.Clubs, Rank.Two), new Card(Suit.Hearts, Rank.Three));
@@ -1681,10 +1843,10 @@ public sealed class ShopSystemTests
         Assert.That(battle.TryStand(), Is.True);
 
         Assert.That(ScoreResolver.ResolvePoker(battle.CurrentRound.GetPokerCardsForPlayerPayout()).Rank, Is.EqualTo(PokerHandRank.Straight));
-        Assert.That(battle.CombatHistory[^1].OpponentMoneyLost, Is.EqualTo(40));
+        Assert.That(battle.CombatHistory[^1].OpponentMoneyLost, Is.EqualTo(1200));
         Assert.That(battle.CombatHistory[^1].PlayerMoneyLost, Is.EqualTo(0));
-        Assert.That(run.Money, Is.EqualTo(530));
-        Assert.That(battle.OpponentMoney, Is.EqualTo(470));
+        Assert.That(run.Money, Is.EqualTo(1690));
+        Assert.That(battle.OpponentMoney, Is.EqualTo(3810));
     }
 
     [Test]
@@ -2596,6 +2758,173 @@ public sealed class ShopSystemTests
         }
 
         return false;
+    }
+
+    private static IEnumerable PokerPayoutCases()
+    {
+        yield return new TestCaseData(
+                PokerHandRank.Pair,
+                new[]
+                {
+                    new Card(Suit.Clubs, Rank.Queen),
+                    new Card(Suit.Hearts, Rank.Queen)
+                },
+                10,
+                480)
+            .SetName("PokerPayout_PairUsesIncludedRankSum");
+        yield return new TestCaseData(
+                PokerHandRank.TwoPair,
+                new[]
+                {
+                    new Card(Suit.Clubs, Rank.Eight),
+                    new Card(Suit.Hearts, Rank.Eight),
+                    new Card(Suit.Diamonds, Rank.Three),
+                    new Card(Suit.Spades, Rank.Three)
+                },
+                10,
+                660)
+            .SetName("PokerPayout_TwoPairUsesIncludedRankSum");
+        yield return new TestCaseData(
+                PokerHandRank.ThreeOfAKind,
+                new[]
+                {
+                    new Card(Suit.Clubs, Rank.Seven),
+                    new Card(Suit.Hearts, Rank.Seven),
+                    new Card(Suit.Diamonds, Rank.Seven)
+                },
+                10,
+                630)
+            .SetName("PokerPayout_ThreeOfAKindUsesIncludedRankSum");
+        yield return new TestCaseData(
+                PokerHandRank.FourOfAKind,
+                new[]
+                {
+                    new Card(Suit.Clubs, Rank.Four),
+                    new Card(Suit.Hearts, Rank.Four),
+                    new Card(Suit.Diamonds, Rank.Four),
+                    new Card(Suit.Spades, Rank.Four)
+                },
+                10,
+                960)
+            .SetName("PokerPayout_FourOfAKindUsesIncludedRankSum");
+        yield return new TestCaseData(
+                PokerHandRank.FullHouse,
+                new[]
+                {
+                    new Card(Suit.Clubs, Rank.Ten),
+                    new Card(Suit.Hearts, Rank.Ten),
+                    new Card(Suit.Diamonds, Rank.Ten),
+                    new Card(Suit.Clubs, Rank.Two),
+                    new Card(Suit.Hearts, Rank.Two)
+                },
+                10,
+                1700)
+            .SetName("PokerPayout_FullHouseUsesEveryDuplicateRank");
+        yield return new TestCaseData(
+                PokerHandRank.Straight,
+                new[]
+                {
+                    new Card(Suit.Clubs, Rank.Two),
+                    new Card(Suit.Diamonds, Rank.Three),
+                    new Card(Suit.Hearts, Rank.Four),
+                    new Card(Suit.Spades, Rank.Five),
+                    new Card(Suit.Clubs, Rank.Six)
+                },
+                10,
+                1200)
+            .SetName("PokerPayout_StraightUsesCountAndHighestRank");
+        yield return new TestCaseData(
+                PokerHandRank.Flush,
+                new[]
+                {
+                    new Card(Suit.Clubs, Rank.Two),
+                    new Card(Suit.Clubs, Rank.Four),
+                    new Card(Suit.Clubs, Rank.Six),
+                    new Card(Suit.Clubs, Rank.Eight),
+                    new Card(Suit.Clubs, Rank.Ten)
+                },
+                10,
+                240)
+            .SetName("PokerPayout_FlushUsesAverageRank");
+        yield return new TestCaseData(
+                PokerHandRank.StraightFlush,
+                new[]
+                {
+                    new Card(Suit.Clubs, Rank.Three),
+                    new Card(Suit.Clubs, Rank.Four),
+                    new Card(Suit.Clubs, Rank.Five),
+                    new Card(Suit.Clubs, Rank.Six),
+                    new Card(Suit.Clubs, Rank.Seven)
+                },
+                10,
+                2800)
+            .SetName("PokerPayout_StraightFlushUsesCountAndHighestRank");
+        yield return new TestCaseData(
+                PokerHandRank.RoyalFlush,
+                new[]
+                {
+                    new Card(Suit.Clubs, Rank.Ten),
+                    new Card(Suit.Clubs, Rank.Jack),
+                    new Card(Suit.Clubs, Rank.Queen),
+                    new Card(Suit.Clubs, Rank.King),
+                    new Card(Suit.Clubs, Rank.Ace)
+                },
+                10,
+                100)
+            .SetName("PokerPayout_RoyalFlushUsesOnlyMultiplierAndWager");
+        yield return new TestCaseData(
+                PokerHandRank.HighCard,
+                new[]
+                {
+                    new Card(Suit.Clubs, Rank.Two),
+                    new Card(Suit.Hearts, Rank.Five)
+                },
+                10,
+                0)
+            .SetName("PokerPayout_HighCardPaysZero");
+    }
+
+    private static IEnumerable PokerBestSubsetCases()
+    {
+        yield return new TestCaseData(
+                PokerHandRank.Straight,
+                new[]
+                {
+                    new Card(Suit.Clubs, Rank.Two),
+                    new Card(Suit.Diamonds, Rank.Three),
+                    new Card(Suit.Hearts, Rank.Four),
+                    new Card(Suit.Spades, Rank.Five),
+                    new Card(Suit.Clubs, Rank.Six),
+                    new Card(Suit.Diamonds, Rank.Seven)
+                },
+                1400)
+            .SetName("ResolvePoker_SixCardStraightUsesHighestFive");
+        yield return new TestCaseData(
+                PokerHandRank.Flush,
+                new[]
+                {
+                    new Card(Suit.Clubs, Rank.Ace),
+                    new Card(Suit.Clubs, Rank.Two),
+                    new Card(Suit.Clubs, Rank.Four),
+                    new Card(Suit.Clubs, Rank.Six),
+                    new Card(Suit.Clubs, Rank.Eight),
+                    new Card(Suit.Clubs, Rank.Ten)
+                },
+                240)
+            .SetName("ResolvePoker_SixCardFlushUsesHighestPayoutFive");
+        yield return new TestCaseData(
+                PokerHandRank.StraightFlush,
+                new[]
+                {
+                    new Card(Suit.Clubs, Rank.Two),
+                    new Card(Suit.Clubs, Rank.Three),
+                    new Card(Suit.Clubs, Rank.Four),
+                    new Card(Suit.Clubs, Rank.Five),
+                    new Card(Suit.Clubs, Rank.Six),
+                    new Card(Suit.Clubs, Rank.Seven)
+                },
+                2800)
+            .SetName("ResolvePoker_SixCardStraightFlushUsesHighestFive");
     }
 
     private static BattleConfig TestBattleConfig(int startingHandSize = 3)

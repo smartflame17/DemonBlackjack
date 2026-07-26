@@ -58,16 +58,18 @@ public enum Rank
 
 public enum PokerHandRank
 {
-    HighCard = 1,
-    Pair = 2,
-    TwoPair = 3,
-    ThreeOfAKind = 4,
-    Straight = 5,
-    Flush = 6,
-    FullHouse = 7,
-    FourOfAKind = 8,
-    StraightFlush = 9,
-    RoyalFlush = 10
+    HighCard,
+    Pair,
+    LowStraight,       // Four-card straight (e.g., 2-3-4-5)
+    TwoPair,
+    LowFlush,          // Four-card flush (e.g., 2-4-6-8 of Hearts)
+    ThreeOfAKind,
+    Straight,
+    Flush,
+    FullHouse,
+    FourOfAKind,
+    StraightFlush,
+    RoyalFlush
 }
 
 public enum VisualCommandType
