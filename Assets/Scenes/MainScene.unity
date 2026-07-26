@@ -11405,8 +11405,8 @@ MonoBehaviour:
   startRunOnAwake: 1
   setRandomSeed: 1
   debugSeed: 6767
-  startingMoney: 100
-  defaultOpponentStartingMoney: 1000
+  startingMoney: 10000
+  defaultOpponentStartingMoney: 100000
 --- !u!4 &562614338
 Transform:
   m_ObjectHideFlags: 0
@@ -12791,7 +12791,7 @@ RectTransform:
   m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
   m_AnchorMin: {x: 1, y: 1}
   m_AnchorMax: {x: 1, y: 1}
-  m_AnchoredPosition: {x: -263, y: -515.96}
+  m_AnchoredPosition: {x: -204.9, y: -515.96}
   m_SizeDelta: {x: 300, y: 50}
   m_Pivot: {x: 0.5, y: 0.5}
 --- !u!114 &647403622
@@ -12814,7 +12814,7 @@ MonoBehaviour:
   m_OnCullStateChanged:
     m_PersistentCalls:
       m_Calls: []
-  m_text: 'Devil: $100'
+  m_text: 'Devil: $100000'
   m_isRightToLeft: 0
   m_fontAsset: {fileID: 11400000, guid: 5d209cd291d5c8e42b7acb6b88142bf9, type: 2}
   m_sharedMaterial: {fileID: 1160606848045435344, guid: 5d209cd291d5c8e42b7acb6b88142bf9, type: 2}
@@ -12848,7 +12848,7 @@ MonoBehaviour:
   m_fontSizeMin: 18
   m_fontSizeMax: 72
   m_fontStyle: 1
-  m_HorizontalAlignment: 2
+  m_HorizontalAlignment: 1
   m_VerticalAlignment: 256
   m_textAlignment: 65535
   m_characterSpacing: 0
@@ -37799,7 +37799,7 @@ RectTransform:
   m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
   m_AnchorMin: {x: 1, y: 0}
   m_AnchorMax: {x: 1, y: 0}
-  m_AnchoredPosition: {x: -73, y: 447.26}
+  m_AnchoredPosition: {x: 213.6, y: 618.4}
   m_SizeDelta: {x: 100, y: 250}
   m_Pivot: {x: 0.5, y: 0.5}
 --- !u!114 &1683771062

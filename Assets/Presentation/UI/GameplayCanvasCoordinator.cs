@@ -82,7 +82,7 @@ public sealed class GameplayCanvasCoordinator : MonoBehaviour
     private void StartDevil1Battle()
     {
         Debug.Log("Starting devil1 battle");
-        StartBattle("devil1", new BattleConfig("devil1", 1000, new Devil1Strategy(), devilId:"devil1"));
+        StartBattle("devil1", new BattleConfig("devil1", 100000, new Devil1Strategy(), devilId:"devil1", baseWager: 1000));
     }
 
     private void StartDevil2Battle()
