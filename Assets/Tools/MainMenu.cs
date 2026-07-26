@@ -18,7 +18,7 @@ public class MainMenu : MonoBehaviour
     private void StartNewGame()
     {
         PersistenceManager.Instance.NewGame();
-        PersistenceManager.Instance.LoadScene("MainScene");
+        PersistenceManager.Instance.LoadScene("TutorialScene");
     }
     private void LoadGame()
     {

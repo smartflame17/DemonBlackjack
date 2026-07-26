@@ -380,6 +380,7 @@ public sealed class TutorialScenarioController : MonoBehaviour, IBattleInputGate
             battleController.InputGate = null;
         HideSystemPreview();
         instructionOverlay?.Hide();
+        PersistenceManager.Instance.LoadScene("MainScene");
     }
 
     private static bool IsCardPlayStep(TutorialStepKey key)
