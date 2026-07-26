@@ -11443,7 +11443,7 @@ MonoBehaviour:
   devil2BattleButton: {fileID: 1109111272}
   devil3BattleButton: {fileID: 662458918}
   devil4BattleButton: {fileID: 425738047}
-  keepDebugCanvasVisible: 0
+  keepDebugCanvasVisible: 1
 --- !u!1 &570368676
 GameObject:
   m_ObjectHideFlags: 0
@@ -23082,8 +23082,8 @@ RectTransform:
   m_LocalEulerAnglesHint: {x: 0, y: 0, z: 25}
   m_AnchorMin: {x: 0, y: 0}
   m_AnchorMax: {x: 1, y: 1}
-  m_AnchoredPosition: {x: -190, y: 248}
-  m_SizeDelta: {x: -1309.0293, y: -716}
+  m_AnchoredPosition: {x: -207.74261, y: 248}
+  m_SizeDelta: {x: -1344.5148, y: -716}
   m_Pivot: {x: 0.5, y: 0.5}
 --- !u!114 &1181751775
 MonoBehaviour:
@@ -33800,7 +33800,7 @@ GameObject:
   m_Icon: {fileID: 0}
   m_NavMeshLayer: 0
   m_StaticEditorFlags: 0
-  m_IsActive: 0
+  m_IsActive: 1
 --- !u!114 &1475312856
 MonoBehaviour:
   m_ObjectHideFlags: 0

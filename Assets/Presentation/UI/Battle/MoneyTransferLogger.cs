@@ -138,7 +138,7 @@ public class MoneyTransferLogger : MonoBehaviour
             case MoneyTransferReason.PokerPayout:
                 pokerResult += eventData.Delta;
                 pokerResultText.text = $"{pokerResult}";
-                if (eventData.Delta < 0)
+                if (pokerResult < 0)
                     pokerResultText.color = Color.red; // Set color to red for negative values
                 else
                     pokerResultText.color = Color.green; // Set color to green for positive values
