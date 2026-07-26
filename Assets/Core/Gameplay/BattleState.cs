@@ -1037,12 +1037,12 @@ public sealed class BattleState
 
         PublishScoreEvents(Combatant.Player, playerScore, playerPoker);
         PublishScoreEvents(Combatant.Opponent, opponentScore, opponentPoker);
-        ResolveRealtimeMoney(playerPoker, opponentPoker);
+        ResolveRealtimeMoney(playerPoker);
         CommandQueue.Enqueue(new VisualCommand(VisualCommandType.ScoresResolved, $"{playerScore.FinalScore}:{opponentScore.FinalScore}"));
         //TODO: we require game over check every resolve
     }
 
-    private void ResolveRealtimeMoney(PokerResult playerPoker, PokerResult opponentPoker)
+    private void ResolveRealtimeMoney(PokerResult playerPoker)
     {
         if (CurrentRound == null || CurrentRound.EffectiveWager <= 0)
             return;
@@ -1052,18 +1052,22 @@ public sealed class BattleState
         if (!playerPlayed && !opponentPlayed)
             return;
 
-        ResolveRealtimePokerPayout(playerPoker, opponentPoker);
+        ResolveRealtimePokerPayout(playerPoker);
         if (playerPlayed)
             ResolveRealtimeBurstPenalty(Combatant.Player, CurrentRound.PlayerScore, CurrentRound.PlayerBurstThreshold);
         if (opponentPlayed)
             ResolveRealtimeBurstPenalty(Combatant.Opponent, CurrentRound.OpponentScore, CurrentRound.OpponentBurstThreshold);
     }
 
-    private void ResolveRealtimePokerPayout(PokerResult playerPoker, PokerResult opponentPoker)
+    private void ResolveRealtimePokerPayout(PokerResult playerPoker)
     {
-        if (playerPoker.Multiplier >= (int)PokerHandRank.Pair)
+        int payout = MoneyResolver.CalculatePokerPayout(
+            CurrentRound.PlayerPlayedCards,
+            playerPoker,
+            CurrentRound.EffectiveWager);
+        if (payout > 0)
         {
-            int lost = LoseOpponentMoney(CurrentRound.EffectiveWager * playerPoker.Multiplier);
+            int lost = LoseOpponentMoney(payout);
             if (lost > 0)
             {
                 AddPlayerMoney(lost);

@@ -1,4 +1,5 @@
 using System;
+using System.Collections.Generic;
 
 public static class MoneyResolver
 {
@@ -118,12 +119,53 @@ public static class MoneyResolver
 
     private static void ResolvePlayerPokerPayout(BattleState battle, RoundState round, int wager, ref int opponentMoneyLost)
     {
-        PokerResult poker = ScoreResolver.ResolvePoker(round.GetPokerCardsForPlayerPayout());
-        if (poker.Multiplier <= 0)
+        IReadOnlyList<Card> cards = round.GetPokerCardsForPlayerPayout();
+        PokerResult poker = ScoreResolver.ResolvePoker(cards);
+        int payout = CalculatePokerPayout(cards, poker, wager);
+        if (payout <= 0)
             return;
 
-        opponentMoneyLost += TransferOpponentToPlayer(battle, wager * poker.Multiplier);
-        EventBus.Publish(new MoneyTransferReasonEvent(MoneyTransferReason.PokerPayout, wager * poker.Multiplier));
+        opponentMoneyLost += TransferOpponentToPlayer(battle, payout);
+        EventBus.Publish(new MoneyTransferReasonEvent(MoneyTransferReason.PokerPayout, payout));
+    }
+
+    public static int CalculatePokerPayout(IReadOnlyList<Card> cards, PokerResult poker, int wager)
+    {
+        if (cards == null || wager <= 0 || poker.Multiplier <= 0 || poker.CardIndices == null || poker.CardIndices.Count == 0)
+            return 0;
+
+        int rankSum = 0;
+        int highestRank = 0;
+        for (int i = 0; i < poker.CardIndices.Count; i++)
+        {
+            int cardIndex = poker.CardIndices[i];
+            if (cardIndex < 0 || cardIndex >= cards.Count)
+                return 0;
+
+            int rank = (int)cards[cardIndex].Rank;
+            rankSum += rank;
+            highestRank = Math.Max(highestRank, rank);
+        }
+
+        long payout = poker.Rank switch
+        {
+            PokerHandRank.Pair
+                or PokerHandRank.TwoPair
+                or PokerHandRank.ThreeOfAKind
+                or PokerHandRank.FourOfAKind
+                or PokerHandRank.FullHouse
+                => (long)poker.Multiplier * rankSum * wager,
+            PokerHandRank.Straight
+                or PokerHandRank.StraightFlush
+                => (long)poker.Multiplier * poker.CardIndices.Count * highestRank * wager,
+            PokerHandRank.Flush
+                => (long)poker.Multiplier * rankSum * wager / poker.CardIndices.Count,
+            PokerHandRank.RoyalFlush
+                => (long)poker.Multiplier * wager,
+            _ => 0
+        };
+
+        return payout >= int.MaxValue ? int.MaxValue : (int)payout;
     }
 
     private static int TransferPlayerToOpponent(BattleState battle, int amount)
