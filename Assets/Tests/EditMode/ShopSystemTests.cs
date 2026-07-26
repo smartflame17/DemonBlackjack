@@ -1,4 +1,5 @@
 #if UNITY_EDITOR && UNITY_INCLUDE_TESTS
+using System.Collections;
 using System.Collections.Generic;
 using System.Reflection;
 using TMPro;
@@ -1663,11 +1664,173 @@ public sealed class ShopSystemTests
         Assert.That(battle.OpponentMoney, Is.EqualTo(490));
     }
 
+    [TestCaseSource(nameof(PokerPayoutCases))]
+    public void PokerPayout_UsesPerRankFormula(
+        PokerHandRank expectedRank,
+        Card[] cards,
+        int wager,
+        int expectedPayout)
+    {
+        PokerResult poker = ScoreResolver.ResolvePoker(cards);
+
+        Assert.That(poker.Rank, Is.EqualTo(expectedRank));
+        Assert.That(MoneyResolver.CalculatePokerPayout(cards, poker, wager), Is.EqualTo(expectedPayout));
+    }
+
+    [Test]
+    public void PokerPayout_NonPayingInputsReturnZero()
+    {
+        Card[] cards =
+        {
+            new(Suit.Clubs, Rank.Five),
+            new(Suit.Hearts, Rank.Five)
+        };
+        PokerResult pair = ScoreResolver.ResolvePoker(cards);
+
+        Assert.That(MoneyResolver.CalculatePokerPayout(cards, pair, 0), Is.Zero);
+        Assert.That(MoneyResolver.CalculatePokerPayout(cards, pair, -10), Is.Zero);
+        Assert.That(
+            MoneyResolver.CalculatePokerPayout(
+                cards,
+                new PokerResult(PokerHandRank.Pair, 0, new[] { 0, 1 }),
+                10),
+            Is.Zero);
+        Assert.That(
+            MoneyResolver.CalculatePokerPayout(
+                cards,
+                new PokerResult(PokerHandRank.Pair, 2, new int[0]),
+                10),
+            Is.Zero);
+    }
+
+    [Test]
+    public void PokerPayout_UsesRawAceRankForPairAndStraight()
+    {
+        Card[] pairCards =
+        {
+            new(Suit.Clubs, Rank.Ace),
+            new(Suit.Hearts, Rank.Ace)
+        };
+        PokerResult pair = ScoreResolver.ResolvePoker(pairCards);
+        Card[] straightCards =
+        {
+            new(Suit.Clubs, Rank.Ace),
+            new(Suit.Diamonds, Rank.Two),
+            new(Suit.Hearts, Rank.Three),
+            new(Suit.Spades, Rank.Four),
+            new(Suit.Clubs, Rank.Five)
+        };
+        PokerResult straight = ScoreResolver.ResolvePoker(straightCards);
+
+        Assert.That(MoneyResolver.CalculatePokerPayout(pairCards, pair, 10), Is.EqualTo(40));
+        Assert.That(MoneyResolver.CalculatePokerPayout(straightCards, straight, 10), Is.EqualTo(1000));
+    }
+
+    [Test]
+    public void FlushPayout_DividesAfterMultiplication()
+    {
+        Card[] cards =
+        {
+            new(Suit.Clubs, Rank.Ace),
+            new(Suit.Clubs, Rank.Two),
+            new(Suit.Clubs, Rank.Four),
+            new(Suit.Clubs, Rank.Six),
+            new(Suit.Clubs, Rank.Eight)
+        };
+        PokerResult poker = ScoreResolver.ResolvePoker(cards);
+
+        Assert.That(poker.Rank, Is.EqualTo(PokerHandRank.Flush));
+        Assert.That(MoneyResolver.CalculatePokerPayout(cards, poker, 10), Is.EqualTo(168));
+    }
+
+    [TestCaseSource(nameof(PokerBestSubsetCases))]
+    public void ResolvePoker_SelectsBestMinimumSizeSubset(
+        PokerHandRank expectedRank,
+        Card[] cards,
+        int expectedPayout)
+    {
+        PokerResult poker = ScoreResolver.ResolvePoker(cards);
+
+        Assert.That(poker.Rank, Is.EqualTo(expectedRank));
+        CollectionAssert.AreEqual(new[] { 1, 2, 3, 4, 5 }, poker.CardIndices);
+        Assert.That(MoneyResolver.CalculatePokerPayout(cards, poker, 10), Is.EqualTo(expectedPayout));
+    }
+
+    [Test]
+    public void ResolvePoker_RoyalFlushUsesFixedFiveCardSequence()
+    {
+        Card[] sixCardRoyal =
+        {
+            new(Suit.Clubs, Rank.Nine),
+            new(Suit.Clubs, Rank.Ten),
+            new(Suit.Clubs, Rank.Jack),
+            new(Suit.Clubs, Rank.Queen),
+            new(Suit.Clubs, Rank.King),
+            new(Suit.Clubs, Rank.Ace)
+        };
+        Card[] fourCardRoyal =
+        {
+            new(Suit.Clubs, Rank.Ten),
+            new(Suit.Clubs, Rank.Jack),
+            new(Suit.Clubs, Rank.Queen),
+            new(Suit.Clubs, Rank.King)
+        };
+
+        PokerResult royal = ScoreResolver.ResolvePoker(sixCardRoyal);
+        PokerResult tooShort = ScoreResolver.ResolvePoker(fourCardRoyal);
+
+        Assert.That(royal.Rank, Is.EqualTo(PokerHandRank.RoyalFlush));
+        CollectionAssert.AreEqual(new[] { 1, 2, 3, 4, 5 }, royal.CardIndices);
+        Assert.That(tooShort.Rank, Is.EqualTo(PokerHandRank.HighCard));
+        Assert.That(tooShort.CardIndices, Is.Empty);
+    }
+
+    [Test]
+    public void RealtimePokerPayout_UsesPerRankCalculator()
+    {
+        var run = new RunState(1, startingMoney: 1000);
+        var battle = new BattleState(run, new BattleConfig("test", 1000, new StandingDevilStrategy(), baseWager: 10));
+        Assert.That(battle.StartRound(battle.GetDefaultWager()), Is.True);
+        PlayPlayerCards(
+            battle.CurrentRound,
+            new Card(Suit.Clubs, Rank.Five),
+            new Card(Suit.Hearts, Rank.Five));
+        int playerMoneyBeforePayout = battle.PlayerMoney;
+        int opponentMoneyBeforePayout = battle.OpponentMoney;
+
+        Invoke(battle, "ResolveScores");
+
+        Assert.That(battle.PlayerMoney - playerMoneyBeforePayout, Is.EqualTo(200));
+        Assert.That(opponentMoneyBeforePayout - battle.OpponentMoney, Is.EqualTo(200));
+        Assert.That(battle.CurrentRound.OpponentMoneyLost, Is.EqualTo(200));
+        battle.Dispose();
+    }
+
+    [Test]
+    public void RealtimePokerPayout_IsCappedByOpponentMoney()
+    {
+        var run = new RunState(1, startingMoney: 1000);
+        var battle = new BattleState(run, new BattleConfig("test", 100, new StandingDevilStrategy(), baseWager: 10));
+        Assert.That(battle.StartRound(battle.GetDefaultWager()), Is.True);
+        PlayPlayerCards(
+            battle.CurrentRound,
+            new Card(Suit.Clubs, Rank.King),
+            new Card(Suit.Hearts, Rank.King));
+        int availableOpponentMoney = battle.OpponentMoney;
+
+        Invoke(battle, "ResolveScores");
+
+        Assert.That(availableOpponentMoney, Is.EqualTo(90));
+        Assert.That(battle.OpponentMoney, Is.EqualTo(0));
+        Assert.That(battle.CurrentRound.OpponentMoneyLost, Is.EqualTo(availableOpponentMoney));
+        battle.Dispose();
+    }
+
     [Test]
     public void PokerPayout_UsesCombinedPlayedOpponentAndSharedCards()
     {
         var run = new RunState(1, startingMoney: 500);
-        var battle = new BattleState(run, new BattleConfig("test", 500, new StandingDevilStrategy(), baseWager: 10));
+        var battle = new BattleState(run, new BattleConfig("test", 5000, new StandingDevilStrategy(), baseWager: 10));
         battle.StartRound(battle.GetDefaultWager());
         battle.StartRound(battle.GetDefaultWager());
         PlayPlayerCards(battle.CurrentRound, new Card(Suit.Clubs, Rank.Two), new Card(Suit.Hearts, Rank.Three));
@@ -1680,10 +1843,10 @@ public sealed class ShopSystemTests
         Assert.That(battle.TryStand(), Is.True);
 
         Assert.That(ScoreResolver.ResolvePoker(battle.CurrentRound.GetPokerCardsForPlayerPayout()).Rank, Is.EqualTo(PokerHandRank.Straight));
-        Assert.That(battle.CombatHistory[^1].OpponentMoneyLost, Is.EqualTo(40));
+        Assert.That(battle.CombatHistory[^1].OpponentMoneyLost, Is.EqualTo(1200));
         Assert.That(battle.CombatHistory[^1].PlayerMoneyLost, Is.EqualTo(0));
-        Assert.That(run.Money, Is.EqualTo(530));
-        Assert.That(battle.OpponentMoney, Is.EqualTo(470));
+        Assert.That(run.Money, Is.EqualTo(1690));
+        Assert.That(battle.OpponentMoney, Is.EqualTo(3810));
     }
 
     [Test]
@@ -2234,6 +2397,229 @@ public sealed class ShopSystemTests
         }
     }
 
+    [Test]
+    public void BattleUiPresenter_OpponentTurnDelayDefaultsAndReversedBoundsAreNormalized()
+    {
+        var target = new UnityEngine.GameObject("Presenter");
+        try
+        {
+            BattleUiPresenter presenter = target.AddComponent<BattleUiPresenter>();
+
+            Assert.That(GetField<float>(presenter, "opponentTurnDelayMinSeconds"), Is.EqualTo(0.75f));
+            Assert.That(GetField<float>(presenter, "opponentTurnDelayMaxSeconds"), Is.EqualTo(1.5f));
+
+            SetField(presenter, "opponentTurnDelayMinSeconds", 2f);
+            SetField(presenter, "opponentTurnDelayMaxSeconds", 0.5f);
+            Invoke(presenter, "OnValidate");
+
+            Assert.That(GetField<float>(presenter, "opponentTurnDelayMinSeconds"), Is.EqualTo(0.5f));
+            Assert.That(GetField<float>(presenter, "opponentTurnDelayMaxSeconds"), Is.EqualTo(2f));
+
+            SetField(presenter, "opponentTurnDelayMinSeconds", -2f);
+            SetField(presenter, "opponentTurnDelayMaxSeconds", -1f);
+            Invoke(presenter, "OnValidate");
+
+            Assert.That(GetField<float>(presenter, "opponentTurnDelayMinSeconds"), Is.Zero);
+            Assert.That(GetField<float>(presenter, "opponentTurnDelayMaxSeconds"), Is.Zero);
+        }
+        finally
+        {
+            UnityEngine.Object.DestroyImmediate(target);
+        }
+    }
+
+    [Test]
+    public void BattleUiPresenter_PendingHandoffLocksInputAndCancelsWhenDisabled()
+    {
+        var controllerObject = new UnityEngine.GameObject("Controller");
+        var presenterObject = new UnityEngine.GameObject("Presenter");
+        try
+        {
+            var strategy = new SequenceDevilStrategy(DevilTurnChoice.Stand);
+            BattleController controller = controllerObject.AddComponent<BattleController>();
+            controller.InitializeBattle(
+                CreateRunWithDeck(TenTwos()),
+                new BattleConfig("test", 500, strategy, baseWager: 10));
+            Assert.That(controller.StartNextRound(controller.BattleState.GetDefaultWager()), Is.True);
+
+            BattleUiPresenter presenter = presenterObject.AddComponent<BattleUiPresenter>();
+            ConfigureTurnHandoffTestPresenter(presenter, controller);
+            RoundState round = controller.BattleState.CurrentRound;
+            int playedCardCount = round.PlayerPlayedCards.Count;
+
+            Assert.That(presenter.CanPlayerAct, Is.True);
+            Assert.That(presenter.TryHitFromDraggedDeck(), Is.True);
+            Assert.That(round.PlayerPlayedCards.Count, Is.EqualTo(playedCardCount + 1));
+            Assert.That(round.PlayerScore.BlackjackScore, Is.GreaterThan(0));
+            Assert.That(presenter.CanPlayerAct, Is.False);
+            Assert.That(presenter.TryHitFromDraggedDeck(), Is.False);
+            Assert.That(strategy.TurnCount, Is.Zero);
+            Assert.That(controller.BattleState.Phase, Is.EqualTo(BattlePhase.PlayerPhase));
+
+            Invoke(presenter, "OnDisable");
+            presenterObject.SetActive(false);
+
+            Assert.That(GetField<bool>(presenter, "_turnHandoffPending"), Is.False);
+            Assert.That(strategy.TurnCount, Is.Zero);
+            Assert.That(controller.BattleState.Phase, Is.EqualTo(BattlePhase.PlayerPhase));
+        }
+        finally
+        {
+            UnityEngine.Object.DestroyImmediate(presenterObject);
+            UnityEngine.Object.DestroyImmediate(controllerObject);
+        }
+    }
+
+    [Test]
+    public void BattleUiPresenter_CardPlayHandoffAdvancesOpponentExactlyOnce()
+    {
+        var controllerObject = new UnityEngine.GameObject("Controller");
+        var presenterObject = new UnityEngine.GameObject("Presenter");
+        try
+        {
+            var strategy = new SequenceDevilStrategy(DevilTurnChoice.Stand);
+            BattleController controller = controllerObject.AddComponent<BattleController>();
+            controller.InitializeBattle(
+                CreateRunWithDeck(TenTwos()),
+                new BattleConfig("test", 500, strategy, baseWager: 10));
+            Assert.That(controller.StartNextRound(controller.BattleState.GetDefaultWager()), Is.True);
+
+            BattleUiPresenter presenter = presenterObject.AddComponent<BattleUiPresenter>();
+            ConfigureTurnHandoffTestPresenter(presenter, controller);
+
+            BattleState battle = controller.BattleState;
+            RoundState round = battle.CurrentRound;
+            Assert.That(controller.TryPlayCard(0), Is.True);
+
+            PrepareTurnHandoff(presenter, battle, round);
+            IEnumerator routine = CreateTurnHandoffRoutine(presenter, battle, round, "EndPlayerPhase");
+            int delayCount = RunRoutineToCompletion(routine);
+
+            Assert.That(delayCount, Is.EqualTo(1));
+            Assert.That(strategy.TurnCount, Is.EqualTo(1));
+            Assert.That(GetField<bool>(presenter, "_turnHandoffPending"), Is.False);
+            Assert.That(battle.Phase, Is.EqualTo(BattlePhase.PlayerPhase));
+        }
+        finally
+        {
+            UnityEngine.Object.DestroyImmediate(presenterObject);
+            UnityEngine.Object.DestroyImmediate(controllerObject);
+        }
+    }
+
+    [Test]
+    public void BattleState_HitWithoutEndingTurnDefersOpponentHandoff()
+    {
+        var strategy = new SequenceDevilStrategy(DevilTurnChoice.Stand);
+        var battle = new BattleState(
+            CreateRunWithDeck(TenTwos()),
+            new BattleConfig("test", 500, strategy, baseWager: 10));
+        int playerTurnEndedCount = 0;
+        battle.EventBus.Subscribe<PlayerTurnEndedEvent>(_ => playerTurnEndedCount++);
+        Assert.That(battle.StartRound(battle.GetDefaultWager()), Is.True);
+        RoundState round = battle.CurrentRound;
+        int playedCardCount = round.PlayerPlayedCards.Count;
+
+        Assert.That(battle.TryHitWithoutEndingTurn(), Is.True);
+
+        Assert.That(round.PlayerPlayedCards.Count, Is.EqualTo(playedCardCount + 1));
+        Assert.That(round.PlayerScore.BlackjackScore, Is.GreaterThan(0));
+        Assert.That(strategy.TurnCount, Is.Zero);
+        Assert.That(playerTurnEndedCount, Is.Zero);
+        Assert.That(battle.Phase, Is.EqualTo(BattlePhase.PlayerPhase));
+
+        battle.EndPlayerPhase();
+
+        Assert.That(strategy.TurnCount, Is.EqualTo(1));
+        Assert.That(playerTurnEndedCount, Is.EqualTo(1));
+        Assert.That(battle.Phase, Is.EqualTo(BattlePhase.PlayerPhase));
+        battle.Dispose();
+    }
+
+    [Test]
+    public void BattleUiPresenter_StandAutomaticallyAdvancesUntilOpponentStands()
+    {
+        var controllerObject = new UnityEngine.GameObject("Controller");
+        var presenterObject = new UnityEngine.GameObject("Presenter");
+        try
+        {
+            var strategy = new SequenceDevilStrategy(
+                DevilTurnChoice.Hit,
+                DevilTurnChoice.Play,
+                DevilTurnChoice.Stand);
+            BattleController controller = controllerObject.AddComponent<BattleController>();
+            controller.InitializeBattle(
+                CreateRunWithDeck(TenTwos()),
+                new BattleConfig("test", 500, strategy, baseWager: 10));
+            Assert.That(controller.StartNextRound(controller.BattleState.GetDefaultWager()), Is.True);
+
+            BattleUiPresenter presenter = presenterObject.AddComponent<BattleUiPresenter>();
+            ConfigureTurnHandoffTestPresenter(presenter, controller);
+
+            BattleState battle = controller.BattleState;
+            RoundState round = battle.CurrentRound;
+            PrepareTurnHandoff(presenter, battle, round);
+            IEnumerator routine = CreateTurnHandoffRoutine(presenter, battle, round, "Stand");
+            int delayCount = RunRoutineToCompletion(routine);
+
+            Assert.That(delayCount, Is.EqualTo(3));
+            Assert.That(strategy.TurnCount, Is.EqualTo(3));
+            Assert.That(round.PlayerStood, Is.True);
+            Assert.That(round.OpponentStood, Is.True);
+            Assert.That(battle.Phase, Is.EqualTo(BattlePhase.Cleanup));
+            Assert.That(controller.IsWaitingForVisuals, Is.True);
+            Assert.That(GetField<bool>(presenter, "_turnHandoffPending"), Is.False);
+        }
+        finally
+        {
+            UnityEngine.Object.DestroyImmediate(presenterObject);
+            UnityEngine.Object.DestroyImmediate(controllerObject);
+        }
+    }
+
+    [Test]
+    public void BattleUiPresenter_StaleHandoffDoesNotActOnReplacementBattle()
+    {
+        var controllerObject = new UnityEngine.GameObject("Controller");
+        var presenterObject = new UnityEngine.GameObject("Presenter");
+        try
+        {
+            var originalStrategy = new SequenceDevilStrategy(DevilTurnChoice.Stand);
+            BattleController controller = controllerObject.AddComponent<BattleController>();
+            controller.InitializeBattle(
+                CreateRunWithDeck(TenTwos()),
+                new BattleConfig("original", 500, originalStrategy, baseWager: 10));
+            Assert.That(controller.StartNextRound(controller.BattleState.GetDefaultWager()), Is.True);
+
+            BattleUiPresenter presenter = presenterObject.AddComponent<BattleUiPresenter>();
+            ConfigureTurnHandoffTestPresenter(presenter, controller);
+
+            BattleState originalBattle = controller.BattleState;
+            RoundState originalRound = originalBattle.CurrentRound;
+            PrepareTurnHandoff(presenter, originalBattle, originalRound);
+            IEnumerator routine = CreateTurnHandoffRoutine(presenter, originalBattle, originalRound, "Stand");
+            Assert.That(routine.MoveNext(), Is.True);
+
+            var replacementStrategy = new SequenceDevilStrategy(DevilTurnChoice.Stand);
+            controller.InitializeBattle(
+                CreateRunWithDeck(TenTwos()),
+                new BattleConfig("replacement", 500, replacementStrategy, baseWager: 10));
+            Assert.That(controller.StartNextRound(controller.BattleState.GetDefaultWager()), Is.True);
+
+            Assert.That(routine.MoveNext(), Is.False);
+
+            Assert.That(originalStrategy.TurnCount, Is.Zero);
+            Assert.That(replacementStrategy.TurnCount, Is.Zero);
+            Assert.That(controller.BattleState.Phase, Is.EqualTo(BattlePhase.PlayerPhase));
+            Assert.That(GetField<bool>(presenter, "_turnHandoffPending"), Is.False);
+        }
+        finally
+        {
+            UnityEngine.Object.DestroyImmediate(presenterObject);
+            UnityEngine.Object.DestroyImmediate(controllerObject);
+        }
+    }
+
     private static bool ContainsUpgradedRank(IReadOnlyList<Card> cards, Rank rank, string modifierId)
     {
         for (int i = 0; i < cards.Count; i++)
@@ -2374,6 +2760,173 @@ public sealed class ShopSystemTests
         return false;
     }
 
+    private static IEnumerable PokerPayoutCases()
+    {
+        yield return new TestCaseData(
+                PokerHandRank.Pair,
+                new[]
+                {
+                    new Card(Suit.Clubs, Rank.Queen),
+                    new Card(Suit.Hearts, Rank.Queen)
+                },
+                10,
+                480)
+            .SetName("PokerPayout_PairUsesIncludedRankSum");
+        yield return new TestCaseData(
+                PokerHandRank.TwoPair,
+                new[]
+                {
+                    new Card(Suit.Clubs, Rank.Eight),
+                    new Card(Suit.Hearts, Rank.Eight),
+                    new Card(Suit.Diamonds, Rank.Three),
+                    new Card(Suit.Spades, Rank.Three)
+                },
+                10,
+                660)
+            .SetName("PokerPayout_TwoPairUsesIncludedRankSum");
+        yield return new TestCaseData(
+                PokerHandRank.ThreeOfAKind,
+                new[]
+                {
+                    new Card(Suit.Clubs, Rank.Seven),
+                    new Card(Suit.Hearts, Rank.Seven),
+                    new Card(Suit.Diamonds, Rank.Seven)
+                },
+                10,
+                630)
+            .SetName("PokerPayout_ThreeOfAKindUsesIncludedRankSum");
+        yield return new TestCaseData(
+                PokerHandRank.FourOfAKind,
+                new[]
+                {
+                    new Card(Suit.Clubs, Rank.Four),
+                    new Card(Suit.Hearts, Rank.Four),
+                    new Card(Suit.Diamonds, Rank.Four),
+                    new Card(Suit.Spades, Rank.Four)
+                },
+                10,
+                960)
+            .SetName("PokerPayout_FourOfAKindUsesIncludedRankSum");
+        yield return new TestCaseData(
+                PokerHandRank.FullHouse,
+                new[]
+                {
+                    new Card(Suit.Clubs, Rank.Ten),
+                    new Card(Suit.Hearts, Rank.Ten),
+                    new Card(Suit.Diamonds, Rank.Ten),
+                    new Card(Suit.Clubs, Rank.Two),
+                    new Card(Suit.Hearts, Rank.Two)
+                },
+                10,
+                1700)
+            .SetName("PokerPayout_FullHouseUsesEveryDuplicateRank");
+        yield return new TestCaseData(
+                PokerHandRank.Straight,
+                new[]
+                {
+                    new Card(Suit.Clubs, Rank.Two),
+                    new Card(Suit.Diamonds, Rank.Three),
+                    new Card(Suit.Hearts, Rank.Four),
+                    new Card(Suit.Spades, Rank.Five),
+                    new Card(Suit.Clubs, Rank.Six)
+                },
+                10,
+                1200)
+            .SetName("PokerPayout_StraightUsesCountAndHighestRank");
+        yield return new TestCaseData(
+                PokerHandRank.Flush,
+                new[]
+                {
+                    new Card(Suit.Clubs, Rank.Two),
+                    new Card(Suit.Clubs, Rank.Four),
+                    new Card(Suit.Clubs, Rank.Six),
+                    new Card(Suit.Clubs, Rank.Eight),
+                    new Card(Suit.Clubs, Rank.Ten)
+                },
+                10,
+                240)
+            .SetName("PokerPayout_FlushUsesAverageRank");
+        yield return new TestCaseData(
+                PokerHandRank.StraightFlush,
+                new[]
+                {
+                    new Card(Suit.Clubs, Rank.Three),
+                    new Card(Suit.Clubs, Rank.Four),
+                    new Card(Suit.Clubs, Rank.Five),
+                    new Card(Suit.Clubs, Rank.Six),
+                    new Card(Suit.Clubs, Rank.Seven)
+                },
+                10,
+                2800)
+            .SetName("PokerPayout_StraightFlushUsesCountAndHighestRank");
+        yield return new TestCaseData(
+                PokerHandRank.RoyalFlush,
+                new[]
+                {
+                    new Card(Suit.Clubs, Rank.Ten),
+                    new Card(Suit.Clubs, Rank.Jack),
+                    new Card(Suit.Clubs, Rank.Queen),
+                    new Card(Suit.Clubs, Rank.King),
+                    new Card(Suit.Clubs, Rank.Ace)
+                },
+                10,
+                100)
+            .SetName("PokerPayout_RoyalFlushUsesOnlyMultiplierAndWager");
+        yield return new TestCaseData(
+                PokerHandRank.HighCard,
+                new[]
+                {
+                    new Card(Suit.Clubs, Rank.Two),
+                    new Card(Suit.Hearts, Rank.Five)
+                },
+                10,
+                0)
+            .SetName("PokerPayout_HighCardPaysZero");
+    }
+
+    private static IEnumerable PokerBestSubsetCases()
+    {
+        yield return new TestCaseData(
+                PokerHandRank.Straight,
+                new[]
+                {
+                    new Card(Suit.Clubs, Rank.Two),
+                    new Card(Suit.Diamonds, Rank.Three),
+                    new Card(Suit.Hearts, Rank.Four),
+                    new Card(Suit.Spades, Rank.Five),
+                    new Card(Suit.Clubs, Rank.Six),
+                    new Card(Suit.Diamonds, Rank.Seven)
+                },
+                1400)
+            .SetName("ResolvePoker_SixCardStraightUsesHighestFive");
+        yield return new TestCaseData(
+                PokerHandRank.Flush,
+                new[]
+                {
+                    new Card(Suit.Clubs, Rank.Ace),
+                    new Card(Suit.Clubs, Rank.Two),
+                    new Card(Suit.Clubs, Rank.Four),
+                    new Card(Suit.Clubs, Rank.Six),
+                    new Card(Suit.Clubs, Rank.Eight),
+                    new Card(Suit.Clubs, Rank.Ten)
+                },
+                240)
+            .SetName("ResolvePoker_SixCardFlushUsesHighestPayoutFive");
+        yield return new TestCaseData(
+                PokerHandRank.StraightFlush,
+                new[]
+                {
+                    new Card(Suit.Clubs, Rank.Two),
+                    new Card(Suit.Clubs, Rank.Three),
+                    new Card(Suit.Clubs, Rank.Four),
+                    new Card(Suit.Clubs, Rank.Five),
+                    new Card(Suit.Clubs, Rank.Six),
+                    new Card(Suit.Clubs, Rank.Seven)
+                },
+                2800)
+            .SetName("ResolvePoker_SixCardStraightFlushUsesHighestFive");
+    }
+
     private static BattleConfig TestBattleConfig(int startingHandSize = 3)
     {
         return new BattleConfig("test", 100, new StandingDevilStrategy(), startingHandSize: startingHandSize);
@@ -2500,6 +3053,61 @@ public sealed class ShopSystemTests
         field.SetValue(target, value);
     }
 
+    private static T GetField<T>(object target, string fieldName)
+    {
+        FieldInfo field = target.GetType().GetField(fieldName, BindingFlags.Instance | BindingFlags.NonPublic);
+        Assert.That(field, Is.Not.Null, fieldName);
+        return (T)field.GetValue(target);
+    }
+
+    private static void PrepareTurnHandoff(BattleUiPresenter presenter, BattleState battle, RoundState round)
+    {
+        SetField(presenter, "_turnHandoffPending", true);
+        SetField(presenter, "_scheduledTurnBattle", battle);
+        SetField(presenter, "_scheduledTurnRound", round);
+    }
+
+    private static void ConfigureTurnHandoffTestPresenter(BattleUiPresenter presenter, BattleController controller)
+    {
+        SetField(presenter, "battleController", controller);
+        SetField(presenter, "opponentTurnDelayMinSeconds", 0f);
+        SetField(presenter, "opponentTurnDelayMaxSeconds", 0f);
+
+        var labelObject = new GameObject(
+            "BackToMapButtonText",
+            typeof(RectTransform),
+            typeof(TextMeshProUGUI));
+        labelObject.transform.SetParent(presenter.transform);
+        SetField(presenter, "backToMapButtonText", labelObject.GetComponent<TextMeshProUGUI>());
+    }
+
+    private static IEnumerator CreateTurnHandoffRoutine(
+        BattleUiPresenter presenter,
+        BattleState battle,
+        RoundState round,
+        string actionName)
+    {
+        System.Type actionType = typeof(BattleUiPresenter).GetNestedType("TurnHandoffAction", BindingFlags.NonPublic);
+        Assert.That(actionType, Is.Not.Null);
+        object action = System.Enum.Parse(actionType, actionName);
+        MethodInfo method = typeof(BattleUiPresenter).GetMethod("RunTurnHandoff", BindingFlags.Instance | BindingFlags.NonPublic);
+        Assert.That(method, Is.Not.Null);
+        return (IEnumerator)method.Invoke(presenter, new[] { battle, round, action });
+    }
+
+    private static int RunRoutineToCompletion(IEnumerator routine, int maximumSteps = 20)
+    {
+        int delayCount = 0;
+        while (delayCount < maximumSteps && routine.MoveNext())
+        {
+            Assert.That(routine.Current, Is.Null, "Zero-delay handoffs should yield one frame.");
+            delayCount++;
+        }
+
+        Assert.That(delayCount, Is.LessThan(maximumSteps), "Turn handoff routine did not terminate.");
+        return delayCount;
+    }
+
     private static void SetAutoProperty(object target, string propertyName, object value)
     {
         FieldInfo field = target.GetType().GetField($"<{propertyName}>k__BackingField", BindingFlags.Instance | BindingFlags.NonPublic);
@@ -2540,6 +3148,43 @@ public sealed class ShopSystemTests
         public DevilTurnChoice ChooseTurnAction(BattleState battle, RoundState round) => _choice;
         public int ChooseCardIndex(BattleState battle, RoundState round) => 0;
         public IEnumerable<Card> CreateStartingDeck(RunState runState, BattleConfig config) => new List<Card>();
+        public void RegisterAffinityHooks(BattleState battle) { }
+        public void UnregisterAffinityHooks(BattleState battle) { }
+        public void UpdateDevilState(DevilStateUpdateContext context) { }
+        public string GetDialogueId() => "test";
+        public IEnumerable<Modifier> GetGlobalModifiers(RunState runState) => new List<Modifier>();
+    }
+
+    private sealed class SequenceDevilStrategy : IDevilStrategy
+    {
+        private readonly DevilTurnChoice[] _choices;
+
+        public SequenceDevilStrategy(params DevilTurnChoice[] choices)
+        {
+            _choices = choices;
+        }
+
+        public int DrawValue => 3;
+        public int TurnCount { get; private set; }
+
+        public DevilTurnChoice ChooseTurnAction(BattleState battle, RoundState round)
+        {
+            int choiceIndex = System.Math.Min(TurnCount, _choices.Length - 1);
+            TurnCount++;
+            return _choices[choiceIndex];
+        }
+
+        public int ChooseCardIndex(BattleState battle, RoundState round) => 0;
+        public IEnumerable<Card> CreateStartingDeck(RunState runState, BattleConfig config) =>
+            new[]
+            {
+                new Card(Suit.Hearts, Rank.Two),
+                new Card(Suit.Hearts, Rank.Three),
+                new Card(Suit.Hearts, Rank.Four),
+                new Card(Suit.Hearts, Rank.Five),
+                new Card(Suit.Hearts, Rank.Six),
+                new Card(Suit.Hearts, Rank.Seven)
+            };
         public void RegisterAffinityHooks(BattleState battle) { }
         public void UnregisterAffinityHooks(BattleState battle) { }
         public void UpdateDevilState(DevilStateUpdateContext context) { }

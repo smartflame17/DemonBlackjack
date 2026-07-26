@@ -36,6 +36,10 @@ public sealed class BattleUiPresenter : MonoBehaviour
     [SerializeField] private GameObject roundStartPanel;
     [SerializeField, Min(0f)] public float roundStartDelaySeconds = 2f;
 
+    [Header("Opponent Turn")]
+    [SerializeField, Min(0f)] private float opponentTurnDelayMinSeconds = 0.75f;
+    [SerializeField, Min(0f)] private float opponentTurnDelayMaxSeconds = 1.5f;
+
     [Header("Deck View")]
     [SerializeField] private DeckViewPanel deckViewPanel;
     [FormerlySerializedAs("viewDrawPileButton")]
@@ -85,19 +89,25 @@ public sealed class BattleUiPresenter : MonoBehaviour
     private DeckViewLongPressDragStarter _deckViewDragStarter;
     private PlayerHandHitDragHandler _playerHandHitDragHandler;
     private Coroutine _roundStartRoutine;
+    private Coroutine _turnHandoffRoutine;
     private BattleState _scheduledRoundBattle;
+    private BattleState _scheduledTurnBattle;
+    private RoundState _scheduledTurnRound;
     private int _pendingWager = 10;
     private bool _suppressRoundPilesUntilNextRound;
+    private bool _turnHandoffPending;
 
     public bool CanPlayerAct
     {
         get
         {
             BattleState battle = battleController != null ? battleController.BattleState : null;
-            return battleController != null
+            return isActiveAndEnabled
+                && battleController != null
                 && battle != null
                 && battle.Phase == BattlePhase.PlayerPhase
                 && !battleController.IsWaitingForVisuals
+                && !_turnHandoffPending
                 && battle.CurrentRound != null;
         }
     }
@@ -108,6 +118,12 @@ public sealed class BattleUiPresenter : MonoBehaviour
         Draw,
         Play,
         Discard
+    }
+
+    private enum TurnHandoffAction
+    {
+        EndPlayerPhase,
+        Stand
     }
 
     private readonly struct CardLayoutSnapshot
@@ -153,6 +169,7 @@ public sealed class BattleUiPresenter : MonoBehaviour
     private void OnDisable()
     {
         CancelPendingRoundStart();
+        CancelPendingTurnHandoff();
         SetActive(roundStartPanel, false);
         ClearGeneratedBattleCards();
         EventBus.Unsubscribe<RunPhaseChangedEvent>(OnRunPhaseChanged);
@@ -230,9 +247,10 @@ public sealed class BattleUiPresenter : MonoBehaviour
         RenderPlayPile(round, _suppressRoundPilesUntilNextRound && battle.Phase == BattlePhase.Cleanup);
         AnimateCardChanges(round, animationContext);
 
+        bool suppressBlockingPanels = battleController != null && battleController.InputGate != null;
         bool roundFinished = battle.Phase == BattlePhase.Cleanup;
-        bool battleFinished = battle.Phase == BattlePhase.BattleEnd;
-        SetPanels(shouldStartRound, roundFinished, battleFinished);
+        bool battleFinished = battle.Phase == BattlePhase.BattleEnd && !suppressBlockingPanels;
+        SetPanels(shouldStartRound && !suppressBlockingPanels, roundFinished, battleFinished);
 
         if (runManager != null && runManager.RunState.Money > 0)
             backToMapButtonText.text = "다음 단계로";
@@ -240,7 +258,11 @@ public sealed class BattleUiPresenter : MonoBehaviour
 
         RefreshRoundResult(battle);
         RefreshBattleResult(battle);
-        SetTurnButtons(battle.Phase == BattlePhase.PlayerPhase && !battleController.IsWaitingForVisuals, _selectedHandIndices.Count > 0);
+        SetTurnButtons(
+            battle.Phase == BattlePhase.PlayerPhase
+            && !battleController.IsWaitingForVisuals
+            && !_turnHandoffPending,
+            _selectedHandIndices.Count > 0);
         RememberRenderedCards(round);
     }
 
@@ -261,7 +283,7 @@ public sealed class BattleUiPresenter : MonoBehaviour
             return false;
         }
 
-        battleController.EndPlayerPhase();
+        ScheduleTurnHandoff(TurnHandoffAction.EndPlayerPhase);
         Refresh();
         return true;
     }
@@ -272,7 +294,13 @@ public sealed class BattleUiPresenter : MonoBehaviour
             return false;
 
         _selectedHandIndices.Clear();
-        bool hit = battleController.TryHit();
+        if (!battleController.TryHitWithoutEndingTurn())
+        {
+            Refresh();
+            return false;
+        }
+
+        bool hit = ScheduleTurnHandoff(TurnHandoffAction.EndPlayerPhase);
         Refresh();
         return hit;
     }
@@ -331,7 +359,7 @@ public sealed class BattleUiPresenter : MonoBehaviour
 
     private void PlaySelectedCards()
     {
-        if (battleController == null || _selectedHandIndices.Count == 0)
+        if (!CanPlayerAct || battleController == null || _selectedHandIndices.Count == 0)
             return;
 
         int selectedIndex = -1;
@@ -349,22 +377,20 @@ public sealed class BattleUiPresenter : MonoBehaviour
         }
 
         _selectedHandIndices.Clear();
-        battleController.EndPlayerPhase();
+        ScheduleTurnHandoff(TurnHandoffAction.EndPlayerPhase);
         Refresh();
     }
 
     private void Stand()
     {
         _selectedHandIndices.Clear();
-        battleController?.TryStand();
+        ScheduleTurnHandoff(TurnHandoffAction.Stand);
         Refresh();
     }
 
     private void Hit()
     {
-        _selectedHandIndices.Clear();
-        battleController?.TryHit();
-        Refresh();
+        TryHitFromDraggedDeck();
     }
 
     private void OpenShop()
@@ -423,6 +449,7 @@ public sealed class BattleUiPresenter : MonoBehaviour
 
     private void OnBattleStarted(BattleStartedEvent eventData)
     {
+        CancelPendingTurnHandoff();
         _suppressRoundPilesUntilNextRound = false;
         ScheduleRoundStart(battleController?.BattleState);
         Refresh();
@@ -431,8 +458,120 @@ public sealed class BattleUiPresenter : MonoBehaviour
     private void OnBattleEnded(BattleEndedEvent eventData)
     {
         CancelPendingRoundStart();
+        CancelPendingTurnHandoff();
         ClearBattleCardViews();
         Refresh();
+    }
+
+    private bool ScheduleTurnHandoff(TurnHandoffAction action)
+    {
+        if (!CanPlayerAct || _turnHandoffPending)
+            return false;
+
+        BattleState battle = battleController.BattleState;
+        RoundState round = battle.CurrentRound;
+        if (round == null)
+            return false;
+
+        _turnHandoffPending = true;
+        _scheduledTurnBattle = battle;
+        _scheduledTurnRound = round;
+        _turnHandoffRoutine = StartCoroutine(RunTurnHandoff(battle, round, action));
+        return true;
+    }
+
+    private IEnumerator RunTurnHandoff(BattleState battle, RoundState round, TurnHandoffAction action)
+    {
+        do
+        {
+            float delaySeconds = SampleOpponentTurnDelay();
+            if (delaySeconds > 0f)
+                yield return new WaitForSeconds(delaySeconds);
+            else
+                yield return null;
+
+            if (!CanExecuteTurnHandoff(battle, round))
+                break;
+
+            bool actionSucceeded = ExecuteTurnHandoff(action);
+            Refresh();
+            if (!actionSucceeded || action != TurnHandoffAction.Stand || !ShouldContinueAutoStand(battle, round))
+                break;
+        }
+        while (true);
+
+        CompleteTurnHandoff(battle, round);
+    }
+
+    private bool ExecuteTurnHandoff(TurnHandoffAction action)
+    {
+        if (battleController == null)
+            return false;
+
+        switch (action)
+        {
+            case TurnHandoffAction.EndPlayerPhase:
+                battleController.EndPlayerPhase();
+                return true;
+            case TurnHandoffAction.Stand:
+                return battleController.TryStand();
+            default:
+                return false;
+        }
+    }
+
+    private bool CanExecuteTurnHandoff(BattleState battle, RoundState round)
+    {
+        return isActiveAndEnabled
+            && battleController != null
+            && ReferenceEquals(battleController.BattleState, battle)
+            && battle != null
+            && ReferenceEquals(battle.CurrentRound, round)
+            && round != null
+            && battle.Phase == BattlePhase.PlayerPhase
+            && !battleController.IsWaitingForVisuals;
+    }
+
+    private bool ShouldContinueAutoStand(BattleState battle, RoundState round)
+    {
+        return CanExecuteTurnHandoff(battle, round)
+            && round.PlayerStood
+            && !round.OpponentStood;
+    }
+
+    private float SampleOpponentTurnDelay()
+    {
+        GetNormalizedOpponentTurnDelayRange(out float minimum, out float maximum);
+        return minimum >= maximum ? minimum : UnityEngine.Random.Range(minimum, maximum);
+    }
+
+    private void GetNormalizedOpponentTurnDelayRange(out float minimum, out float maximum)
+    {
+        minimum = Mathf.Max(0f, Mathf.Min(opponentTurnDelayMinSeconds, opponentTurnDelayMaxSeconds));
+        maximum = Mathf.Max(0f, Mathf.Max(opponentTurnDelayMinSeconds, opponentTurnDelayMaxSeconds));
+    }
+
+    private void CompleteTurnHandoff(BattleState battle, RoundState round)
+    {
+        if (!ReferenceEquals(_scheduledTurnBattle, battle) || !ReferenceEquals(_scheduledTurnRound, round))
+            return;
+
+        _turnHandoffRoutine = null;
+        _scheduledTurnBattle = null;
+        _scheduledTurnRound = null;
+        _turnHandoffPending = false;
+        Refresh();
+    }
+
+    private void CancelPendingTurnHandoff()
+    {
+        if (_turnHandoffRoutine != null)
+            StopCoroutine(_turnHandoffRoutine);
+
+        _turnHandoffRoutine = null;
+        _scheduledTurnBattle = null;
+        _scheduledTurnRound = null;
+        _turnHandoffPending = false;
     }
 
     private void OnBurstThresholdChanged(BurstThresholdChangedEvent eventData)
@@ -835,7 +974,17 @@ public sealed class BattleUiPresenter : MonoBehaviour
 
     private bool CanSelectCards(BattleState battle)
     {
-        return battle.Phase == BattlePhase.PlayerPhase && !battleController.IsWaitingForVisuals && battle.CurrentRound != null;
+        return battle.Phase == BattlePhase.PlayerPhase
+            && !battleController.IsWaitingForVisuals
+            && !_turnHandoffPending
+            && battle.CurrentRound != null;
+    }
+
+    private void OnValidate()
+    {
+        GetNormalizedOpponentTurnDelayRange(out float minimum, out float maximum);
+        opponentTurnDelayMinSeconds = minimum;
+        opponentTurnDelayMaxSeconds = maximum;
     }
 
     private void SetScoreText(RoundState round)

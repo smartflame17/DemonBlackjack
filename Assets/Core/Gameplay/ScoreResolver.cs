@@ -4,6 +4,16 @@ using System.Linq;
 
 public static class ScoreResolver
 {
+    private const int RequiredStraightOrFlushCardCount = 5;
+    private static readonly Rank[] RoyalFlushRanks =
+    {
+        Rank.Ten,
+        Rank.Jack,
+        Rank.Queen,
+        Rank.King,
+        Rank.Ace
+    };
+
     public static ScoreResult Resolve(IReadOnlyList<Card> cards, IReadOnlyList<Modifier> modifiers, int targetScore, int burstThreshold, int blackjackBonus = 0)
     {
         int blackjackScore = ResolveBlackjackScore(cards) + blackjackBonus;
@@ -11,10 +21,10 @@ public static class ScoreResolver
 
         PokerResult poker = ResolvePoker(cards);
 
-        int modifiedScore = ApplyModifiers(blackjackScore, 1, modifiers);
+        float modifiedScore = ApplyModifiers(blackjackScore, 1, modifiers);
         bool isBlackjack = modifiedScore == targetScore;
 
-        return new ScoreResult(blackjackScore, modifiedScore, poker.Rank, poker.Multiplier, isBurst, isBlackjack);
+        return new ScoreResult(blackjackScore, (int)modifiedScore, poker.Rank, poker.Multiplier, isBurst, isBlackjack);
     }
 
     public static PokerResult ResolvePoker(IReadOnlyList<Card> cards)
@@ -99,23 +109,26 @@ public static class ScoreResolver
         return Math.Max(0, score * Math.Max(1, pokerMultiplier));
     }
 
-    private static int GetPokerMultiplier(PokerHandRank rank)
+    public static float GetPokerMultiplier(PokerHandRank rank)
     {
         return rank switch
         {
-            PokerHandRank.Pair => 2,
-            PokerHandRank.TwoPair => 3,
-            PokerHandRank.ThreeOfAKind => 3,
-            PokerHandRank.Straight => 4,
-            PokerHandRank.Flush => 4,
-            PokerHandRank.FullHouse => 5,
-            PokerHandRank.FourOfAKind => 6,
-            PokerHandRank.StraightFlush => 8,
-            PokerHandRank.RoyalFlush => 10,
+            PokerHandRank.Pair => 0.2f,
+            PokerHandRank.LowStraight => 1.5f,
+            PokerHandRank.TwoPair => 2f,
+            PokerHandRank.LowFlush => 2.5f,
+            PokerHandRank.ThreeOfAKind => 5f,
+            PokerHandRank.Straight => 25f,
+            PokerHandRank.Flush => 50f,
+            PokerHandRank.FullHouse => 70f,
+            PokerHandRank.FourOfAKind => 400f,
+            PokerHandRank.StraightFlush => 777f,
+            PokerHandRank.RoyalFlush => 777f,
             _ => 0
         };
     }
 
+    // TODO: Calculate for LowStraight and LowFlush (4-card straight and flush)
     private static PokerHandRank ResolvePokerRank(IReadOnlyList<Card> cards, out List<int> cardIndices)
     {
         cardIndices = new List<int>();
@@ -130,30 +143,14 @@ public static class ScoreResolver
             .ThenByDescending(group => (int)group[0].Card.Rank)
             .ToList();
         var suitGroups = indexedCards.GroupBy(entry => entry.Card.Suit).Select(group => group.ToList()).ToList();
-        List<IndexedCard> flushGroup = suitGroups.FirstOrDefault(group => group.Count >= 5);
-        bool flush = flushGroup != null;
-        bool straight = HasStraight(indexedCards, out bool royal, out List<int> straightIndices);
-        bool straightFlush = false;
-        bool straightFlushRoyal = false;
-        List<int> straightFlushIndices = null;
-        foreach (List<IndexedCard> group in suitGroups.Where(group => group.Count >= 5))
-        {
-            if (!HasStraight(group, out bool groupRoyal, out List<int> groupIndices))
-                continue;
 
-            straightFlush = true;
-            straightFlushRoyal = groupRoyal;
-            straightFlushIndices = groupIndices;
-            break;
-        }
-
-        if (straightFlush && straightFlushRoyal)
+        if (TryGetRoyalFlush(suitGroups, out List<int> royalFlushIndices))
         {
-            cardIndices = straightFlushIndices;
+            cardIndices = royalFlushIndices;
             return PokerHandRank.RoyalFlush;
         }
 
-        if (straightFlush)
+        if (TryGetBestStraightFlush(suitGroups, out List<int> straightFlushIndices))
         {
             cardIndices = straightFlushIndices;
             return PokerHandRank.StraightFlush;
@@ -171,13 +168,13 @@ public static class ScoreResolver
             return PokerHandRank.FullHouse;
         }
 
-        if (flush)
+        if (TryGetBestFlush(suitGroups, out List<int> flushIndices))
         {
-            cardIndices = flushGroup.Take(5).Select(entry => entry.Index).ToList();
+            cardIndices = flushIndices;
             return PokerHandRank.Flush;
         }
 
-        if (straight)
+        if (TryGetBestStraight(indexedCards, RequiredStraightOrFlushCardCount, out List<int> straightIndices, out _, out _))
         {
             cardIndices = straightIndices;
             return PokerHandRank.Straight;
@@ -206,8 +203,114 @@ public static class ScoreResolver
         return PokerHandRank.HighCard;
     }
 
-    private static bool HasStraight(IReadOnlyList<IndexedCard> cards, out bool royal, out List<int> cardIndices)
+    private static bool TryGetRoyalFlush(IReadOnlyList<List<IndexedCard>> suitGroups, out List<int> cardIndices)
     {
+        cardIndices = new List<int>();
+        for (int groupIndex = 0; groupIndex < suitGroups.Count; groupIndex++)
+        {
+            List<IndexedCard> group = suitGroups[groupIndex];
+            var entriesByRank = group
+                .GroupBy(entry => entry.Card.Rank)
+                .ToDictionary(rankGroup => rankGroup.Key, rankGroup => rankGroup.OrderBy(entry => entry.Index).First());
+            if (RoyalFlushRanks.Any(rank => !entriesByRank.ContainsKey(rank)))
+                continue;
+
+            List<int> candidate = RoyalFlushRanks.Select(rank => entriesByRank[rank].Index).ToList();
+            if (cardIndices.Count == 0 || HasEarlierOriginalIndices(candidate, cardIndices))
+                cardIndices = candidate;
+        }
+
+        return cardIndices.Count > 0;
+    }
+
+    private static bool TryGetBestStraightFlush(IReadOnlyList<List<IndexedCard>> suitGroups, out List<int> cardIndices)
+    {
+        cardIndices = new List<int>();
+        int bestHighestRank = 0;
+        int bestSequenceHigh = 0;
+
+        for (int groupIndex = 0; groupIndex < suitGroups.Count; groupIndex++)
+        {
+            List<IndexedCard> group = suitGroups[groupIndex];
+            if (!TryGetBestStraight(
+                    group,
+                    RequiredStraightOrFlushCardCount,
+                    out List<int> candidate,
+                    out int candidateHighestRank,
+                    out int candidateSequenceHigh))
+            {
+                continue;
+            }
+
+            if (cardIndices.Count == 0
+                || IsBetterStraightCandidate(
+                    candidate,
+                    candidateHighestRank,
+                    candidateSequenceHigh,
+                    cardIndices,
+                    bestHighestRank,
+                    bestSequenceHigh))
+            {
+                cardIndices = candidate;
+                bestHighestRank = candidateHighestRank;
+                bestSequenceHigh = candidateSequenceHigh;
+            }
+        }
+
+        return cardIndices.Count > 0;
+    }
+
+    private static bool TryGetBestFlush(IReadOnlyList<List<IndexedCard>> suitGroups, out List<int> cardIndices)
+    {
+        List<IndexedCard> bestCards = null;
+        int bestRankSum = 0;
+
+        for (int groupIndex = 0; groupIndex < suitGroups.Count; groupIndex++)
+        {
+            List<IndexedCard> group = suitGroups[groupIndex];
+            if (group.Count < RequiredStraightOrFlushCardCount)
+                continue;
+
+            List<IndexedCard> candidate = group
+                .OrderByDescending(entry => (int)entry.Card.Rank)
+                .ThenBy(entry => entry.Index)
+                .Take(RequiredStraightOrFlushCardCount)
+                .ToList();
+            int candidateRankSum = candidate.Sum(entry => (int)entry.Card.Rank);
+
+            if (bestCards == null
+                || candidateRankSum > bestRankSum
+                || candidateRankSum == bestRankSum && HasHigherRanks(candidate, bestCards)
+                || candidateRankSum == bestRankSum
+                    && !HasHigherRanks(bestCards, candidate)
+                    && HasEarlierOriginalIndices(
+                        candidate.Select(entry => entry.Index).ToList(),
+                        bestCards.Select(entry => entry.Index).ToList()))
+            {
+                bestCards = candidate;
+                bestRankSum = candidateRankSum;
+            }
+        }
+
+        cardIndices = bestCards == null
+            ? new List<int>()
+            : bestCards.OrderBy(entry => entry.Index).Select(entry => entry.Index).ToList();
+        return cardIndices.Count > 0;
+    }
+
+    private static bool TryGetBestStraight(
+        IReadOnlyList<IndexedCard> cards,
+        int requiredCardCount,
+        out List<int> cardIndices,
+        out int highestRank,
+        out int sequenceHigh)
+    {
+        cardIndices = new List<int>();
+        highestRank = 0;
+        sequenceHigh = 0;
+        if (cards == null || requiredCardCount <= 0 || cards.Count < requiredCardCount)
+            return false;
+
         var rankEntries = new Dictionary<int, IndexedCard>();
         for (int i = 0; i < cards.Count; i++)
         {
@@ -219,31 +322,87 @@ public static class ScoreResolver
                 rankEntries[1] = entry;
         }
 
-        int run = 1;
-        royal = false;
-        cardIndices = new List<int>();
         List<int> values = rankEntries.Keys.OrderBy(value => value).ToList();
 
-        for (int i = 1; i < values.Count; i++)
+        for (int start = 0; start <= values.Count - requiredCardCount; start++)
         {
-            if (values[i] == values[i - 1] + 1)
+            bool consecutive = true;
+            for (int offset = 1; offset < requiredCardCount; offset++)
             {
-                run++;
-
-                if (run >= 5)
+                if (values[start + offset] != values[start] + offset)
                 {
-                    royal = values[i] == 14 && values.Contains(10);
-                    cardIndices = values.Skip(i - 4).Take(5).Select(value => rankEntries[value].Index).ToList();
-                    return true;
+                    consecutive = false;
+                    break;
                 }
             }
-            else
+
+            if (!consecutive)
+                continue;
+
+            List<int> candidateValues = values.Skip(start).Take(requiredCardCount).ToList();
+            List<int> candidate = candidateValues.Select(value => rankEntries[value].Index).ToList();
+            int candidateHighestRank = candidateValues.Max(value => (int)rankEntries[value].Card.Rank);
+            int candidateSequenceHigh = candidateValues[^1];
+
+            if (cardIndices.Count == 0
+                || IsBetterStraightCandidate(
+                    candidate,
+                    candidateHighestRank,
+                    candidateSequenceHigh,
+                    cardIndices,
+                    highestRank,
+                    sequenceHigh))
             {
-                run = 1;
+                cardIndices = candidate;
+                highestRank = candidateHighestRank;
+                sequenceHigh = candidateSequenceHigh;
             }
         }
 
-        return false;
+        return cardIndices.Count > 0;
+    }
+
+    private static bool IsBetterStraightCandidate(
+        IReadOnlyList<int> candidate,
+        int candidateHighestRank,
+        int candidateSequenceHigh,
+        IReadOnlyList<int> best,
+        int bestHighestRank,
+        int bestSequenceHigh)
+    {
+        if (candidateHighestRank != bestHighestRank)
+            return candidateHighestRank > bestHighestRank;
+
+        if (candidateSequenceHigh != bestSequenceHigh)
+            return candidateSequenceHigh > bestSequenceHigh;
+
+        return HasEarlierOriginalIndices(candidate, best);
+    }
+
+    private static bool HasHigherRanks(IReadOnlyList<IndexedCard> candidate, IReadOnlyList<IndexedCard> best)
+    {
+        for (int i = 0; i < Math.Min(candidate.Count, best.Count); i++)
+        {
+            int candidateRank = (int)candidate[i].Card.Rank;
+            int bestRank = (int)best[i].Card.Rank;
+            if (candidateRank != bestRank)
+                return candidateRank > bestRank;
+        }
+
+        return candidate.Count > best.Count;
+    }
+
+    private static bool HasEarlierOriginalIndices(IReadOnlyList<int> candidate, IReadOnlyList<int> best)
+    {
+        List<int> candidateIndices = candidate.OrderBy(index => index).ToList();
+        List<int> bestIndices = best.OrderBy(index => index).ToList();
+        for (int i = 0; i < Math.Min(candidateIndices.Count, bestIndices.Count); i++)
+        {
+            if (candidateIndices[i] != bestIndices[i])
+                return candidateIndices[i] < bestIndices[i];
+        }
+
+        return candidateIndices.Count < bestIndices.Count;
     }
 
     private readonly struct IndexedCard
@@ -261,7 +420,7 @@ public static class ScoreResolver
 
 public readonly struct ScoreResult
 {
-    public ScoreResult(int blackjackScore, int finalScore, PokerHandRank pokerRank, int pokerMultiplier, bool isBurst, bool isBlackjack)
+    public ScoreResult(int blackjackScore, int finalScore, PokerHandRank pokerRank, float pokerMultiplier, bool isBurst, bool isBlackjack)
     {
         BlackjackScore = blackjackScore;
         FinalScore = finalScore;
@@ -274,14 +433,14 @@ public readonly struct ScoreResult
     public int BlackjackScore { get; }
     public int FinalScore { get; }
     public PokerHandRank PokerRank { get; }
-    public int PokerMultiplier { get; }
+    public float PokerMultiplier { get; }
     public bool IsBurst { get; }
     public bool IsBlackjack { get; }
 }
 
 public readonly struct PokerResult
 {
-    public PokerResult(PokerHandRank rank, int multiplier, IReadOnlyList<int> cardIndices)
+    public PokerResult(PokerHandRank rank, float multiplier, IReadOnlyList<int> cardIndices)
     {
         Rank = rank;
         Multiplier = multiplier;
@@ -289,7 +448,7 @@ public readonly struct PokerResult
     }
 
     public PokerHandRank Rank { get; }
-    public int Multiplier { get; }
+    public float Multiplier { get; }
     public IReadOnlyList<int> CardIndices { get; }
 
     public override string ToString()
