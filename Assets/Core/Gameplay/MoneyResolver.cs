@@ -73,7 +73,11 @@ public static class MoneyResolver
         int playerBurstOffset = Math.Max(0, round.PlayerScore.BlackjackScore - round.PlayerBurstThreshold);
         if (playerBurstOffset > 0 && !round.PlayerBurstPenaltyResolved)
         {
-            int amount = playerBurstOffset * wager;
+            // Version 1: Transfer based on wager
+            //int amount = playerBurstOffset * wager;
+
+            // Version 2: Fixed amount
+            int amount = playerBurstOffset * 50;
             int lost = TransferPlayerToOpponent(battle, amount);
             playerMoneyLost += lost;
             round.RecordMoneyLost(Combatant.Player, lost);
@@ -84,7 +88,11 @@ public static class MoneyResolver
         int opponentBurstOffset = Math.Max(0, round.OpponentScore.BlackjackScore - round.OpponentBurstThreshold);
         if (opponentBurstOffset > 0 && !round.OpponentBurstPenaltyResolved)
         {
-            int amount = opponentBurstOffset * wager;
+            // Version 1: Transfer based on wager
+            //int amount = opponentBurstOffset * wager;
+
+            // Version 2: Fixed amount
+            int amount = opponentBurstOffset * 50;
             int lost = TransferOpponentToPlayer(battle, amount);
             opponentMoneyLost += lost;
             round.RecordMoneyLost(Combatant.Opponent, lost);
@@ -142,11 +150,12 @@ public static class MoneyResolver
             if (cardIndex < 0 || cardIndex >= cards.Count)
                 return 0;
 
-            int rank = (int)cards[cardIndex].Rank;
+            int rank = RankToPokerValue(cards[cardIndex].Rank);
             rankSum += rank;
             highestRank = Math.Max(highestRank, rank);
         }
-
+        /*
+        // Version 1: Payout based per rank
         long payout = poker.Rank switch
         {
             PokerHandRank.Pair
@@ -164,6 +173,9 @@ public static class MoneyResolver
                 => (long)poker.Multiplier * wager,
             _ => 0
         };
+        */
+        // Version 2: Fixed Payout
+        long payout = (long)poker.Multiplier * rankSum / poker.CardIndices.Count * 100;
 
         return payout >= int.MaxValue ? int.MaxValue : (int)payout;
     }
@@ -184,6 +196,27 @@ public static class MoneyResolver
             battle.AddPlayerMoney(lost);
 
         return lost;
+    }
+
+    public static int RankToPokerValue(Rank rank)
+    {
+        return rank switch
+        {
+            Rank.Two => 2,
+            Rank.Three => 3,
+            Rank.Four => 4,
+            Rank.Five => 5,
+            Rank.Six => 6,
+            Rank.Seven => 7,
+            Rank.Eight => 8,
+            Rank.Nine => 9,
+            Rank.Ten => 10,
+            Rank.Jack => 11,
+            Rank.Queen => 12,
+            Rank.King => 13,
+            Rank.Ace => 14,
+            _ => throw new ArgumentOutOfRangeException(nameof(rank), $"Invalid rank: {rank}")
+        };
     }
 }
 

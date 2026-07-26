@@ -113,15 +113,15 @@ public static class ScoreResolver
     {
         return rank switch
         {
-            PokerHandRank.Pair => 2,
-            PokerHandRank.TwoPair => 3,
-            PokerHandRank.ThreeOfAKind => 3,
-            PokerHandRank.Straight => 4,
-            PokerHandRank.Flush => 4,
-            PokerHandRank.FullHouse => 5,
-            PokerHandRank.FourOfAKind => 6,
-            PokerHandRank.StraightFlush => 8,
-            PokerHandRank.RoyalFlush => 10,
+            PokerHandRank.Pair => 0.2f,
+            PokerHandRank.TwoPair => 2f,
+            PokerHandRank.ThreeOfAKind => 5f,
+            PokerHandRank.Straight => 25f,
+            PokerHandRank.Flush => 50f,
+            PokerHandRank.FullHouse => 70f,
+            PokerHandRank.FourOfAKind => 400f,
+            PokerHandRank.StraightFlush => 777f,
+            PokerHandRank.RoyalFlush => 777f,
             _ => 0
         };
     }

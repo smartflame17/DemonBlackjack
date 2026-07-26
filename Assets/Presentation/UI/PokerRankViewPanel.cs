@@ -26,7 +26,7 @@ public class PokerRankViewPanel : MonoBehaviour
         for (int i = 0; i < rankMultiplierTexts.Count; i++)
         {
             var binding = rankMultiplierTexts[i];
-            int multiplier = ScoreResolver.GetPokerMultiplier(binding.rank);
+            float multiplier = ScoreResolver.GetPokerMultiplier(binding.rank);
             binding.text.text = $"x{multiplier}";
         }
     }

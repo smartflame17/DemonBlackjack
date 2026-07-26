@@ -1077,13 +1077,16 @@ public sealed class BattleState
         }
     }
 
+    // TODO: Refactor this to use MoneyResolver.ResolveBurstTransfers() instead of duplicating the logic here
     private void ResolveRealtimeBurstPenalty(Combatant combatant, ScoreResult score, int threshold)
     {
         int burstOffset = Math.Max(0, score.BlackjackScore - threshold);
         if (burstOffset <= 0)
             return;
 
-        int amount = burstOffset * CurrentRound.EffectiveWager;
+        //int amount = burstOffset * CurrentRound.EffectiveWager;
+        // Version 2: Fixed amount
+        int amount = burstOffset * 50;
         int lost;
         if (combatant == Combatant.Player)
         {
