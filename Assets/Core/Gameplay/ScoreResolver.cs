@@ -114,7 +114,9 @@ public static class ScoreResolver
         return rank switch
         {
             PokerHandRank.Pair => 0.2f,
+            PokerHandRank.LowStraight => 1.5f,
             PokerHandRank.TwoPair => 2f,
+            PokerHandRank.LowFlush => 2.5f,
             PokerHandRank.ThreeOfAKind => 5f,
             PokerHandRank.Straight => 25f,
             PokerHandRank.Flush => 50f,
@@ -126,6 +128,7 @@ public static class ScoreResolver
         };
     }
 
+    // TODO: Calculate for LowStraight and LowFlush (4-card straight and flush)
     private static PokerHandRank ResolvePokerRank(IReadOnlyList<Card> cards, out List<int> cardIndices)
     {
         cardIndices = new List<int>();
