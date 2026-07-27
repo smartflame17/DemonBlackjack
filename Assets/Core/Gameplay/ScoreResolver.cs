@@ -1,6 +1,7 @@
 using System;
 using System.Collections.Generic;
 using System.Linq;
+using GameplayConstants;
 
 public static class ScoreResolver
 {
@@ -113,18 +114,18 @@ public static class ScoreResolver
     {
         return rank switch
         {
-            PokerHandRank.Pair => 0.2f,
-            PokerHandRank.LowStraight => 1.5f,
-            PokerHandRank.TwoPair => 2f,
-            PokerHandRank.LowFlush => 2.5f,
-            PokerHandRank.ThreeOfAKind => 5f,
-            PokerHandRank.Straight => 25f,
-            PokerHandRank.Flush => 50f,
-            PokerHandRank.FullHouse => 70f,
-            PokerHandRank.FourOfAKind => 400f,
-            PokerHandRank.StraightFlush => 777f,
-            PokerHandRank.RoyalFlush => 777f,
-            _ => 0
+            PokerHandRank.Pair => PokerMultiplierValue.PairMultiplier,
+            PokerHandRank.LowStraight => PokerMultiplierValue.LowStraightMultiplier,
+            PokerHandRank.TwoPair => PokerMultiplierValue.TwoPairMultiplier,
+            PokerHandRank.LowFlush => PokerMultiplierValue.LowFlushMultiplier,
+            PokerHandRank.ThreeOfAKind => PokerMultiplierValue.ThreeOfAKindMultiplier,
+            PokerHandRank.Straight => PokerMultiplierValue.StraightMultiplier,
+            PokerHandRank.Flush => PokerMultiplierValue.FlushMultiplier,
+            PokerHandRank.FullHouse => PokerMultiplierValue.FullHouseMultiplier,
+            PokerHandRank.FourOfAKind => PokerMultiplierValue.FourOfAKindMultiplier,
+            PokerHandRank.StraightFlush => PokerMultiplierValue.StraightFlushMultiplier,
+            PokerHandRank.RoyalFlush => PokerMultiplierValue.RoyalFlushMultiplier,
+            _ => PokerMultiplierValue.HighCardMultiplier
         };
     }
 

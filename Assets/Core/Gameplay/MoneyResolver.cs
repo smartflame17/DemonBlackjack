@@ -1,5 +1,6 @@
 using System;
 using System.Collections.Generic;
+using GameplayConstants;
 
 public static class MoneyResolver
 {
@@ -65,7 +66,6 @@ public static class MoneyResolver
         RoundState round,
         int wager)
     {
-        const int burstPenaltyAmount = 50;
         int playerBurstOffset = Math.Max(0, round.PlayerScore.BlackjackScore - round.PlayerBurstThreshold);
         if (playerBurstOffset > 0 && !round.PlayerBurstPenaltyResolved)
         {
@@ -73,7 +73,7 @@ public static class MoneyResolver
             //int amount = playerBurstOffset * wager;
 
             // Version 2: Fixed amount
-            int amount = playerBurstOffset * burstPenaltyAmount;
+            int amount = playerBurstOffset * BurstTransferValue.burstPenaltyAmount;
             int lost = TransferPlayerToOpponent(battle, amount);
             round.RecordMoneyLost(Combatant.Player, lost);
             round.MarkBurstPenaltyResolved(Combatant.Player);
@@ -87,7 +87,7 @@ public static class MoneyResolver
             //int amount = opponentBurstOffset * wager;
 
             // Version 2: Fixed amount
-            int amount = opponentBurstOffset * burstPenaltyAmount;
+            int amount = opponentBurstOffset * BurstTransferValue.burstPenaltyAmount;
             int lost = TransferOpponentToPlayer(battle, amount);
             round.RecordMoneyLost(Combatant.Opponent, lost);
             round.MarkBurstPenaltyResolved(Combatant.Opponent);
@@ -170,8 +170,7 @@ public static class MoneyResolver
         };
         */
         // Version 2: Fixed Payout
-        const int payoutAmount = 100;
-        long payout = (long)poker.Multiplier * rankSum / poker.CardIndices.Count * payoutAmount;
+        long payout = (long)poker.Multiplier * rankSum / poker.CardIndices.Count * PokerTransferValue.pokerPayoutAmount;
 
         return payout >= int.MaxValue ? int.MaxValue : (int)payout;
     }
