@@ -2,23 +2,81 @@ using UnityEngine;
 using TMPro;
 using UnityEngine.UI;
 using System;
+using DG.Tweening;
+using EasyTextEffects.Editor.MyBoxCopy.Extensions;
 
 public class MainMenu : MonoBehaviour
 {
+    [SerializeField] private CanvasGroup mainMenuCanvasGroup;
+    [SerializeField] private Image mainMenuBackground;
     [SerializeField] private Button newGameButton;
     [SerializeField] private Button loadGameButton;
     [SerializeField] private Button quitGameButton;
 
+    [Header("New Game Settings")]
+    [SerializeField] private GameObject newGameMenuPanel;
+    [SerializeField] private Toggle enableTutorialToggle;
+    [SerializeField] private TMP_InputField seedInputField;
+    [SerializeField] private Button startGameButton;
+    [SerializeField] private Button returnButton;
+    
+    [Header("Animation Speed Settings")]
+    [SerializeField] private float fadeAnimationSpeed = 0.5f;
+    [SerializeField] private float slideAnimationSpeed = 0.7f;
+
     private void Awake()
     {
-        newGameButton.onClick.AddListener(StartNewGame);
+        newGameButton.onClick.AddListener(OpenNewGameMenu);
         loadGameButton.onClick.AddListener(LoadGame);
         quitGameButton.onClick.AddListener(QuitGame);
+        startGameButton.onClick.AddListener(StartNewGame);
+        returnButton.onClick.AddListener(ReturnToMainMenu);
     }
+
+    private void OpenNewGameMenu()
+    {
+        PersistenceManager.Instance.PlayerSetSeed = -1; // Reset PlayerSetSeed to -1 when opening the new game menu
+        mainMenuCanvasGroup.DOFade(0f, fadeAnimationSpeed).OnComplete(() =>
+        {
+            mainMenuCanvasGroup.interactable = false;
+            mainMenuCanvasGroup.blocksRaycasts = false;
+            mainMenuBackground.transform.As<RectTransform>().DOAnchorPosX(1700f, slideAnimationSpeed).SetEase(Ease.InOutSine).OnComplete(() =>
+            {
+                newGameMenuPanel.transform.As<RectTransform>().DOAnchorPosX(-200f, slideAnimationSpeed).SetEase(Ease.InOutSine);
+            });
+        });
+    }
+
+    private void ReturnToMainMenu()
+    {
+        newGameMenuPanel.transform.As<RectTransform>().DOAnchorPosX(200f, slideAnimationSpeed).SetEase(Ease.InOutSine).OnComplete(() =>
+        {
+            mainMenuBackground.transform.As<RectTransform>().DOAnchorPosX(110f, slideAnimationSpeed).SetEase(Ease.InOutSine).OnComplete(() =>
+            {
+                mainMenuCanvasGroup.DOFade(1f, fadeAnimationSpeed);
+                mainMenuCanvasGroup.interactable = true;
+                mainMenuCanvasGroup.blocksRaycasts = true;
+            });
+        });
+    }
+
     private void StartNewGame()
     {
+        if (!string.IsNullOrEmpty(seedInputField.text) && !string.IsNullOrWhiteSpace(seedInputField.text))
+        {
+            PersistenceManager.Instance.PlayerSetSeed = ParseSeed(seedInputField.text);
+        }
         PersistenceManager.Instance.NewGame();
-        PersistenceManager.Instance.LoadScene("TutorialScene");
+        Debug.Log($"Starting new game with seed: {PersistenceManager.Instance.PlayerSetSeed}");
+
+        if (enableTutorialToggle.isOn)
+        {
+            PersistenceManager.Instance.LoadScene("TutorialScene");
+        }
+        else
+        {
+            PersistenceManager.Instance.LoadScene("MainScene");
+        }
     }
     private void LoadGame()
     {
@@ -29,4 +87,28 @@ public class MainMenu : MonoBehaviour
     {
         PersistenceManager.Instance.QuitGame();
     }
+
+    public static int ParseSeed(string input)
+{
+    if (string.IsNullOrWhiteSpace(input))
+        return 0;
+
+    // Preserve ordinary numeric seeds exactly.
+    if (int.TryParse(input, out int numericSeed))
+        return numericSeed;
+
+    // FNV-1a: deterministic string hash
+    unchecked
+    {
+        uint hash = 2166136261;
+
+        foreach (char c in input)
+        {
+            hash ^= c;
+            hash *= 16777619;
+        }
+
+        return (int)hash;
+    }
+}
 }

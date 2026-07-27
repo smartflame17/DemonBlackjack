@@ -19827,10 +19827,14 @@ PrefabInstance:
       objectReference: {fileID: 0}
     - target: {fileID: 6541745217621743609, guid: 51eb812aa34917a4788ef52b934804c8, type: 3}
       propertyPath: dontDestroyOnLoad
-      value: 1
+      value: 0
       objectReference: {fileID: 0}
     - target: {fileID: 6541745217621743609, guid: 51eb812aa34917a4788ef52b934804c8, type: 3}
       propertyPath: displaySettings.barkSettings.allowBarksDuringConversations
+      value: 0
+      objectReference: {fileID: 0}
+    - target: {fileID: 6541745217621745033, guid: 51eb812aa34917a4788ef52b934804c8, type: 3}
+      propertyPath: singleton
       value: 0
       objectReference: {fileID: 0}
     - target: {fileID: 6541745217628530043, guid: 51eb812aa34917a4788ef52b934804c8, type: 3}

@@ -37,6 +37,8 @@ public class RunManager : MonoBehaviour, IDataPersistence
                 Seed = System.Environment.TickCount;
             else Seed = debugSeed;
 
+            if (PersistenceManager.Instance != null && PersistenceManager.Instance.PlayerSetSeed != -1)
+                Seed = PersistenceManager.Instance.PlayerSetSeed;
             StartOrLoadRun(Seed);
         }
     }
