@@ -5,6 +5,7 @@ using GameplayConstants;
 
 public static class ScoreResolver
 {
+    private const int RequiredLowStraightOrFlushCardCount = 4;
     private const int RequiredStraightOrFlushCardCount = 5;
     private static readonly Rank[] RoyalFlushRanks =
     {
@@ -129,7 +130,6 @@ public static class ScoreResolver
         };
     }
 
-    // TODO: Calculate for LowStraight and LowFlush (4-card straight and flush)
     private static PokerHandRank ResolvePokerRank(IReadOnlyList<Card> cards, out List<int> cardIndices)
     {
         cardIndices = new List<int>();
@@ -169,7 +169,10 @@ public static class ScoreResolver
             return PokerHandRank.FullHouse;
         }
 
-        if (TryGetBestFlush(suitGroups, out List<int> flushIndices))
+        if (TryGetBestFlush(
+                suitGroups,
+                RequiredStraightOrFlushCardCount,
+                out List<int> flushIndices))
         {
             cardIndices = flushIndices;
             return PokerHandRank.Flush;
@@ -187,12 +190,32 @@ public static class ScoreResolver
             return PokerHandRank.ThreeOfAKind;
         }
 
+        if (TryGetBestFlush(
+                suitGroups,
+                RequiredLowStraightOrFlushCardCount,
+                out List<int> lowFlushIndices))
+        {
+            cardIndices = lowFlushIndices;
+            return PokerHandRank.LowFlush;
+        }
+
         List<List<IndexedCard>> pairs = rankGroups.Where(group => group.Count == 2).ToList();
 
         if (pairs.Count >= 2)
         {
             cardIndices = pairs.Take(2).SelectMany(group => group.Take(2)).Select(entry => entry.Index).ToList();
             return PokerHandRank.TwoPair;
+        }
+
+        if (TryGetBestStraight(
+                indexedCards,
+                RequiredLowStraightOrFlushCardCount,
+                out List<int> lowStraightIndices,
+                out _,
+                out _))
+        {
+            cardIndices = lowStraightIndices;
+            return PokerHandRank.LowStraight;
         }
 
         if (pairs.Count == 1)
@@ -261,7 +284,10 @@ public static class ScoreResolver
         return cardIndices.Count > 0;
     }
 
-    private static bool TryGetBestFlush(IReadOnlyList<List<IndexedCard>> suitGroups, out List<int> cardIndices)
+    private static bool TryGetBestFlush(
+        IReadOnlyList<List<IndexedCard>> suitGroups,
+        int requiredCardCount,
+        out List<int> cardIndices)
     {
         List<IndexedCard> bestCards = null;
         int bestRankSum = 0;
@@ -269,13 +295,13 @@ public static class ScoreResolver
         for (int groupIndex = 0; groupIndex < suitGroups.Count; groupIndex++)
         {
             List<IndexedCard> group = suitGroups[groupIndex];
-            if (group.Count < RequiredStraightOrFlushCardCount)
+            if (group.Count < requiredCardCount)
                 continue;
 
             List<IndexedCard> candidate = group
                 .OrderByDescending(entry => (int)entry.Card.Rank)
                 .ThenBy(entry => entry.Index)
-                .Take(RequiredStraightOrFlushCardCount)
+                .Take(requiredCardCount)
                 .ToList();
             int candidateRankSum = candidate.Sum(entry => (int)entry.Card.Rank);
 

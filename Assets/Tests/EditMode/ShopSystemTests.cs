@@ -1781,8 +1781,87 @@ public sealed class ShopSystemTests
 
         Assert.That(royal.Rank, Is.EqualTo(PokerHandRank.RoyalFlush));
         CollectionAssert.AreEqual(new[] { 1, 2, 3, 4, 5 }, royal.CardIndices);
-        Assert.That(tooShort.Rank, Is.EqualTo(PokerHandRank.HighCard));
-        Assert.That(tooShort.CardIndices, Is.Empty);
+        Assert.That(tooShort.Rank, Is.EqualTo(PokerHandRank.LowFlush));
+        CollectionAssert.AreEqual(new[] { 0, 1, 2, 3 }, tooShort.CardIndices);
+    }
+
+    [Test]
+    public void ResolvePoker_FourCardStraightReturnsLowStraight()
+    {
+        Card[] cards =
+        {
+            new(Suit.Clubs, Rank.Two),
+            new(Suit.Diamonds, Rank.Three),
+            new(Suit.Hearts, Rank.Four),
+            new(Suit.Spades, Rank.Five)
+        };
+
+        PokerResult poker = ScoreResolver.ResolvePoker(cards);
+
+        Assert.That(poker.Rank, Is.EqualTo(PokerHandRank.LowStraight));
+        CollectionAssert.AreEqual(new[] { 0, 1, 2, 3 }, poker.CardIndices);
+    }
+
+    [Test]
+    public void ResolvePoker_FourCardFlushReturnsLowFlush()
+    {
+        Card[] cards =
+        {
+            new(Suit.Hearts, Rank.Two),
+            new(Suit.Hearts, Rank.Four),
+            new(Suit.Hearts, Rank.Seven),
+            new(Suit.Hearts, Rank.Nine)
+        };
+
+        PokerResult poker = ScoreResolver.ResolvePoker(cards);
+
+        Assert.That(poker.Rank, Is.EqualTo(PokerHandRank.LowFlush));
+        CollectionAssert.AreEqual(new[] { 0, 1, 2, 3 }, poker.CardIndices);
+    }
+
+    [Test]
+    public void ResolvePoker_FourCardRanksRespectPokerRankPrecedence()
+    {
+        Card[] pairAndLowStraight =
+        {
+            new(Suit.Clubs, Rank.Two),
+            new(Suit.Diamonds, Rank.Two),
+            new(Suit.Hearts, Rank.Three),
+            new(Suit.Spades, Rank.Four),
+            new(Suit.Clubs, Rank.Five)
+        };
+        Card[] lowStraightAndTwoPair =
+        {
+            new(Suit.Clubs, Rank.Two),
+            new(Suit.Diamonds, Rank.Two),
+            new(Suit.Hearts, Rank.Three),
+            new(Suit.Spades, Rank.Three),
+            new(Suit.Clubs, Rank.Four),
+            new(Suit.Diamonds, Rank.Five)
+        };
+        Card[] twoPairAndLowFlush =
+        {
+            new(Suit.Hearts, Rank.Two),
+            new(Suit.Hearts, Rank.Four),
+            new(Suit.Hearts, Rank.Seven),
+            new(Suit.Hearts, Rank.Nine),
+            new(Suit.Clubs, Rank.Two),
+            new(Suit.Clubs, Rank.Four)
+        };
+        Card[] lowFlushAndThreeOfAKind =
+        {
+            new(Suit.Hearts, Rank.Two),
+            new(Suit.Hearts, Rank.Four),
+            new(Suit.Hearts, Rank.Seven),
+            new(Suit.Hearts, Rank.Nine),
+            new(Suit.Clubs, Rank.Nine),
+            new(Suit.Spades, Rank.Nine)
+        };
+
+        Assert.That(ScoreResolver.ResolvePoker(pairAndLowStraight).Rank, Is.EqualTo(PokerHandRank.LowStraight));
+        Assert.That(ScoreResolver.ResolvePoker(lowStraightAndTwoPair).Rank, Is.EqualTo(PokerHandRank.TwoPair));
+        Assert.That(ScoreResolver.ResolvePoker(twoPairAndLowFlush).Rank, Is.EqualTo(PokerHandRank.LowFlush));
+        Assert.That(ScoreResolver.ResolvePoker(lowFlushAndThreeOfAKind).Rank, Is.EqualTo(PokerHandRank.ThreeOfAKind));
     }
 
     [Test]
