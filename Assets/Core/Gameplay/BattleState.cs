@@ -147,7 +147,9 @@ public sealed class BattleState
 
     private bool TryHitCard()
     {
-        if (Phase != BattlePhase.PlayerPhase || CurrentRound == null)
+        if (Phase != BattlePhase.PlayerPhase
+            || CurrentRound == null
+            || !CurrentRound.CanPlacePlayedCard(Combatant.Player))
             return false;
 
         if (!TryDrawCard(Combatant.Player, out Card card))
@@ -156,7 +158,10 @@ public sealed class BattleState
 
         card = ApplyPlayerCardForPlay(card);
         if (!CurrentRound.TryPlayHitCard(card))
+        {
+            DiscardOverflowCard(Combatant.Player, card);
             return false;
+        }
 
         EventBus.Publish(new PlayerHitUsedEvent(RoundNumber, card));
         PublishPlayerCardPlayed(card);
@@ -240,8 +245,18 @@ public sealed class BattleState
         if (CurrentRound == null)
             return false;
 
-        if (!CurrentRound.TryPlayCard(handIndex, ApplyPlayerCardForPlay, out Card card))
+        PlayedPilePlacementResult result = CurrentRound.TryPlayPlayerCardForEffect(
+            handIndex,
+            ApplyPlayerCardForPlay,
+            out Card card);
+        if (result == PlayedPilePlacementResult.Unavailable)
             return false;
+
+        if (result == PlayedPilePlacementResult.Overflowed)
+        {
+            DiscardOverflowCard(Combatant.Player, card);
+            return false;
+        }
 
         PublishPlayerCardPlayed(card);
         ResolveScores();
@@ -353,8 +368,18 @@ public sealed class BattleState
             return false;
         }
 
-        if (!CurrentRound.TryMovePreviousPlayerPlayedCardToOpponent(out card))
+        PlayedPilePlacementResult result = CurrentRound.TryMovePreviousPlayerPlayedCardToOpponentForEffect(
+            out card,
+            out Combatant discardOwner);
+        if (result == PlayedPilePlacementResult.Unavailable)
             return false;
+
+        if (result == PlayedPilePlacementResult.Overflowed)
+        {
+            DiscardOverflowCard(discardOwner, card);
+            ResolveScores();
+            return false;
+        }
 
         CommandQueue.Enqueue(new VisualCommand(VisualCommandType.CardsPlayed, card.ToString()));
         ResolveScores();
@@ -380,8 +405,18 @@ public sealed class BattleState
             return false;
         }
 
-        if (!CurrentRound.TryMovePreviousOpponentVisibleCardToPlayer(out card))
+        PlayedPilePlacementResult result = CurrentRound.TryMovePreviousOpponentVisibleCardToPlayerForEffect(
+            out card,
+            out Combatant discardOwner);
+        if (result == PlayedPilePlacementResult.Unavailable)
             return false;
+
+        if (result == PlayedPilePlacementResult.Overflowed)
+        {
+            DiscardOverflowCard(discardOwner, card);
+            ResolveScores();
+            return false;
+        }
 
         EventBus.Publish(new CardPlayedEvent(Combatant.Player, card));
         CommandQueue.Enqueue(new VisualCommand(VisualCommandType.CardsPlayed, card.ToString()));
@@ -443,8 +478,15 @@ public sealed class BattleState
         if (CurrentRound == null)
             return false;
 
-        if (!CurrentRound.TryPlayHitCard(card))
+        PlayedPilePlacementResult result = CurrentRound.TryPlaceEffectCard(
+            Combatant.Player,
+            card,
+            Combatant.Player);
+        if (result == PlayedPilePlacementResult.Overflowed)
+        {
+            DiscardOverflowCard(Combatant.Player, card);
             return false;
+        }
 
         PublishPlayerCardPlayed(card);
         ResolveScores();
@@ -928,14 +970,18 @@ public sealed class BattleState
             return false;
 
         CurrentRound.BeginOpponentTurn();
-        RefillOpponentHandIfEmpty();
+        bool canPlaceCard = CurrentRound.CanPlacePlayedCard(Combatant.Opponent);
+        if (canPlaceCard)
+            RefillOpponentHandIfEmpty();
 
         Config.DevilStrategy.UpdateDevilState(new DevilStateUpdateContext(
             this,
             CurrentRound,
             DevilStateUpdatePoint.OpponentTurnStarted));
         RefreshDevilOpponentField();
-        DevilTurnChoice choice = Config.DevilStrategy.ChooseTurnAction(this, CurrentRound);
+        DevilTurnChoice choice = canPlaceCard
+            ? Config.DevilStrategy.ChooseTurnAction(this, CurrentRound)
+            : DevilTurnChoice.Stand;
         EventBus.Publish(new DevilTurnChoiceEvent(choice));
         if (choice == DevilTurnChoice.Stand)
         {
@@ -953,18 +999,27 @@ public sealed class BattleState
         return CompleteOpponentTurn();
     }
 
-    private void PlayOpponentHit()
+    private bool PlayOpponentHit()
     {
+        if (CurrentRound == null || !CurrentRound.CanPlacePlayedCard(Combatant.Opponent))
+            return false;
+
         if (!TryDrawCard(Combatant.Opponent, out Card card))
-            return;
+            return false;
 
         Card drawnCard = card;
-        CurrentRound.PlayOpponentHitCard(card);
+        if (!CurrentRound.TryPlayOpponentHitCard(card))
+        {
+            DiscardOverflowCard(Combatant.Opponent, card);
+            return false;
+        }
+
         RefreshDevilOpponentField();
         card = CurrentRound.OpponentVisibleCards[^1];
         EventBus.Publish(new CardDrawnEvent(Combatant.Opponent, drawnCard, _opponentDeck.RemainingCards));
         EventBus.Publish(new CardPlayedEvent(Combatant.Opponent, card));
         CommandQueue.Enqueue(new VisualCommand(VisualCommandType.CardsPlayed, card.ToString()));
+        return true;
     }
 
     private void PlayOpponentHandCards()
@@ -1111,6 +1166,14 @@ public sealed class BattleState
     private void PublishPlayerCardPlayed(Card card)
     {
         EventBus.Publish(new CardPlayedEvent(Combatant.Player, card));
+        CommandQueue.Enqueue(new VisualCommand(VisualCommandType.CardsPlayed, card.ToString()));
+    }
+
+    private void DiscardOverflowCard(Combatant owner, Card card)
+    {
+        Deck deck = owner == Combatant.Player ? _playerDeck : _opponentDeck;
+        deck.Discard(card);
+        EventBus.Publish(new CardDiscardedEvent(owner, card));
         CommandQueue.Enqueue(new VisualCommand(VisualCommandType.CardsPlayed, card.ToString()));
     }
 

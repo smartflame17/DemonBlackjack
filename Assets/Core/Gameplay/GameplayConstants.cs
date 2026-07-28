@@ -17,6 +17,8 @@ namespace GameplayConstants
         public const int DefaultMaxActiveItemSlots = 3;
         // 게임 시작 시 플레이어의 초기 유물 슬롯 수
         public const int DefaultMaxActiveRelicSlots = 1;
+
+        public const int MaxPlayedPileCardCount = 7; // 한 라운드에서 플레이할 수 있는 최대 카드 수
     }
 
     // 1스테이지 관련 설정 값

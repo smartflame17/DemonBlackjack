@@ -502,8 +502,32 @@ public sealed class ShopSystemTests
     [Test]
     public void BurstExtend_IncreasesPersistedPlayerBurstThresholdEveryFiveHits()
     {
-        RunState run = CreateRunWithRelicDeck(RelicRuleResolver.BurstExtend, TenTwos());
-        var battle = new BattleState(run, TestBattleConfig(startingHandSize: 1));
+        var run = new RunState(1, startingMoney: 1100);
+        run.AddRelic(RelicRuleResolver.BurstExtend);
+        Card[] drawOrder =
+        {
+            new(Suit.Hearts, Rank.Ace),
+            new(Suit.Clubs, Rank.Two),
+            new(Suit.Diamonds, Rank.Four),
+            new(Suit.Spades, Rank.Six),
+            new(Suit.Hearts, Rank.Eight),
+            new(Suit.Clubs, Rank.Ten),
+            new(Suit.Diamonds, Rank.Queen),
+            new(Suit.Spades, Rank.Ace),
+            new(Suit.Hearts, Rank.Three),
+            new(Suit.Clubs, Rank.Five),
+            new(Suit.Diamonds, Rank.Seven),
+            new(Suit.Spades, Rank.Nine)
+        };
+        var battle = new BattleState(
+            run,
+            new BattleConfig(
+                "test",
+                1000,
+                new StandingDevilStrategy(),
+                startingHandSize: 1,
+                baseWager: 10,
+                playerDeckOverride: drawOrder));
         battle.StartRound(battle.GetDefaultWager());
         battle.StartRound(battle.GetDefaultWager());
         var counterValues = new List<int>();
@@ -513,8 +537,16 @@ public sealed class ShopSystemTests
                 counterValues.Add(evt.Value);
         });
 
-        for (int i = 0; i < 10; i++)
+        for (int i = 0; i < GameplayConstants.GameSettingConfig.MaxPlayedPileCardCount; i++)
             Assert.That(battle.TryHit(), Is.True, $"Hit {i + 1}");
+
+        Assert.That(battle.TryHit(), Is.False, "A hit beyond the per-round pile limit must be blocked.");
+        Assert.That(battle.TryStand(), Is.True);
+        battle.CleanupRound();
+        Assert.That(battle.StartRound(battle.GetDefaultWager()), Is.True);
+
+        for (int i = 0; i < 3; i++)
+            Assert.That(battle.TryHit(), Is.True, $"Next-round hit {i + 1}");
 
         Assert.That(run.PlayerBurstThresholdBonus, Is.EqualTo(2));
         Assert.That(battle.CurrentRound.PlayerBurstThreshold, Is.EqualTo(23));
@@ -1273,6 +1305,257 @@ public sealed class ShopSystemTests
 
         Assert.That(battle.CurrentRound.PlayerPlayedCards.Count, Is.EqualTo(2));
 
+        battle.Dispose();
+    }
+
+    [Test]
+    public void PlayedPileLimit_IsIndependentPerCombatantAndExcludesSharedCards()
+    {
+        const int limit = 3;
+        RoundState round = CreateRoundStateWithLimit(limit);
+        for (int i = 0; i < limit + 1; i++)
+        {
+            round.AddToHand(new Card(Suit.Clubs, (Rank)(i + 1)));
+            round.AddToOpponentHand(new Card(Suit.Hearts, (Rank)(i + 1)));
+            round.AddSharedVisibleCard(new Card(Suit.Spades, (Rank)(i + 1)));
+        }
+
+        for (int i = 0; i < limit; i++)
+        {
+            Assert.That(round.TryPlayCard(0, out _), Is.True);
+            Assert.That(round.TryPlayOpponentCard(0, out _), Is.True);
+        }
+
+        int playerHandCount = round.PlayerHand.Count;
+        int opponentHandCount = round.OpponentHand.Count;
+        Assert.That(round.CanPlacePlayedCard(Combatant.Player), Is.False);
+        Assert.That(round.CanPlacePlayedCard(Combatant.Opponent), Is.False);
+        Assert.That(round.TryPlayCard(0, out _), Is.False);
+        Assert.That(round.TryPlayOpponentCard(0, out _), Is.False);
+        Assert.That(round.PlayerHand.Count, Is.EqualTo(playerHandCount));
+        Assert.That(round.OpponentHand.Count, Is.EqualTo(opponentHandCount));
+        Assert.That(round.SharedVisibleCards.Count, Is.EqualTo(limit + 1));
+
+        Assert.That(round.TryRemoveLastPlayerHitCard(out _), Is.True);
+        Assert.That(round.TryRemovePreviousOpponentVisibleCard(out _, out _), Is.True);
+        Assert.That(round.CanPlacePlayedCard(Combatant.Player), Is.True);
+        Assert.That(round.CanPlacePlayedCard(Combatant.Opponent), Is.True);
+        Assert.That(round.TryPlayCard(0, out _), Is.True);
+        Assert.That(round.TryPlayOpponentCard(0, out _), Is.True);
+    }
+
+    [TestCase(0)]
+    [TestCase(-1)]
+    public void PlayedPileLimit_NonPositiveValueDisablesLimit(int limit)
+    {
+        RoundState round = CreateRoundStateWithLimit(limit);
+        int cardCount = GameplayConstants.GameSettingConfig.MaxPlayedPileCardCount + 3;
+
+        for (int i = 0; i < cardCount; i++)
+        {
+            Card card = new(Suit.Clubs, (Rank)((i % 10) + 1));
+            Assert.That(round.TryPlayHitCard(card), Is.True);
+            Assert.That(round.TryPlayOpponentHitCard(card), Is.True);
+        }
+
+        Assert.That(round.PlayerPlayedCards.Count, Is.EqualTo(cardCount));
+        Assert.That(round.OpponentVisibleCards.Count, Is.EqualTo(cardCount));
+        Assert.That(round.CanPlacePlayedCard(Combatant.Player), Is.True);
+        Assert.That(round.CanPlacePlayedCard(Combatant.Opponent), Is.True);
+    }
+
+    [Test]
+    public void BattleState_CappedPlayerCannotPlayOrHitAndHitDoesNotDraw()
+    {
+        var battle = new BattleState(
+            CreateRunWithDeck(RepeatCardData(Suit.Clubs, Rank.Two, 20)),
+            new BattleConfig("test", 500, new StandingDevilStrategy(), baseWager: 10));
+        Assert.That(battle.StartRound(battle.GetDefaultWager()), Is.True);
+        for (int i = 0; i < GameplayConstants.GameSettingConfig.MaxPlayedPileCardCount; i++)
+            Assert.That(battle.CurrentRound.TryPlayHitCard(new Card(Suit.Hearts, Rank.Two)), Is.True);
+
+        int handCount = battle.CurrentRound.PlayerHand.Count;
+        int drawCount = battle.PlayerDrawPile.Count;
+        int playedEvents = 0;
+        int drawnEvents = 0;
+        int hitEvents = 0;
+        battle.EventBus.Subscribe<CardPlayedEvent>(_ => playedEvents++);
+        battle.EventBus.Subscribe<CardDrawnEvent>(_ => drawnEvents++);
+        battle.EventBus.Subscribe<PlayerHitUsedEvent>(_ => hitEvents++);
+
+        Assert.That(battle.TryPlayCard(0), Is.False);
+        Assert.That(battle.TryHit(), Is.False);
+
+        Assert.That(battle.CurrentRound.PlayerHand.Count, Is.EqualTo(handCount));
+        Assert.That(battle.CurrentRound.PlayerPlayedCards.Count, Is.EqualTo(GameplayConstants.GameSettingConfig.MaxPlayedPileCardCount));
+        Assert.That(battle.PlayerDrawPile.Count, Is.EqualTo(drawCount));
+        Assert.That(playedEvents, Is.Zero);
+        Assert.That(drawnEvents, Is.Zero);
+        Assert.That(hitEvents, Is.Zero);
+        Assert.That(battle.Phase, Is.EqualTo(BattlePhase.PlayerPhase));
+        battle.Dispose();
+    }
+
+    [TestCase(DevilTurnChoice.Hit)]
+    [TestCase(DevilTurnChoice.Play)]
+    public void BattleState_CappedOpponentIsForcedToStand(DevilTurnChoice requestedChoice)
+    {
+        var battle = new BattleState(
+            CreateRunWithDeck(RepeatCardData(Suit.Clubs, Rank.Two, 20)),
+            new BattleConfig("test", 500, new FixedChoiceDevilStrategy(requestedChoice), baseWager: 10));
+        Assert.That(battle.StartRound(battle.GetDefaultWager()), Is.True);
+        for (int i = 0; i < GameplayConstants.GameSettingConfig.MaxPlayedPileCardCount; i++)
+            Assert.That(battle.CurrentRound.TryPlayOpponentHitCard(new Card(Suit.Hearts, Rank.Two)), Is.True);
+
+        int opponentDrawCount = battle.OpponentDrawPile.Count;
+        DevilTurnChoice actualChoice = default;
+        int choiceEvents = 0;
+        battle.EventBus.Subscribe<DevilTurnChoiceEvent>(eventData =>
+        {
+            actualChoice = eventData.Choice;
+            choiceEvents++;
+        });
+
+        Assert.That(battle.TryStand(), Is.True);
+
+        Assert.That(actualChoice, Is.EqualTo(DevilTurnChoice.Stand));
+        Assert.That(choiceEvents, Is.EqualTo(1));
+        Assert.That(battle.CurrentRound.OpponentStood, Is.True);
+        Assert.That(battle.CurrentRound.OpponentVisibleCards.Count, Is.EqualTo(GameplayConstants.GameSettingConfig.MaxPlayedPileCardCount));
+        Assert.That(battle.OpponentDrawPile.Count, Is.EqualTo(opponentDrawCount));
+        Assert.That(battle.Phase, Is.EqualTo(BattlePhase.Cleanup));
+        battle.Dispose();
+    }
+
+    [Test]
+    public void EffectForcedHandCard_OverflowsToDiscardWithoutPlayedEvent()
+    {
+        var battle = new BattleState(
+            CreateRunWithDeck(RepeatCardData(Suit.Clubs, Rank.Two, 20)),
+            new BattleConfig("test", 500, new StandingDevilStrategy(), baseWager: 10));
+        Assert.That(battle.StartRound(battle.GetDefaultWager()), Is.True);
+        for (int i = 0; i < GameplayConstants.GameSettingConfig.MaxPlayedPileCardCount; i++)
+            Assert.That(battle.CurrentRound.TryPlayHitCard(new Card(Suit.Hearts, Rank.Two)), Is.True);
+
+        Card overflow = new(Suit.Spades, Rank.King);
+        battle.CurrentRound.AddToHand(overflow);
+        int overflowIndex = battle.CurrentRound.PlayerHand.Count - 1;
+        int handCount = battle.CurrentRound.PlayerHand.Count;
+        int discardedEvents = 0;
+        int playedEvents = 0;
+        battle.EventBus.Subscribe<CardDiscardedEvent>(_ => discardedEvents++);
+        battle.EventBus.Subscribe<CardPlayedEvent>(_ => playedEvents++);
+
+        Assert.That(battle.TryPlayPlayerHandCardForEffect(overflowIndex), Is.False);
+
+        Assert.That(battle.CurrentRound.PlayerHand.Count, Is.EqualTo(handCount - 1));
+        Assert.That(battle.CurrentRound.PlayerPlayedCards.Count, Is.EqualTo(GameplayConstants.GameSettingConfig.MaxPlayedPileCardCount));
+        Assert.That(battle.PlayerDiscardPile, Does.Contain(overflow));
+        Assert.That(discardedEvents, Is.EqualTo(1));
+        Assert.That(playedEvents, Is.Zero);
+        battle.Dispose();
+    }
+
+    [Test]
+    public void DeckEffect_OverflowsDrawnCardToDiscardWithoutPlayingIt()
+    {
+        var battle = new BattleState(
+            CreateRunWithDeck(RepeatCardData(Suit.Spades, Rank.Five, 20)),
+            new BattleConfig("test", 500, new StandingDevilStrategy(), baseWager: 10));
+        Assert.That(battle.StartRound(battle.GetDefaultWager()), Is.True);
+        for (int i = 0; i < GameplayConstants.GameSettingConfig.MaxPlayedPileCardCount - 1; i++)
+            Assert.That(battle.CurrentRound.TryPlayHitCard(new Card(Suit.Hearts, Rank.Two)), Is.True);
+
+        Card trigger = new(Suit.Clubs, Rank.King, CardModifierResolver.HitTopDeckCard);
+        battle.CurrentRound.AddToHand(trigger);
+        Card overflow = battle.PlayerDrawPile[^1];
+        int drawnEvents = 0;
+        int discardedEvents = 0;
+        int playedEvents = 0;
+        battle.EventBus.Subscribe<CardDrawnEvent>(_ => drawnEvents++);
+        battle.EventBus.Subscribe<CardDiscardedEvent>(_ => discardedEvents++);
+        battle.EventBus.Subscribe<CardPlayedEvent>(_ => playedEvents++);
+
+        Assert.That(battle.TryPlayPlayerHandCardForEffect(battle.CurrentRound.PlayerHand.Count - 1), Is.True);
+
+        Assert.That(battle.CurrentRound.PlayerPlayedCards.Count, Is.EqualTo(GameplayConstants.GameSettingConfig.MaxPlayedPileCardCount));
+        Assert.That(battle.PlayerDiscardPile, Does.Contain(overflow));
+        Assert.That(drawnEvents, Is.EqualTo(1));
+        Assert.That(discardedEvents, Is.EqualTo(1));
+        Assert.That(playedEvents, Is.EqualTo(1));
+        battle.Dispose();
+    }
+
+    [Test]
+    public void DuplicateAndSplitEffects_DiscardGeneratedOverflowCards()
+    {
+        var duplicateBattle = new BattleState(
+            CreateRunWithDeck(RepeatCardData(Suit.Clubs, Rank.Two, 20)),
+            new BattleConfig("test", 500, new StandingDevilStrategy(), baseWager: 10));
+        Assert.That(duplicateBattle.StartRound(duplicateBattle.GetDefaultWager()), Is.True);
+        Card duplicated = new(Suit.Hearts, Rank.Nine);
+        for (int i = 0; i < GameplayConstants.GameSettingConfig.MaxPlayedPileCardCount - 2; i++)
+            Assert.That(duplicateBattle.CurrentRound.TryPlayHitCard(new Card(Suit.Clubs, Rank.Two)), Is.True);
+        Assert.That(duplicateBattle.CurrentRound.TryPlayHitCard(duplicated), Is.True);
+        duplicateBattle.CurrentRound.AddToHand(new Card(Suit.Spades, Rank.King, CardModifierResolver.DuplicateKing));
+
+        Assert.That(duplicateBattle.TryPlayPlayerHandCardForEffect(duplicateBattle.CurrentRound.PlayerHand.Count - 1), Is.True);
+
+        Assert.That(duplicateBattle.CurrentRound.PlayerPlayedCards.Count, Is.EqualTo(GameplayConstants.GameSettingConfig.MaxPlayedPileCardCount));
+        Assert.That(duplicateBattle.PlayerDiscardPile, Does.Contain(duplicated));
+        duplicateBattle.Dispose();
+
+        var splitBattle = new BattleState(
+            CreateRunWithDeck(RepeatCardData(Suit.Clubs, Rank.Two, 20)),
+            new BattleConfig("test", 500, new StandingDevilStrategy(), baseWager: 10));
+        Assert.That(splitBattle.StartRound(splitBattle.GetDefaultWager()), Is.True);
+        for (int i = 0; i < GameplayConstants.GameSettingConfig.MaxPlayedPileCardCount - 2; i++)
+            Assert.That(splitBattle.CurrentRound.TryPlayHitCard(new Card(Suit.Clubs, Rank.Two)), Is.True);
+        Card splitSource = new(Suit.Hearts, Rank.Nine);
+        Assert.That(splitBattle.CurrentRound.TryPlayHitCard(splitSource), Is.True);
+        splitBattle.CurrentRound.AddToHand(new Card(Suit.Spades, Rank.King, CardModifierResolver.SplitPreviousCard));
+
+        Assert.That(splitBattle.TryPlayPlayerHandCardForEffect(splitBattle.CurrentRound.PlayerHand.Count - 1), Is.True);
+
+        Assert.That(splitBattle.CurrentRound.PlayerPlayedCards.Count, Is.EqualTo(GameplayConstants.GameSettingConfig.MaxPlayedPileCardCount));
+        Assert.That(splitBattle.CurrentRound.PlayerPlayedCards, Does.Contain(new Card(Suit.Hearts, Rank.Four)));
+        Assert.That(splitBattle.PlayerDiscardPile, Does.Contain(splitSource));
+        Assert.That(splitBattle.PlayerDiscardPile, Does.Contain(new Card(Suit.Hearts, Rank.Five)));
+        splitBattle.Dispose();
+    }
+
+    [Test]
+    public void TransferEffects_ConsumeAndDiscardCardsWhenDestinationPileIsFull()
+    {
+        var battle = new BattleState(
+            CreateRunWithDeck(RepeatCardData(Suit.Clubs, Rank.Two, 20)),
+            new BattleConfig("test", 500, new StandingDevilStrategy(), baseWager: 10));
+        Assert.That(battle.StartRound(battle.GetDefaultWager()), Is.True);
+        for (int i = 0; i < GameplayConstants.GameSettingConfig.MaxPlayedPileCardCount; i++)
+            Assert.That(battle.CurrentRound.TryPlayOpponentHitCard(new Card(Suit.Hearts, Rank.Two)), Is.True);
+
+        Card playerOwnedOverflow = new(Suit.Spades, Rank.Five);
+        Assert.That(battle.CurrentRound.TryPlayHitCard(playerOwnedOverflow), Is.True);
+        Assert.That(battle.CurrentRound.TryPlayHitCard(new Card(Suit.Clubs, Rank.Jack)), Is.True);
+        Assert.That(battle.TryMovePreviousPlayerPlayedCardToOpponent(out Card movedPlayerCard), Is.False);
+        Assert.That(movedPlayerCard, Is.EqualTo(playerOwnedOverflow));
+        Assert.That(
+            IndexOfRankAndSuit(battle.CurrentRound.PlayerPlayedCards, playerOwnedOverflow.Rank, playerOwnedOverflow.Suit),
+            Is.LessThan(0));
+        Assert.That(battle.CurrentRound.OpponentVisibleCards.Count, Is.EqualTo(GameplayConstants.GameSettingConfig.MaxPlayedPileCardCount));
+        Assert.That(battle.PlayerDiscardPile, Does.Contain(playerOwnedOverflow));
+
+        while (battle.CurrentRound.CanPlacePlayedCard(Combatant.Player))
+            Assert.That(battle.CurrentRound.TryPlayHitCard(new Card(Suit.Diamonds, Rank.Two)), Is.True);
+
+        Card opponentOverflow = battle.CurrentRound.OpponentVisibleCards[^1];
+        int opponentDiscardCount = battle.OpponentDiscardPile.Count;
+        Assert.That(battle.TryMovePreviousOpponentVisibleCardToPlayer(out Card movedOpponentCard), Is.False);
+        Assert.That(movedOpponentCard, Is.EqualTo(opponentOverflow));
+        Assert.That(battle.CurrentRound.PlayerPlayedCards.Count, Is.EqualTo(GameplayConstants.GameSettingConfig.MaxPlayedPileCardCount));
+        Assert.That(battle.CurrentRound.OpponentVisibleCards.Count, Is.EqualTo(GameplayConstants.GameSettingConfig.MaxPlayedPileCardCount - 1));
+        Assert.That(battle.PlayerDiscardPile, Does.Contain(opponentOverflow));
+        Assert.That(battle.OpponentDiscardPile.Count, Is.EqualTo(opponentDiscardCount));
         battle.Dispose();
     }
 
@@ -3009,6 +3292,18 @@ public sealed class ShopSystemTests
     private static BattleConfig TestBattleConfig(int startingHandSize = 3)
     {
         return new BattleConfig("test", 100, new StandingDevilStrategy(), startingHandSize: startingHandSize);
+    }
+
+    private static RoundState CreateRoundStateWithLimit(int maxPlayedPileCardCount)
+    {
+        return new RoundState(
+            roundNumber: 1,
+            targetScore: 21,
+            playerBurstThreshold: 21,
+            opponentBurstThreshold: 21,
+            baseWager: 10,
+            playerActsFirst: true,
+            maxPlayedPileCardCount);
     }
 
     private static RunState CreateRunWithRelicDeck(string relicId, params RunCardData[] cards)
