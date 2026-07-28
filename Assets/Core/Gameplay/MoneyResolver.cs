@@ -67,7 +67,7 @@ public static class MoneyResolver
         int wager)
     {
         int playerBurstOffset = Math.Max(0, round.PlayerScore.BlackjackScore - round.PlayerBurstThreshold);
-        if (playerBurstOffset > 0 && !round.PlayerBurstPenaltyResolved)
+        if (playerBurstOffset > 0)// && !round.PlayerBurstPenaltyResolved)
         {
             // Version 1: Transfer based on wager
             //int amount = playerBurstOffset * wager;
@@ -81,7 +81,7 @@ public static class MoneyResolver
         }
 
         int opponentBurstOffset = Math.Max(0, round.OpponentScore.BlackjackScore - round.OpponentBurstThreshold);
-        if (opponentBurstOffset > 0 && !round.OpponentBurstPenaltyResolved)
+        if (opponentBurstOffset > 0)// && !round.OpponentBurstPenaltyResolved)
         {
             // Version 1: Transfer based on wager
             //int amount = opponentBurstOffset * wager;
