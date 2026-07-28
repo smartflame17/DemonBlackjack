@@ -300,3 +300,25 @@ public class Devil1Strategy : BasicDevilStrategy, IDevilOpponentFieldModifier, I
 
     // Additional devil-specific logic can be added here if needed
 }
+
+// TODO: Implement Devil2Strategy, Devil3Strategy, and Devil4Strategy with unique behaviors and AI logic as needed.
+public class Devil2Strategy : BasicDevilStrategy
+{
+    public Devil2Strategy(int drawValue = 3) : base(drawValue)
+    {
+    }
+}
+
+public class Devil3Strategy : BasicDevilStrategy
+{
+    public Devil3Strategy(int drawValue = 3) : base(drawValue)
+    {
+    }
+}
+
+public class Devil4Strategy : BasicDevilStrategy
+{
+    public Devil4Strategy(int drawValue = 3) : base(drawValue)
+    {
+    }
+}

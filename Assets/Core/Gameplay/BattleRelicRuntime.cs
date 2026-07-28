@@ -160,7 +160,7 @@ public sealed class AddJqkRelicRuntime : BattleRelicRuntime
 
 public sealed class BurstExtendRelicRuntime : BattleRelicRuntime
 {
-    private const int HitTarget = 5;
+    private int HitTarget = GameplayConstants.RelicValue.BurstExtendRelicHitTarget;
 
     private int _hitCount;
 

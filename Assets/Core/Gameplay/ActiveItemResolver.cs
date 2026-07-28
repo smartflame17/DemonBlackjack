@@ -22,7 +22,7 @@ public static class ActiveItemResolver
             DrawThree => battle.CanDrawPlayerCards(),
             DoubleWager => battle.CanDoubleCurrentRoundWager(),
             LeverageTriple => battle.CanTripleCurrentRoundWager(),
-            BurstThresholdPlusThree => battle.CanIncreasePlayerBurstThreshold(3),
+            BurstThresholdPlusThree => battle.CanIncreasePlayerBurstThreshold(GameplayConstants.ActiveItemValue.BurstThresholdPlusThreeItemIncrease),
             ReturnPlayerFieldCardToHand => battle.CanReturnPlayerFieldCardToHand(),
             _ => false
         } || TryGetSuitDraw(itemId, out Suit suit) && battle.CanDrawPlayerCards(suit);
@@ -36,13 +36,13 @@ public static class ActiveItemResolver
         return itemId switch
         {
             RejectLastHit => battle.DiscardLastPlayerHitCard(),
-            DrawThree => battle.DrawCardsToPlayerHand(3) > 0,
+            DrawThree => battle.DrawCardsToPlayerHand(GameplayConstants.ActiveItemValue.DrawThreeItemDrawCount) > 0,
             DoubleWager => battle.DoubleCurrentRoundWager(),
             LeverageTriple => battle.TripleCurrentRoundWager(),
-            BurstThresholdPlusThree => battle.IncreasePlayerBurstThreshold(3),
+            BurstThresholdPlusThree => battle.IncreasePlayerBurstThreshold(GameplayConstants.ActiveItemValue.BurstThresholdPlusThreeItemIncrease),
             ReturnPlayerFieldCardToHand => battle.ReturnPlayerFieldCardToHand(),
             _ => false
-        } || TryGetSuitDraw(itemId, out Suit suit) && battle.DrawCardsToPlayerHand(suit, 2) > 0;
+        } || TryGetSuitDraw(itemId, out Suit suit) && battle.DrawCardsToPlayerHand(suit, GameplayConstants.ActiveItemValue.DrawTwoItemDrawCount) > 0;
     }
 
     private static bool TryGetSuitDraw(string itemId, out Suit suit)

@@ -1,5 +1,7 @@
 using UnityEngine;
 using UnityEngine.UI;
+using GameplayConstants;
+using System;
 
 public sealed class GameplayCanvasCoordinator : MonoBehaviour
 {
@@ -82,25 +84,26 @@ public sealed class GameplayCanvasCoordinator : MonoBehaviour
     private void StartDevil1Battle()
     {
         Debug.Log("Starting devil1 battle");
-        StartBattle("devil1", new BattleConfig("devil1", 100000, new Devil1Strategy(), devilId:"devil1", baseWager: 1000));
+        StartBattle("devil1", new BattleConfig("devil1", Devil1Config.Devil1StartingMoney, new Devil1Strategy(), devilId:"devil1", baseWager: Devil1Config.Devil1Wager));
     }
 
+    // TODO: Change the 
     private void StartDevil2Battle()
     {
         Debug.Log("Starting devil2 battle");
-        StartBattle("devil2");
+        StartBattle("devil2", new BattleConfig("devil2", Devil2Config.Devil2StartingMoney, new Devil2Strategy(), devilId:"devil2", baseWager: Devil2Config.Devil2Wager));
     }
 
     private void StartDevil3Battle()
     {
         Debug.Log("Starting devil3 battle");
-        StartBattle("devil3");
+        StartBattle("devil3", new BattleConfig("devil3", Devil3Config.Devil3StartingMoney, new Devil3Strategy(), devilId:"devil3", baseWager: Devil3Config.Devil3Wager));
     }
 
     private void StartDevil4Battle()
     {
         Debug.Log("Starting devil4 battle");
-        StartBattle("devil4");
+        StartBattle("devil4", new BattleConfig("devil4", Devil4Config.Devil4StartingMoney, new Devil4Strategy(), devilId:"devil4", baseWager: Devil4Config.Devil4Wager));
     }
 
     private void StartBattle(string devilId, BattleConfig config = null)
@@ -110,7 +113,7 @@ public sealed class GameplayCanvasCoordinator : MonoBehaviour
 
         if (config == null)
         {
-            config = new BattleConfig(devilId, 1000, devilStrategy: new BasicDevilStrategy(), devilId: devilId);
+            throw new ArgumentNullException(nameof(config), "BattleConfig cannot be null when starting a battle.");
         }
         runManager.StartBattle(config);
     }
