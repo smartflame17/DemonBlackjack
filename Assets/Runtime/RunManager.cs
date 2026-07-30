@@ -1,4 +1,5 @@
 using UnityEngine;
+using GameplayConstants;
 
 public class RunManager : MonoBehaviour, IDataPersistence
 {
@@ -6,7 +7,7 @@ public class RunManager : MonoBehaviour, IDataPersistence
     [SerializeField] private bool startRunOnAwake = true;
     [SerializeField] private bool setRandomSeed = false;
     [SerializeField] private int debugSeed = 12345;
-    [SerializeField] private int startingMoney = 100;
+    private int startingMoney = GameplayConstants.GameSettingConfig.PlayerStartingMoney;
     [SerializeField] private int defaultOpponentStartingMoney = 100;
 
     public RunState RunState { get; private set; }
