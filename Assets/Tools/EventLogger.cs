@@ -25,6 +25,7 @@ public class EventLogger : MonoBehaviour
         {
             if (!logGlobalEvents) return;
             Debug.Log($"<color=green>[Global]</color>Battle Ended: Result={eventData.Result}");
+            battleState = null;
         });
         EventBus.Subscribe<MoneyChangedEvent>(eventData =>
         {

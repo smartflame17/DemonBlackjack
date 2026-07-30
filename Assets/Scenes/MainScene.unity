@@ -24513,7 +24513,6 @@ GameObject:
   m_Component:
   - component: {fileID: 1092893230}
   - component: {fileID: 1092893232}
-  - component: {fileID: 1092893231}
   - component: {fileID: 1092893234}
   m_Layer: 5
   m_Name: PlayerHand
@@ -24538,23 +24537,9 @@ RectTransform:
   m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
   m_AnchorMin: {x: 0, y: 0}
   m_AnchorMax: {x: 1, y: 1}
-  m_AnchoredPosition: {x: -525.2999, y: -347.5}
+  m_AnchoredPosition: {x: -551, y: -347.5}
   m_SizeDelta: {x: -1212, y: -715}
   m_Pivot: {x: 0.5, y: 0.5}
---- !u!114 &1092893231
-MonoBehaviour:
-  m_ObjectHideFlags: 0
-  m_CorrespondingSourceObject: {fileID: 0}
-  m_PrefabInstance: {fileID: 0}
-  m_PrefabAsset: {fileID: 0}
-  m_GameObject: {fileID: 1092893229}
-  m_Enabled: 1
-  m_EditorHideFlags: 0
-  m_Script: {fileID: 11500000, guid: 3245ec927659c4140ac4f8d17403cc18, type: 3}
-  m_Name: 
-  m_EditorClassIdentifier: UnityEngine.UI::UnityEngine.UI.ContentSizeFitter
-  m_HorizontalFit: 0
-  m_VerticalFit: 0
 --- !u!114 &1092893232
 MonoBehaviour:
   m_ObjectHideFlags: 0
@@ -24574,10 +24559,10 @@ MonoBehaviour:
     m_Bottom: 0
   m_ChildAlignment: 4
   m_Spacing: 12
-  m_ChildForceExpandWidth: 0
-  m_ChildForceExpandHeight: 0
-  m_ChildControlWidth: 0
-  m_ChildControlHeight: 0
+  m_ChildForceExpandWidth: 1
+  m_ChildForceExpandHeight: 1
+  m_ChildControlWidth: 1
+  m_ChildControlHeight: 1
   m_ChildScaleWidth: 0
   m_ChildScaleHeight: 0
   m_ReverseArrangement: 0
@@ -27398,7 +27383,6 @@ GameObject:
   m_Component:
   - component: {fileID: 1181751774}
   - component: {fileID: 1181751776}
-  - component: {fileID: 1181751775}
   - component: {fileID: 1181751778}
   m_Layer: 5
   m_Name: DevilHand
@@ -27423,23 +27407,9 @@ RectTransform:
   m_LocalEulerAnglesHint: {x: 0, y: 0, z: 25}
   m_AnchorMin: {x: 0, y: 0}
   m_AnchorMax: {x: 1, y: 1}
-  m_AnchoredPosition: {x: -207.74261, y: 248}
-  m_SizeDelta: {x: -1344.5148, y: -716}
+  m_AnchoredPosition: {x: -240, y: 226}
+  m_SizeDelta: {x: -1339.2023, y: -716}
   m_Pivot: {x: 0.5, y: 0.5}
---- !u!114 &1181751775
-MonoBehaviour:
-  m_ObjectHideFlags: 0
-  m_CorrespondingSourceObject: {fileID: 0}
-  m_PrefabInstance: {fileID: 0}
-  m_PrefabAsset: {fileID: 0}
-  m_GameObject: {fileID: 1181751773}
-  m_Enabled: 1
-  m_EditorHideFlags: 0
-  m_Script: {fileID: 11500000, guid: 3245ec927659c4140ac4f8d17403cc18, type: 3}
-  m_Name: 
-  m_EditorClassIdentifier: UnityEngine.UI::UnityEngine.UI.ContentSizeFitter
-  m_HorizontalFit: 0
-  m_VerticalFit: 0
 --- !u!114 &1181751776
 MonoBehaviour:
   m_ObjectHideFlags: 0
@@ -27458,11 +27428,11 @@ MonoBehaviour:
     m_Top: 0
     m_Bottom: 0
   m_ChildAlignment: 4
-  m_Spacing: 12
-  m_ChildForceExpandWidth: 0
-  m_ChildForceExpandHeight: 0
-  m_ChildControlWidth: 0
-  m_ChildControlHeight: 0
+  m_Spacing: 3
+  m_ChildForceExpandWidth: 1
+  m_ChildForceExpandHeight: 1
+  m_ChildControlWidth: 1
+  m_ChildControlHeight: 1
   m_ChildScaleWidth: 0
   m_ChildScaleHeight: 0
   m_ReverseArrangement: 0
@@ -42561,6 +42531,56 @@ MonoBehaviour:
   m_EditorClassIdentifier: Assembly-CSharp::EnlargeOnHover
   scaleFactor: 1.2
   transitionDuration: 0.2
+--- !u!1 &1640162814
+GameObject:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  serializedVersion: 6
+  m_Component:
+  - component: {fileID: 1640162816}
+  - component: {fileID: 1640162815}
+  m_Layer: 0
+  m_Name: AudioManager
+  m_TagString: Untagged
+  m_Icon: {fileID: 0}
+  m_NavMeshLayer: 0
+  m_StaticEditorFlags: 0
+  m_IsActive: 1
+--- !u!114 &1640162815
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 1640162814}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: acb65638554d078479d1363d89534537, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: Assembly-CSharp::SoundManager
+  bgmClips: []
+  sfxClips:
+  - {fileID: 8300000, guid: dd52b757be66fc542bb0274c90249126, type: 3}
+  - {fileID: 8300000, guid: 1a86e74f088f941429f03ea1bef1ef07, type: 3}
+  poolSize: 10
+  bgmPlayer: {fileID: 0}
+--- !u!4 &1640162816
+Transform:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 1640162814}
+  serializedVersion: 2
+  m_LocalRotation: {x: 0, y: 0, z: 0, w: 1}
+  m_LocalPosition: {x: 726.0715, y: 473.256, z: 0}
+  m_LocalScale: {x: 1, y: 1, z: 1}
+  m_ConstrainProportionsScale: 0
+  m_Children: []
+  m_Father: {fileID: 0}
+  m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
 --- !u!1001 &1640521022
 PrefabInstance:
   m_ObjectHideFlags: 0
@@ -55881,3 +55901,4 @@ SceneRoots:
   - {fileID: 1981782445}
   - {fileID: 1663571910}
   - {fileID: 1041688554}
+  - {fileID: 1640162816}

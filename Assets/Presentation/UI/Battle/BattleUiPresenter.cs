@@ -1138,8 +1138,8 @@ public sealed class BattleUiPresenter : MonoBehaviour
         if (layout == null)
             layout = view.gameObject.AddComponent<LayoutElement>();
 
-        layout.minWidth = 90f;
-        layout.minHeight = 126f;
+        //layout.minWidth = 90f;
+        //layout.minHeight = 126f;
         layout.preferredWidth = 90f;
         layout.preferredHeight = 126f;
         layout.flexibleWidth = 0f;
@@ -1151,16 +1151,16 @@ public sealed class BattleUiPresenter : MonoBehaviour
         if (root == null)
             return;
 
-        HorizontalLayoutGroup horizontal = root.GetComponent<HorizontalLayoutGroup>();
-        if (horizontal != null)
-        {
-            horizontal.childControlWidth = false;
-            horizontal.childControlHeight = false;
-            horizontal.childForceExpandWidth = false;
-            horizontal.childForceExpandHeight = false;
-            horizontal.childScaleWidth = false;
-            horizontal.childScaleHeight = false;
-        }
+        // HorizontalLayoutGroup horizontal = root.GetComponent<HorizontalLayoutGroup>();
+        // if (horizontal != null)
+        // {
+        //     horizontal.childControlWidth = true;
+        //     horizontal.childControlHeight = true;
+        //     horizontal.childForceExpandWidth = true;
+        //     horizontal.childForceExpandHeight = true;
+        //     horizontal.childScaleWidth = false;
+        //     horizontal.childScaleHeight = false;
+        // }
 
         GridLayoutGroup grid = root.GetComponent<GridLayoutGroup>();
         if (grid != null)
