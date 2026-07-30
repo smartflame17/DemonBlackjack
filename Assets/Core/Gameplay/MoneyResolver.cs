@@ -18,8 +18,8 @@ public static class MoneyResolver
             : 0;
         //WARNING: now that burst transfer is realtime, we dont need round end burst transfer?
         int wager = Math.Max(0, round.EffectiveWager);
-        if (wager > 0 && applyBurstPenalty)
-            ResolveBurstTransfers(battle, round, wager);
+        //if (wager > 0 && applyBurstPenalty)
+        //    ResolveBurstTransfers(battle, round, wager);
 
         ResolveBlackjackPot(battle, round, winner);
 
@@ -35,8 +35,8 @@ public static class MoneyResolver
         }
 
         // WARNING: Like burst transfer, we dont need round end poker transfer?
-        if (battle.PlayerMoney > 0 && wager > 0)
-            ResolvePlayerPokerPayout(battle, round, wager);
+        //if (battle.PlayerMoney > 0 && wager > 0)
+        //    ResolvePlayerPokerPayout(battle, round, wager);
 
         return new RoundResolution(winner, round.OpponentMoneyLost, round.PlayerMoneyLost);
     }
@@ -129,7 +129,7 @@ public static class MoneyResolver
 
         int lost = TransferOpponentToPlayer(battle, payout);
         round.RecordMoneyLost(Combatant.Opponent, lost);
-        EventBus.Publish(new MoneyTransferReasonEvent(MoneyTransferReason.PokerPayout, payout));
+        EventBus.Publish(new MoneyTransferReasonEvent(MoneyTransferReason.PokerPayout, lost));
     }
 
     public static int CalculatePokerPayout(IReadOnlyList<Card> cards, PokerResult poker, int wager)

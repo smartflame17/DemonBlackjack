@@ -1109,14 +1109,19 @@ public sealed class BattleState
         if (!playerPlayed && !opponentPlayed)
             return;
 
-        MoneyResolver.ResolvePlayerPokerPayout(
+        if (playerPlayed)
+        {
+            MoneyResolver.ResolvePlayerPokerPayout(
             this,
             CurrentRound,
             CurrentRound.EffectiveWager);
-        MoneyResolver.ResolveBurstTransfers(
+
+            MoneyResolver.ResolveBurstTransfers(
             this,
             CurrentRound,
             CurrentRound.EffectiveWager);
+        }
+        
     }
 
     private int GetOpponentBlackjackBonus()
