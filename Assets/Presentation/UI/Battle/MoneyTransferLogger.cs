@@ -2,7 +2,9 @@ using UnityEngine;
 using TMPro;
 using DG.Tweening;
 using EasyTextEffects.Editor.MyBoxCopy.Extensions;
-using System;
+using System.Collections.Generic;
+using DamageNumbersPro;
+
 public class MoneyTransferLogger : MonoBehaviour
 {
     [SerializeField] private GameObject loggerPanel;
@@ -13,6 +15,10 @@ public class MoneyTransferLogger : MonoBehaviour
     [SerializeField] private TMP_Text burstPenaltyText;
     [SerializeField] private TMP_Text pokerResultText;
     [SerializeField] private BattleController battleController;
+
+    [Header("Text Effects")]
+    [SerializeField] private List<RectTransform> textEffectTargets; // List of RectTransforms for text effects
+    [SerializeField] private DamageNumber damageNumber;
 
     private ScopedEventBus subscribedBattleBus;
     private int roundResult;
@@ -114,21 +120,29 @@ public class MoneyTransferLogger : MonoBehaviour
 
     private void OnMoneyTransfer(MoneyTransferReasonEvent eventData)
     {
+        // Create a damage number for the transfer
+        Vector2 offset = new Vector2(0, 0); // You can customize this offset if needed
+
+        // update corresponding text fields
         switch (eventData.Reason)
         {
             case MoneyTransferReason.InitialWager:
                 entryFeeText.text = $"{eventData.Delta}";
+                damageNumber.SpawnGUI(textEffectTargets[0],offset, (float)eventData.Delta);
                 break;
             case MoneyTransferReason.BlackjackPayout:
                 roundResult += eventData.Delta;
+                damageNumber.SpawnGUI(textEffectTargets[1],offset, (float)eventData.Delta);
                 RefreshRoundResultText();
                 break;
             case MoneyTransferReason.DevilAbilityPayout:
                 roundResult -= eventData.Delta;
+                damageNumber.SpawnGUI(textEffectTargets[2],offset, (float)-eventData.Delta);
                 RefreshRoundResultText();
                 break;
             case MoneyTransferReason.BurstPenalty:
                 burstPenalty += eventData.Delta;
+                damageNumber.SpawnGUI(textEffectTargets[3],offset, (float)-eventData.Delta);
                 burstPenaltyText.text = $"-{burstPenalty}";
                 if (burstPenalty > 0)
                     burstPenaltyText.color = Color.red; // Set color to red for negative values
@@ -137,6 +151,7 @@ public class MoneyTransferLogger : MonoBehaviour
                 break;
             case MoneyTransferReason.PokerPayout:
                 pokerResult += eventData.Delta;
+                damageNumber.SpawnGUI(textEffectTargets[4],offset, (float)eventData.Delta);
                 pokerResultText.text = $"{pokerResult}";
                 if (pokerResult < 0)
                     pokerResultText.color = Color.red; // Set color to red for negative values
@@ -153,6 +168,7 @@ public class MoneyTransferLogger : MonoBehaviour
     {
         blackjackResultText.text = $"{roundResult}";
         blackjackResultText.color = roundResult < 0 ? Color.red : Color.green;
+        if (roundResult == 0) blackjackResultText.color = Color.white; // Reset to default color if zero
     }
 
     public void HideLoggerPanel()

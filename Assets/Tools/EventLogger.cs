@@ -73,7 +73,7 @@ public class EventLogger : MonoBehaviour
             battleState.EventBus.Subscribe<CardPlayedEvent>(eventData =>
             {
                 if (!logBattleEvents) return;
-                Debug.Log($"<color=red>[Battle]</color> Card Played: Card={eventData.Card}");
+                Debug.Log($"<color=red>[Battle]</color> Card Played: Card={eventData.Card}, Combatant={eventData.Owner}");
             });
 
             battleState.EventBus.Subscribe<CardDrawnEvent>(eventData =>
