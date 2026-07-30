@@ -13,6 +13,7 @@ GameObject:
   - component: {fileID: 2140667098126832582}
   - component: {fileID: 1032001293412792289}
   - component: {fileID: 1720704025678895129}
+  - component: {fileID: 4295591309174610243}
   m_Layer: 0
   m_Name: Visual
   m_TagString: Untagged
@@ -274,6 +275,20 @@ MonoBehaviour:
   m_DetailTexSpeed: {x: 0, y: 0}
   m_CustomRoot: {fileID: 0}
   m_Flip: 0
+--- !u!114 &4295591309174610243
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 776620391667873636}
+  m_Enabled: 0
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 554bf8b80e59fb444abd13fa720ebeb4, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: Assembly-CSharp::UITrapezoidEffect
+  topInset: 5.6
+  bottomInset: 0
 --- !u!1 &1591771567400482325
 GameObject:
   m_ObjectHideFlags: 0
