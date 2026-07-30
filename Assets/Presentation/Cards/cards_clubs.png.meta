@@ -1,0 +1,351 @@
+fileFormatVersion: 2
+guid: 421bb1645e28d6747b7842e8c69c500f
+TextureImporter:
+  internalIDToNameTable:
+  - first:
+      213: 3261057923176128793
+    second: cards_clubs_0
+  - first:
+      213: -6272811491864485285
+    second: cards_clubs_1
+  - first:
+      213: 8265482686707753371
+    second: cards_clubs_2
+  - first:
+      213: 2169131377068800374
+    second: cards_clubs_3
+  - first:
+      213: -5961835345307940330
+    second: cards_clubs_4
+  - first:
+      213: -4814254097813047503
+    second: cards_clubs_5
+  - first:
+      213: 4734036683698797954
+    second: cards_clubs_6
+  - first:
+      213: -5020013216859546988
+    second: cards_clubs_7
+  - first:
+      213: -5742736179000174487
+    second: cards_clubs_8
+  externalObjects: {}
+  serializedVersion: 13
+  mipmaps:
+    mipMapMode: 0
+    enableMipMap: 0
+    sRGBTexture: 1
+    linearTexture: 0
+    fadeOut: 0
+    borderMipMap: 0
+    mipMapsPreserveCoverage: 0
+    alphaTestReferenceValue: 0.5
+    mipMapFadeDistanceStart: 1
+    mipMapFadeDistanceEnd: 3
+  bumpmap:
+    convertToNormalMap: 0
+    externalNormalMap: 0
+    heightScale: 0.25
+    normalMapFilter: 0
+    flipGreenChannel: 0
+  isReadable: 0
+  streamingMipmaps: 0
+  streamingMipmapsPriority: 0
+  vTOnly: 0
+  ignoreMipmapLimit: 0
+  grayScaleToAlpha: 0
+  generateCubemap: 6
+  cubemapConvolution: 0
+  seamlessCubemap: 0
+  textureFormat: 1
+  maxTextureSize: 2048
+  textureSettings:
+    serializedVersion: 2
+    filterMode: 0
+    aniso: 1
+    mipBias: 0
+    wrapU: 1
+    wrapV: 1
+    wrapW: 1
+  nPOTScale: 0
+  lightmap: 0
+  compressionQuality: 50
+  spriteMode: 2
+  spriteExtrude: 1
+  spriteMeshType: 1
+  alignment: 0
+  spritePivot: {x: 0.5, y: 0.5}
+  spritePixelsToUnits: 100
+  spriteBorder: {x: 0, y: 0, z: 0, w: 0}
+  spriteGenerateFallbackPhysicsShape: 1
+  alphaUsage: 1
+  alphaIsTransparency: 1
+  spriteTessellationDetail: -1
+  textureType: 8
+  textureShape: 1
+  singleChannelComponent: 0
+  flipbookRows: 1
+  flipbookColumns: 1
+  maxTextureSizeSet: 0
+  compressionQualitySet: 0
+  textureFormatSet: 0
+  ignorePngGamma: 0
+  applyGammaDecoding: 0
+  swizzle: 50462976
+  cookieLightType: 0
+  platformSettings:
+  - serializedVersion: 4
+    buildTarget: DefaultTexturePlatform
+    maxTextureSize: 2048
+    resizeAlgorithm: 0
+    textureFormat: -1
+    textureCompression: 1
+    compressionQuality: 50
+    crunchedCompression: 0
+    allowsAlphaSplitting: 0
+    overridden: 0
+    ignorePlatformSupport: 0
+    androidETC2FallbackOverride: 0
+    forceMaximumCompressionQuality_BC6H_BC7: 0
+  - serializedVersion: 4
+    buildTarget: Standalone
+    maxTextureSize: 2048
+    resizeAlgorithm: 0
+    textureFormat: -1
+    textureCompression: 1
+    compressionQuality: 50
+    crunchedCompression: 0
+    allowsAlphaSplitting: 0
+    overridden: 0
+    ignorePlatformSupport: 0
+    androidETC2FallbackOverride: 0
+    forceMaximumCompressionQuality_BC6H_BC7: 0
+  spriteSheet:
+    serializedVersion: 2
+    sprites:
+    - serializedVersion: 2
+      name: cards_clubs_0
+      rect:
+        serializedVersion: 2
+        x: 165
+        y: 2636
+        width: 1282
+        height: 2035
+      alignment: 0
+      pivot: {x: 0, y: 0}
+      border: {x: 0, y: 0, z: 0, w: 0}
+      customData: 
+      outline: []
+      physicsShape: []
+      tessellationDetail: -1
+      bones: []
+      spriteID: 911e2ee37ea914d20800000000000000
+      internalID: 3261057923176128793
+      vertices: []
+      indices: 
+      edges: []
+      weights: []
+    - serializedVersion: 2
+      name: cards_clubs_1
+      rect:
+        serializedVersion: 2
+        x: 1541
+        y: 2636
+        width: 1282
+        height: 2035
+      alignment: 0
+      pivot: {x: 0, y: 0}
+      border: {x: 0, y: 0, z: 0, w: 0}
+      customData: 
+      outline: []
+      physicsShape: []
+      tessellationDetail: -1
+      bones: []
+      spriteID: b52ed64de2f72f8a0800000000000000
+      internalID: -6272811491864485285
+      vertices: []
+      indices: 
+      edges: []
+      weights: []
+    - serializedVersion: 2
+      name: cards_clubs_2
+      rect:
+        serializedVersion: 2
+        x: 2918
+        y: 2636
+        width: 1282
+        height: 2035
+      alignment: 0
+      pivot: {x: 0, y: 0}
+      border: {x: 0, y: 0, z: 0, w: 0}
+      customData: 
+      outline: []
+      physicsShape: []
+      tessellationDetail: -1
+      bones: []
+      spriteID: b916b5e06b4e4b270800000000000000
+      internalID: 8265482686707753371
+      vertices: []
+      indices: 
+      edges: []
+      weights: []
+    - serializedVersion: 2
+      name: cards_clubs_3
+      rect:
+        serializedVersion: 2
+        x: 4304
+        y: 2636
+        width: 1282
+        height: 2035
+      alignment: 0
+      pivot: {x: 0, y: 0}
+      border: {x: 0, y: 0, z: 0, w: 0}
+      customData: 
+      outline: []
+      physicsShape: []
+      tessellationDetail: -1
+      bones: []
+      spriteID: 679f651be7d4a1e10800000000000000
+      internalID: 2169131377068800374
+      vertices: []
+      indices: 
+      edges: []
+      weights: []
+    - serializedVersion: 2
+      name: cards_clubs_4
+      rect:
+        serializedVersion: 2
+        x: 5718
+        y: 2636
+        width: 1282
+        height: 2035
+      alignment: 0
+      pivot: {x: 0, y: 0}
+      border: {x: 0, y: 0, z: 0, w: 0}
+      customData: 
+      outline: []
+      physicsShape: []
+      tessellationDetail: -1
+      bones: []
+      spriteID: 61a4d81375e434da0800000000000000
+      internalID: -5961835345307940330
+      vertices: []
+      indices: 
+      edges: []
+      weights: []
+    - serializedVersion: 2
+      name: cards_clubs_5
+      rect:
+        serializedVersion: 2
+        x: 165
+        y: 391
+        width: 1282
+        height: 2035
+      alignment: 0
+      pivot: {x: 0, y: 0}
+      border: {x: 0, y: 0, z: 0, w: 0}
+      customData: 
+      outline: []
+      physicsShape: []
+      tessellationDetail: -1
+      bones: []
+      spriteID: 1377261b765503db0800000000000000
+      internalID: -4814254097813047503
+      vertices: []
+      indices: 
+      edges: []
+      weights: []
+    - serializedVersion: 2
+      name: cards_clubs_6
+      rect:
+        serializedVersion: 2
+        x: 1538
+        y: 391
+        width: 1282
+        height: 2035
+      alignment: 0
+      pivot: {x: 0, y: 0}
+      border: {x: 0, y: 0, z: 0, w: 0}
+      customData: 
+      outline: []
+      physicsShape: []
+      tessellationDetail: -1
+      bones: []
+      spriteID: 28df885284da2b140800000000000000
+      internalID: 4734036683698797954
+      vertices: []
+      indices: 
+      edges: []
+      weights: []
+    - serializedVersion: 2
+      name: cards_clubs_7
+      rect:
+        serializedVersion: 2
+        x: 2915
+        y: 391
+        width: 1282
+        height: 2035
+      alignment: 0
+      pivot: {x: 0, y: 0}
+      border: {x: 0, y: 0, z: 0, w: 0}
+      customData: 
+      outline: []
+      physicsShape: []
+      tessellationDetail: -1
+      bones: []
+      spriteID: 49a12519394555ab0800000000000000
+      internalID: -5020013216859546988
+      vertices: []
+      indices: 
+      edges: []
+      weights: []
+    - serializedVersion: 2
+      name: cards_clubs_8
+      rect:
+        serializedVersion: 2
+        x: 4303
+        y: 391
+        width: 1282
+        height: 2035
+      alignment: 0
+      pivot: {x: 0, y: 0}
+      border: {x: 0, y: 0, z: 0, w: 0}
+      customData: 
+      outline: []
+      physicsShape: []
+      tessellationDetail: -1
+      bones: []
+      spriteID: 96819eb1fd3bd40b0800000000000000
+      internalID: -5742736179000174487
+      vertices: []
+      indices: 
+      edges: []
+      weights: []
+    outline: []
+    customData: 
+    physicsShape: []
+    bones: []
+    spriteID: 
+    internalID: 0
+    vertices: []
+    indices: 
+    edges: []
+    weights: []
+    secondaryTextures: []
+    spriteCustomMetadata:
+      entries: []
+    nameFileIdTable:
+      cards_clubs_0: 3261057923176128793
+      cards_clubs_1: -6272811491864485285
+      cards_clubs_2: 8265482686707753371
+      cards_clubs_3: 2169131377068800374
+      cards_clubs_4: -5961835345307940330
+      cards_clubs_5: -4814254097813047503
+      cards_clubs_6: 4734036683698797954
+      cards_clubs_7: -5020013216859546988
+      cards_clubs_8: -5742736179000174487
+  mipmapLimitGroupName: 
+  pSDRemoveMatte: 0
+  userData: 
+  assetBundleName: 
+  assetBundleVariant: 

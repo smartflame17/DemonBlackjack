@@ -69,7 +69,7 @@ MonoBehaviour:
   m_OnCullStateChanged:
     m_PersistentCalls:
       m_Calls: []
-  m_Sprite: {fileID: 147160618, guid: 15488cc87250a6b4895c1df61918dd2a, type: 3}
+  m_Sprite: {fileID: -5547768843037689371, guid: ed68b29694006a8469f9589d5702cc01, type: 3}
   m_Type: 0
   m_PreserveAspect: 1
   m_FillCenter: 1
@@ -254,9 +254,9 @@ MonoBehaviour:
   m_GradationReverse: 0
   m_AllowToModifyMeshShape: 1
   m_EdgeMode: 2
-  m_EdgeWidth: 0.15
+  m_EdgeWidth: 0.3
   m_EdgeColorFilter: 4
-  m_EdgeColor: {r: 0.2783019, g: 0.3336415, b: 1, a: 1}
+  m_EdgeColor: {r: 1, g: 0.580483, b: 0.0047169924, a: 1}
   m_EdgeColorGlow: 0
   m_EdgeShinyRate: 0.5
   m_EdgeShinyWidth: 0.5
