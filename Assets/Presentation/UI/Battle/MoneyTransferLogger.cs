@@ -142,43 +142,39 @@ public class MoneyTransferLogger : MonoBehaviour
 
     private void OnMoneyTransfer(MoneyTransferReasonEvent eventData)
     {
-        // Create a damage number for the transfer
-        Vector2 offset = new Vector2(0, 0); // You can customize this offset if needed
-
-        // update corresponding text fields
         switch (eventData.Reason)
         {
             case MoneyTransferReason.InitialWager:
                 entryFeeText.text = $"{eventData.Delta}";
-                QueueTextEffect(textEffectTargets[0], offset, eventData.Delta);
+                QueueTextEffect(0, eventData.Delta);
                 break;
             case MoneyTransferReason.BlackjackPayout:
                 roundResult += eventData.Delta;
-                QueueTextEffect(textEffectTargets[1], offset, eventData.Delta);
+                QueueTextEffect(1, eventData.Delta);
                 RefreshRoundResultText();
                 break;
             case MoneyTransferReason.DevilAbilityPayout:
                 roundResult -= eventData.Delta;
-                QueueTextEffect(textEffectTargets[2], offset, -eventData.Delta);
+                QueueTextEffect(2, -eventData.Delta);
                 RefreshRoundResultText();
                 break;
             case MoneyTransferReason.BurstPenalty:
                 burstPenalty += eventData.Delta;
-                QueueTextEffect(textEffectTargets[3], offset, -eventData.Delta);
+                QueueTextEffect(3, -eventData.Delta);
                 burstPenaltyText.text = $"-{burstPenalty}";
                 if (burstPenalty > 0)
-                    burstPenaltyText.color = Color.red; // Set color to red for negative values
+                    burstPenaltyText.color = Color.red;
                 else
-                    burstPenaltyText.color = Color.green; // Set color to green for positive values
+                    burstPenaltyText.color = Color.green;
                 break;
             case MoneyTransferReason.PokerPayout:
                 pokerResult += eventData.Delta;
-                QueueTextEffect(textEffectTargets[4], offset, eventData.Delta);
+                QueueTextEffect(4, eventData.Delta);
                 pokerResultText.text = $"{pokerResult}";
                 if (pokerResult < 0)
-                    pokerResultText.color = Color.red; // Set color to red for negative values
+                    pokerResultText.color = Color.red;
                 else
-                    pokerResultText.color = Color.green; // Set color to green for positive values
+                    pokerResultText.color = Color.green;
                 break;
             default:
                 Debug.LogWarning($"Unhandled money transfer reason: {eventData.Reason}");
@@ -186,9 +182,16 @@ public class MoneyTransferLogger : MonoBehaviour
         }
     }
 
-    private void QueueTextEffect(RectTransform target, Vector2 offset, float amount)
+    private void QueueTextEffect(int targetIndex, float amount)
     {
-        pendingTextEffects.Enqueue(new TextEffectRequest(target, offset, amount));
+        if (damageNumber == null
+            || textEffectTargets == null
+            || targetIndex < 0
+            || targetIndex >= textEffectTargets.Count
+            || textEffectTargets[targetIndex] == null)
+            return;
+
+        pendingTextEffects.Enqueue(new TextEffectRequest(textEffectTargets[targetIndex], Vector2.zero, amount));
 
         if (textEffectRoutine == null && isActiveAndEnabled)
             textEffectRoutine = StartCoroutine(PlayQueuedTextEffects());
