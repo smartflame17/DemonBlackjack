@@ -48,7 +48,7 @@ public sealed class ShopUi : MonoBehaviour
     private void OnEnable()
     {
         shopPanel.SetActive(true);
-        shopPanelRectTransform.DOAnchorPos(new Vector2(0, -33), shopPanelAnimationDuration).SetEase(shopPanelAnimationEase);
+        shopPanelRectTransform.DOAnchorPos(new Vector2(0, 0), shopPanelAnimationDuration).SetEase(shopPanelAnimationEase);
         if (continueButton != null)
             continueButton.onClick.AddListener(Continue);
         GenerateOffers();

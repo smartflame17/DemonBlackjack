@@ -224,8 +224,8 @@ public sealed class BattleUiPresenter : MonoBehaviour
         {
             CancelPendingRoundStart();
             ClearBattleCardViews();
-            SetText(playerScoreText, "-");
-            SetText(devilScoreText, "-");
+            SetText(playerScoreText, " ");
+            SetText(devilScoreText, " ");
             SetBurstThresholdText(null);
             SetPanels(false, false, false);
             SetTurnButtons(false, false);
