@@ -170,8 +170,8 @@ public static class MoneyResolver
         };
         */
         // Version 2: Fixed Payout
-        long payout = (long)poker.Multiplier * rankSum / poker.CardIndices.Count * PokerTransferValue.pokerPayoutAmount;
-
+        long payout = (long)(poker.Multiplier * rankSum * PokerTransferValue.pokerPayoutAmount) / poker.CardIndices.Count;
+        UnityEngine.Debug.Log("<color=yellow>[Money]</color> Poker Payout Calculation: " + payout);
         return payout >= int.MaxValue ? int.MaxValue : (int)payout;
     }
 
