@@ -22,7 +22,6 @@ public class MoneyTransferLogger : MonoBehaviour
 
     private ScopedEventBus subscribedBattleBus;
     private int roundResult;
-    private int blackjackResult;
     private int burstPenalty;
     private int pokerResult;
 
@@ -48,8 +47,10 @@ public class MoneyTransferLogger : MonoBehaviour
         roundResult = 0;
         burstPenaltyText.text = "0";
         burstPenaltyText.color = Color.white; // Reset color to default
+        burstPenalty = 0;
         pokerResultText.text = "0";
         pokerResultText.color = Color.white; // Reset color to default
+        pokerResult = 0;
         // TODO: Reset text effects if any are applied (e.g., animations, scaling, etc.)
     }
 
