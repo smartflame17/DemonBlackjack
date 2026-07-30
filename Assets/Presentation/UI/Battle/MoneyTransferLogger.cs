@@ -1,3 +1,4 @@
+using System.Collections;
 using UnityEngine;
 using TMPro;
 using DG.Tweening;
@@ -19,11 +20,28 @@ public class MoneyTransferLogger : MonoBehaviour
     [Header("Text Effects")]
     [SerializeField] private List<RectTransform> textEffectTargets; // List of RectTransforms for text effects
     [SerializeField] private DamageNumber damageNumber;
+    [SerializeField, Min(0f)] private float textEffectDelaySeconds = 0.2f;
 
     private ScopedEventBus subscribedBattleBus;
+    private readonly Queue<TextEffectRequest> pendingTextEffects = new();
+    private Coroutine textEffectRoutine;
     private int roundResult;
     private int burstPenalty;
     private int pokerResult;
+
+    private readonly struct TextEffectRequest
+    {
+        public readonly RectTransform Target;
+        public readonly Vector2 Offset;
+        public readonly float Amount;
+
+        public TextEffectRequest(RectTransform target, Vector2 offset, float amount)
+        {
+            Target = target;
+            Offset = offset;
+            Amount = amount;
+        }
+    }
 
     void Awake()
     {
@@ -40,6 +58,8 @@ public class MoneyTransferLogger : MonoBehaviour
 
     void ResetTexts()
     {
+        ClearPendingTextEffects();
+
         entryFeeText.text = "0";
         entryFeeText.color = Color.white; // Reset color to default
         blackjackResultText.text = "0";
@@ -66,6 +86,7 @@ public class MoneyTransferLogger : MonoBehaviour
         global::EventBus.Unsubscribe<MoneyTransferReasonEvent>(OnMoneyTransfer);
         global::EventBus.Unsubscribe<ShopClosedEvent>(OnShopClosed);
         UnbindBattleBus();
+        ClearPendingTextEffects();
     }
 
     private void BindBattleBus()
@@ -129,21 +150,21 @@ public class MoneyTransferLogger : MonoBehaviour
         {
             case MoneyTransferReason.InitialWager:
                 entryFeeText.text = $"{eventData.Delta}";
-                damageNumber.SpawnGUI(textEffectTargets[0],offset, (float)eventData.Delta);
+                QueueTextEffect(textEffectTargets[0], offset, eventData.Delta);
                 break;
             case MoneyTransferReason.BlackjackPayout:
                 roundResult += eventData.Delta;
-                damageNumber.SpawnGUI(textEffectTargets[1],offset, (float)eventData.Delta);
+                QueueTextEffect(textEffectTargets[1], offset, eventData.Delta);
                 RefreshRoundResultText();
                 break;
             case MoneyTransferReason.DevilAbilityPayout:
                 roundResult -= eventData.Delta;
-                damageNumber.SpawnGUI(textEffectTargets[2],offset, (float)-eventData.Delta);
+                QueueTextEffect(textEffectTargets[2], offset, -eventData.Delta);
                 RefreshRoundResultText();
                 break;
             case MoneyTransferReason.BurstPenalty:
                 burstPenalty += eventData.Delta;
-                damageNumber.SpawnGUI(textEffectTargets[3],offset, (float)-eventData.Delta);
+                QueueTextEffect(textEffectTargets[3], offset, -eventData.Delta);
                 burstPenaltyText.text = $"-{burstPenalty}";
                 if (burstPenalty > 0)
                     burstPenaltyText.color = Color.red; // Set color to red for negative values
@@ -152,7 +173,7 @@ public class MoneyTransferLogger : MonoBehaviour
                 break;
             case MoneyTransferReason.PokerPayout:
                 pokerResult += eventData.Delta;
-                damageNumber.SpawnGUI(textEffectTargets[4],offset, (float)eventData.Delta);
+                QueueTextEffect(textEffectTargets[4], offset, eventData.Delta);
                 pokerResultText.text = $"{pokerResult}";
                 if (pokerResult < 0)
                     pokerResultText.color = Color.red; // Set color to red for negative values
@@ -163,6 +184,40 @@ public class MoneyTransferLogger : MonoBehaviour
                 Debug.LogWarning($"Unhandled money transfer reason: {eventData.Reason}");
                 break;
         }
+    }
+
+    private void QueueTextEffect(RectTransform target, Vector2 offset, float amount)
+    {
+        pendingTextEffects.Enqueue(new TextEffectRequest(target, offset, amount));
+
+        if (textEffectRoutine == null && isActiveAndEnabled)
+            textEffectRoutine = StartCoroutine(PlayQueuedTextEffects());
+    }
+
+    private IEnumerator PlayQueuedTextEffects()
+    {
+        while (pendingTextEffects.Count > 0)
+        {
+            TextEffectRequest request = pendingTextEffects.Dequeue();
+
+            if (textEffectDelaySeconds > 0f)
+                yield return new WaitForSeconds(textEffectDelaySeconds);
+            else
+                yield return null;
+
+            damageNumber.SpawnGUI(request.Target, request.Offset, request.Amount);
+        }
+
+        textEffectRoutine = null;
+    }
+
+    private void ClearPendingTextEffects()
+    {
+        if (textEffectRoutine != null)
+            StopCoroutine(textEffectRoutine);
+
+        textEffectRoutine = null;
+        pendingTextEffects.Clear();
     }
 
     private void RefreshRoundResultText()
