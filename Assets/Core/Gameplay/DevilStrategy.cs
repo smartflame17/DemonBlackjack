@@ -219,10 +219,10 @@ public class Devil1Strategy : BasicDevilStrategy, IDevilOpponentFieldModifier, I
                 spadeCount++;
         }
 
-        long multiplier = heartCount + 1L;
+        float multiplier = (heartCount + 1L) * GameplayConstants.Devil1Config.Devil1HeartMultiplier;
         for (int i = 0; i < spadeCount; i++)
         {
-            multiplier *= 4L;
+            multiplier *= GameplayConstants.Devil1Config.Devil1SpadeMultiplier;
             if (multiplier >= int.MaxValue)
             {
                 multiplier = int.MaxValue;
@@ -230,7 +230,7 @@ public class Devil1Strategy : BasicDevilStrategy, IDevilOpponentFieldModifier, I
             }
         }
 
-        long bonus = multiplier * round.BaseWager;
+        long bonus = (long)multiplier * round.BaseWager;
         return bonus >= int.MaxValue ? int.MaxValue : (int)bonus;
     }
 

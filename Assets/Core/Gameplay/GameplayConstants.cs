@@ -28,6 +28,9 @@ namespace GameplayConstants
         public static readonly int Devil1StartingMoney = 100000;
         // 1스테이지 악마 라운드배팅 기본금
         public static readonly int Devil1Wager = 1000;
+
+        public static readonly float Devil1HeartMultiplier = 1f; // 1스테이지 악마 하트 카드 배율 (하트 카드 수+1 x 배율)
+        public static readonly float Devil1SpadeMultiplier = 4f; // 1스테이지 악마 스페이드 카드 배율 ((하트 카드 수+1) x 스페이드 카드 x 배율)
     }
 
     // 2스테이지 관련 설정 값
