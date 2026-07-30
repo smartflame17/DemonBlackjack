@@ -2500,7 +2500,7 @@ public sealed class ShopSystemTests
         EventBus.Subscribe<MoneyTransferReasonEvent>(eventData =>
         {
             if (eventData.Reason == MoneyTransferReason.DevilAbilityPayout)
-                abilityDelta += eventData.Delta;
+                abilityDelta -= eventData.Delta;
         });
         int playerMoneyBeforeResolution = battle.PlayerMoney;
 
