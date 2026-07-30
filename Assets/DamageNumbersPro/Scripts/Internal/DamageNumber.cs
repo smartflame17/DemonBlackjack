@@ -2064,6 +2064,7 @@ namespace DamageNumbersPro
             // Dots
             if (digitSettings.dotSeparation && digitSettings.dotDistance > 0)
             {
+                bool isNegative = integers.StartsWith("-");
                 char[] chars = integers.ToCharArray();
                 integers = "";
                 for (int n = chars.Length - 1; n > -1; n--)
@@ -2074,6 +2075,11 @@ namespace DamageNumbersPro
                     {
                         integers = digitSettings.dotChar + integers;
                     }
+                }
+
+                if (isNegative && !string.IsNullOrEmpty(digitSettings.dotChar) && integers.StartsWith("-" + digitSettings.dotChar))
+                {
+                    integers = integers.Remove(1, digitSettings.dotChar.Length);
                 }
             }
 
