@@ -257,14 +257,16 @@ public class Devil1Strategy : BasicDevilStrategy, IDevilOpponentFieldModifier, I
 
     private void UpdateStreaks(RoundResolution resolution)
     {
-        if (resolution.Winner == Combatant.Opponent)
+        //if (resolution.Winner == Combatant.Opponent)
+        if (resolution.OpponentMoneyLost < resolution.PlayerMoneyLost)
         {
             winStreak++;
             lossStreak = 0;
             int affinity = PixelCrushers.DialogueSystem.DialogueLua.GetVariable("Devil1Affinity").asInt;
             PixelCrushers.DialogueSystem.DialogueLua.SetVariable("Devil1Affinity", affinity + 5);
         }
-        else if (resolution.Winner == Combatant.Player)
+        //else if (resolution.Winner == Combatant.Player)
+        else if (resolution.PlayerMoneyLost < resolution.OpponentMoneyLost)
         {
             lossStreak++;
             winStreak = 0;
