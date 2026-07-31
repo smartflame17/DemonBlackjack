@@ -255,7 +255,7 @@ MonoBehaviour:
   m_GradationReverse: 0
   m_AllowToModifyMeshShape: 1
   m_EdgeMode: 2
-  m_EdgeWidth: 0.3
+  m_EdgeWidth: 1
   m_EdgeColorFilter: 4
   m_EdgeColor: {r: 1, g: 0.580483, b: 0.0047169924, a: 1}
   m_EdgeColorGlow: 0
