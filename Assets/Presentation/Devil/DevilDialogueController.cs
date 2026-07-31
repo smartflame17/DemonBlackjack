@@ -83,8 +83,9 @@ public class DevilDialogueController : MonoBehaviour
 
     private void OnRoundStarted(RoundStartedEvent @event)
     {
+        isBarking = false; // Reset the flag at the start of each round
         barkConversationId = $"{_currentDevilId}_RoundStart";
-        StartBark(barkConversationId);
+        //StartBark(barkConversationId);    // This call messes up the bark callback function, setting isBarking to true all the time
 
         lastPokerRank = PokerHandRank.HighCard; // Reset last poker rank at the start of each round
     }
@@ -148,6 +149,7 @@ public class DevilDialogueController : MonoBehaviour
     private void OnDevilTurnChoice(DevilTurnChoiceEvent @event)
     {
         barkConversationId = $"{_currentDevilId}_DevilTurn";
+        Debug.Log($"DevilDialogueController: OnDevilTurnChoice, using conversation ID: {barkConversationId}");
         StartBark(barkConversationId);
     }
 
