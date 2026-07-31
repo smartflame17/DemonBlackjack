@@ -5047,6 +5047,7 @@ GameObject:
   - component: {fileID: 2668001828687083250}
   - component: {fileID: 4315555455019207183}
   - component: {fileID: 4634757105976558102}
+  - component: {fileID: 7505067178057863244}
   m_Layer: 5
   m_Name: SettingMenuButton
   m_TagString: Untagged
@@ -5155,7 +5156,32 @@ MonoBehaviour:
   m_TargetGraphic: {fileID: 4315555455019207183}
   m_OnClick:
     m_PersistentCalls:
-      m_Calls: []
+      m_Calls:
+      - m_Target: {fileID: 7505067178057863244}
+        m_TargetAssemblyTypeName: PlaySFX, Assembly-CSharp
+        m_MethodName: Play
+        m_Mode: 1
+        m_Arguments:
+          m_ObjectArgument: {fileID: 0}
+          m_ObjectArgumentAssemblyTypeName: UnityEngine.Object, UnityEngine
+          m_IntArgument: 0
+          m_FloatArgument: 0
+          m_StringArgument: 
+          m_BoolArgument: 0
+        m_CallState: 2
+--- !u!114 &7505067178057863244
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 449743121983973959}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: bd0dada6d57df234194d478115736d0f, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: Assembly-CSharp::PlaySFX
+  sfxToPlay: 6
 --- !u!1 &459611805755334971
 GameObject:
   m_ObjectHideFlags: 0
@@ -6258,6 +6284,7 @@ GameObject:
   - component: {fileID: 2345285817332907477}
   - component: {fileID: 3466418968648901285}
   - component: {fileID: 7330702601405462362}
+  - component: {fileID: 8593217837033452601}
   m_Layer: 5
   m_Name: ReturnToMainMenuButton
   m_TagString: Untagged
@@ -6366,7 +6393,32 @@ MonoBehaviour:
   m_TargetGraphic: {fileID: 3466418968648901285}
   m_OnClick:
     m_PersistentCalls:
-      m_Calls: []
+      m_Calls:
+      - m_Target: {fileID: 8593217837033452601}
+        m_TargetAssemblyTypeName: PlaySFX, Assembly-CSharp
+        m_MethodName: Play
+        m_Mode: 1
+        m_Arguments:
+          m_ObjectArgument: {fileID: 0}
+          m_ObjectArgumentAssemblyTypeName: UnityEngine.Object, UnityEngine
+          m_IntArgument: 0
+          m_FloatArgument: 0
+          m_StringArgument: 
+          m_BoolArgument: 0
+        m_CallState: 2
+--- !u!114 &8593217837033452601
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 1082875660221168099}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: bd0dada6d57df234194d478115736d0f, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: Assembly-CSharp::PlaySFX
+  sfxToPlay: 6
 --- !u!1 &1116820909835594855
 GameObject:
   m_ObjectHideFlags: 0
@@ -9058,6 +9110,7 @@ GameObject:
   - component: {fileID: 3726700018953153277}
   - component: {fileID: 4480587846362672141}
   - component: {fileID: 4284391679953162521}
+  - component: {fileID: 3287042022428735597}
   m_Layer: 5
   m_Name: ViewFullDeckButton
   m_TagString: Untagged
@@ -9166,7 +9219,32 @@ MonoBehaviour:
   m_TargetGraphic: {fileID: 4480587846362672141}
   m_OnClick:
     m_PersistentCalls:
-      m_Calls: []
+      m_Calls:
+      - m_Target: {fileID: 3287042022428735597}
+        m_TargetAssemblyTypeName: PlaySFX, Assembly-CSharp
+        m_MethodName: Play
+        m_Mode: 1
+        m_Arguments:
+          m_ObjectArgument: {fileID: 0}
+          m_ObjectArgumentAssemblyTypeName: UnityEngine.Object, UnityEngine
+          m_IntArgument: 0
+          m_FloatArgument: 0
+          m_StringArgument: 
+          m_BoolArgument: 0
+        m_CallState: 2
+--- !u!114 &3287042022428735597
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 3035369181139711952}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: bd0dada6d57df234194d478115736d0f, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: Assembly-CSharp::PlaySFX
+  sfxToPlay: 6
 --- !u!1 &3054032396136774698
 GameObject:
   m_ObjectHideFlags: 0
@@ -11216,6 +11294,7 @@ GameObject:
   - component: {fileID: 2947609731020147459}
   - component: {fileID: 7914175718122364422}
   - component: {fileID: 1742629230848010456}
+  - component: {fileID: 4620449355689950907}
   m_Layer: 5
   m_Name: ViewPokerRankButton
   m_TagString: Untagged
@@ -11337,6 +11416,31 @@ MonoBehaviour:
           m_StringArgument: 
           m_BoolArgument: 1
         m_CallState: 2
+      - m_Target: {fileID: 4620449355689950907}
+        m_TargetAssemblyTypeName: PlaySFX, Assembly-CSharp
+        m_MethodName: Play
+        m_Mode: 1
+        m_Arguments:
+          m_ObjectArgument: {fileID: 0}
+          m_ObjectArgumentAssemblyTypeName: UnityEngine.Object, UnityEngine
+          m_IntArgument: 0
+          m_FloatArgument: 0
+          m_StringArgument: 
+          m_BoolArgument: 1
+        m_CallState: 2
+--- !u!114 &4620449355689950907
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 4587929171610186852}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: bd0dada6d57df234194d478115736d0f, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: Assembly-CSharp::PlaySFX
+  sfxToPlay: 6
 --- !u!1 &4741114765959290054
 GameObject:
   m_ObjectHideFlags: 0
@@ -17804,6 +17908,7 @@ GameObject:
   - component: {fileID: 2838589128133287557}
   - component: {fileID: 8032383194428888803}
   - component: {fileID: 4154608894887255233}
+  - component: {fileID: 2407282441965443039}
   m_Layer: 5
   m_Name: CloseButton
   m_TagString: Untagged
@@ -17912,7 +18017,32 @@ MonoBehaviour:
   m_TargetGraphic: {fileID: 8032383194428888803}
   m_OnClick:
     m_PersistentCalls:
-      m_Calls: []
+      m_Calls:
+      - m_Target: {fileID: 2407282441965443039}
+        m_TargetAssemblyTypeName: PlaySFX, Assembly-CSharp
+        m_MethodName: Play
+        m_Mode: 1
+        m_Arguments:
+          m_ObjectArgument: {fileID: 0}
+          m_ObjectArgumentAssemblyTypeName: UnityEngine.Object, UnityEngine
+          m_IntArgument: 0
+          m_FloatArgument: 0
+          m_StringArgument: 
+          m_BoolArgument: 0
+        m_CallState: 2
+--- !u!114 &2407282441965443039
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 8052324582710593082}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: bd0dada6d57df234194d478115736d0f, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: Assembly-CSharp::PlaySFX
+  sfxToPlay: 6
 --- !u!1 &8074689878840125471
 GameObject:
   m_ObjectHideFlags: 0

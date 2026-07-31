@@ -20,6 +20,7 @@ public enum ESfx
     MONEY_CHANGE_MID,
     MONEY_CHANGE_HIGH,
     SHOP_PURCHASE,
+    UI_BUTTON_CLICK,
     NONE,
 }
 

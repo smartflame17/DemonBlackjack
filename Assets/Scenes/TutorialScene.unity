@@ -269,6 +269,14 @@ PrefabInstance:
     serializedVersion: 3
     m_TransformParent: {fileID: 0}
     m_Modifications:
+    - target: {fileID: 3807953318219346791, guid: 3b43cc54ec89f4f46adce2f5f3f1f069, type: 3}
+      propertyPath: sfxClips.Array.data[7].sfxClip
+      value: 
+      objectReference: {fileID: 8300000, guid: 7b3ce9ad562d3a74e8a5d0ef8f995629, type: 3}
+    - target: {fileID: 3807953318219346791, guid: 3b43cc54ec89f4f46adce2f5f3f1f069, type: 3}
+      propertyPath: sfxClips.Array.data[7].sfxType
+      value: 5
+      objectReference: {fileID: 0}
     - target: {fileID: 6212842997794272802, guid: 3b43cc54ec89f4f46adce2f5f3f1f069, type: 3}
       propertyPath: m_LocalPosition.x
       value: 888.6813
@@ -4776,6 +4784,10 @@ PrefabInstance:
       propertyPath: battleController
       value: 
       objectReference: {fileID: 1399201285}
+    - target: {fileID: 4161234190337302430, guid: 6d22f433a0b70eb46bb7a78c0688a7c0, type: 3}
+      propertyPath: shopPanelAnimationDuration
+      value: 0.1
+      objectReference: {fileID: 0}
     - target: {fileID: 4466789564281346398, guid: 6d22f433a0b70eb46bb7a78c0688a7c0, type: 3}
       propertyPath: m_AnchorMax.y
       value: 0

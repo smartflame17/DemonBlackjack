@@ -67,4 +67,7 @@ MonoBehaviour:
   - sfxType: 5
     sfxClip: {fileID: 8300000, guid: 7b3ce9ad562d3a74e8a5d0ef8f995629, type: 3}
     description: 
+  - sfxType: 6
+    sfxClip: {fileID: 8300000, guid: 20ced203c8646c245b3f8844e42ea34a, type: 3}
+    description: 
   poolSize: 10
