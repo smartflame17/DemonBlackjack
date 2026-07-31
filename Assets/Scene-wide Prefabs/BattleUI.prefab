@@ -4374,6 +4374,8 @@ MonoBehaviour:
   combatant: 0
   runManager: {fileID: 0}
   battleController: {fileID: 0}
+  damageNumber: {fileID: 5133676904605526911}
+  textEffectDelaySeconds: 0.2
 --- !u!1 &5332484941833449811
 GameObject:
   m_ObjectHideFlags: 0
@@ -7286,6 +7288,8 @@ MonoBehaviour:
   combatant: 1
   runManager: {fileID: 0}
   battleController: {fileID: 0}
+  damageNumber: {fileID: 5133676904605526911}
+  textEffectDelaySeconds: 0.2
 --- !u!1 &7440176013968981149
 GameObject:
   m_ObjectHideFlags: 0

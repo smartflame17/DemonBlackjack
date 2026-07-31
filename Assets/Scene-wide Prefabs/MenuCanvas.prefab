@@ -6026,6 +6026,7 @@ GameObject:
   - component: {fileID: 6197490614037462877}
   - component: {fileID: 5033473599070487522}
   - component: {fileID: 4321469607087590979}
+  - component: {fileID: 5651241525677225958}
   m_Layer: 5
   m_Name: CloseButton
   m_TagString: Untagged
@@ -6134,7 +6135,32 @@ MonoBehaviour:
   m_TargetGraphic: {fileID: 5033473599070487522}
   m_OnClick:
     m_PersistentCalls:
-      m_Calls: []
+      m_Calls:
+      - m_Target: {fileID: 5651241525677225958}
+        m_TargetAssemblyTypeName: PlaySFX, Assembly-CSharp
+        m_MethodName: Play
+        m_Mode: 1
+        m_Arguments:
+          m_ObjectArgument: {fileID: 0}
+          m_ObjectArgumentAssemblyTypeName: UnityEngine.Object, UnityEngine
+          m_IntArgument: 0
+          m_FloatArgument: 0
+          m_StringArgument: 
+          m_BoolArgument: 0
+        m_CallState: 2
+--- !u!114 &5651241525677225958
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 919354891564518342}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: bd0dada6d57df234194d478115736d0f, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: Assembly-CSharp::PlaySFX
+  sfxToPlay: 6
 --- !u!1 &991544553183065089
 GameObject:
   m_ObjectHideFlags: 0
@@ -10470,6 +10496,7 @@ GameObject:
   - component: {fileID: 7234465781082833849}
   - component: {fileID: 6294927252710510055}
   - component: {fileID: 5471968246129487980}
+  - component: {fileID: 1565534788047123812}
   m_Layer: 5
   m_Name: BySuitButton
   m_TagString: Untagged
@@ -10578,7 +10605,32 @@ MonoBehaviour:
   m_TargetGraphic: {fileID: 6294927252710510055}
   m_OnClick:
     m_PersistentCalls:
-      m_Calls: []
+      m_Calls:
+      - m_Target: {fileID: 1565534788047123812}
+        m_TargetAssemblyTypeName: PlaySFX, Assembly-CSharp
+        m_MethodName: Play
+        m_Mode: 1
+        m_Arguments:
+          m_ObjectArgument: {fileID: 0}
+          m_ObjectArgumentAssemblyTypeName: UnityEngine.Object, UnityEngine
+          m_IntArgument: 0
+          m_FloatArgument: 0
+          m_StringArgument: 
+          m_BoolArgument: 0
+        m_CallState: 2
+--- !u!114 &1565534788047123812
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 4027328174384004671}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: bd0dada6d57df234194d478115736d0f, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: Assembly-CSharp::PlaySFX
+  sfxToPlay: 6
 --- !u!1 &4078118016536236693
 GameObject:
   m_ObjectHideFlags: 0
@@ -14871,6 +14923,7 @@ GameObject:
   - component: {fileID: 1541897893406937797}
   - component: {fileID: 845146327815234752}
   - component: {fileID: 5091120337915223890}
+  - component: {fileID: 1383691565973332937}
   m_Layer: 5
   m_Name: ByRankButton
   m_TagString: Untagged
@@ -14979,7 +15032,32 @@ MonoBehaviour:
   m_TargetGraphic: {fileID: 845146327815234752}
   m_OnClick:
     m_PersistentCalls:
-      m_Calls: []
+      m_Calls:
+      - m_Target: {fileID: 1383691565973332937}
+        m_TargetAssemblyTypeName: PlaySFX, Assembly-CSharp
+        m_MethodName: Play
+        m_Mode: 1
+        m_Arguments:
+          m_ObjectArgument: {fileID: 0}
+          m_ObjectArgumentAssemblyTypeName: UnityEngine.Object, UnityEngine
+          m_IntArgument: 0
+          m_FloatArgument: 0
+          m_StringArgument: 
+          m_BoolArgument: 0
+        m_CallState: 2
+--- !u!114 &1383691565973332937
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 6604088227050121757}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: bd0dada6d57df234194d478115736d0f, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: Assembly-CSharp::PlaySFX
+  sfxToPlay: 6
 --- !u!1 &6647186797637374633
 GameObject:
   m_ObjectHideFlags: 0
@@ -17392,6 +17470,7 @@ GameObject:
   - component: {fileID: 2332841873281071537}
   - component: {fileID: 281433518507044597}
   - component: {fileID: 2115100337130644519}
+  - component: {fileID: 2881859788964956831}
   m_Layer: 5
   m_Name: CloseButton
   m_TagString: Untagged
@@ -17500,7 +17579,32 @@ MonoBehaviour:
   m_TargetGraphic: {fileID: 281433518507044597}
   m_OnClick:
     m_PersistentCalls:
-      m_Calls: []
+      m_Calls:
+      - m_Target: {fileID: 2881859788964956831}
+        m_TargetAssemblyTypeName: PlaySFX, Assembly-CSharp
+        m_MethodName: Play
+        m_Mode: 1
+        m_Arguments:
+          m_ObjectArgument: {fileID: 0}
+          m_ObjectArgumentAssemblyTypeName: UnityEngine.Object, UnityEngine
+          m_IntArgument: 0
+          m_FloatArgument: 0
+          m_StringArgument: 
+          m_BoolArgument: 0
+        m_CallState: 2
+--- !u!114 &2881859788964956831
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 7897015396554767540}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: bd0dada6d57df234194d478115736d0f, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: Assembly-CSharp::PlaySFX
+  sfxToPlay: 6
 --- !u!1 &7901373104021945692
 GameObject:
   m_ObjectHideFlags: 0

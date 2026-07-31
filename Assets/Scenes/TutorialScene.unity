@@ -7204,6 +7204,18 @@ PrefabInstance:
       propertyPath: settingMenuController
       value: 
       objectReference: {fileID: 1180492817}
+    - target: {fileID: 6306171219915729862, guid: 2814d60b4240b3a4da323c2009a0a758, type: 3}
+      propertyPath: runManager
+      value: 
+      objectReference: {fileID: 562614337}
+    - target: {fileID: 6306171219915729862, guid: 2814d60b4240b3a4da323c2009a0a758, type: 3}
+      propertyPath: damageNumber
+      value: 
+      objectReference: {fileID: 2122472519}
+    - target: {fileID: 6306171219915729862, guid: 2814d60b4240b3a4da323c2009a0a758, type: 3}
+      propertyPath: battleController
+      value: 
+      objectReference: {fileID: 1399201285}
     - target: {fileID: 7836611099148797895, guid: 2814d60b4240b3a4da323c2009a0a758, type: 3}
       propertyPath: m_AnchorMax.y
       value: 0
@@ -13229,6 +13241,17 @@ PrefabInstance:
     m_AddedGameObjects: []
     m_AddedComponents: []
   m_SourcePrefab: {fileID: 100100000, guid: 8080b0b46eba5d14f97bc1a99c519826, type: 3}
+--- !u!114 &2122472519 stripped
+MonoBehaviour:
+  m_CorrespondingSourceObject: {fileID: 5133676904605526911, guid: 8080b0b46eba5d14f97bc1a99c519826, type: 3}
+  m_PrefabInstance: {fileID: 2122472518}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 0}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 970bc0384e845f941a90f0d12b80b0c0, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: DamageNumbersPro::DamageNumbersPro.DamageNumberGUI
 --- !u!1 &2122900731
 GameObject:
   m_ObjectHideFlags: 0

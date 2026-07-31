@@ -9257,6 +9257,17 @@ MonoBehaviour:
     m_PersistentCalls:
       m_Calls: []
   m_AlphaFadeSpeed: 0.15
+--- !u!114 &1711679079 stripped
+MonoBehaviour:
+  m_CorrespondingSourceObject: {fileID: 5133676904605526911, guid: 8080b0b46eba5d14f97bc1a99c519826, type: 3}
+  m_PrefabInstance: {fileID: 5310082645424726692}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 0}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 970bc0384e845f941a90f0d12b80b0c0, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: DamageNumbersPro::DamageNumbersPro.DamageNumberGUI
 --- !u!1 &1715671833
 GameObject:
   m_ObjectHideFlags: 0
@@ -12409,6 +12420,10 @@ PrefabInstance:
       propertyPath: runManager
       value: 
       objectReference: {fileID: 562614337}
+    - target: {fileID: 6306171219915729862, guid: 2814d60b4240b3a4da323c2009a0a758, type: 3}
+      propertyPath: damageNumber
+      value: 
+      objectReference: {fileID: 1711679079}
     - target: {fileID: 6306171219915729862, guid: 2814d60b4240b3a4da323c2009a0a758, type: 3}
       propertyPath: battleController
       value: 
