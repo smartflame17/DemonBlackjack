@@ -88,7 +88,8 @@ public sealed class SceneTransitionManager : MonoBehaviour
             Debug.LogError("Cannot transition to a scene with an empty name.", this);
             return;
         }
-
+        if (SoundManager.Instance != null && SoundManager.Instance.CurrentBGM != EBgm.NONE)
+            SoundManager.Instance?.FadeOutBGM(1.0f);
         StartCoroutine(TransitionToScene(sceneName));
     }
 

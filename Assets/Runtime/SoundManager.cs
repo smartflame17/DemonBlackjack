@@ -7,6 +7,7 @@ public enum EBgm
 {
     TITLE,
     GAME,
+    NONE,
 }
 
 // SFX
@@ -18,6 +19,7 @@ public enum ESfx
     MONEY_CHANGE_MID,
     MONEY_CHANGE_HIGH,
     SHOP_PURCHASE,
+    NONE,
 }
 
 [System.Serializable]
@@ -53,7 +55,8 @@ public class SoundManager : MonoBehaviour
     private Queue<AudioSource> audioSourcePool;
 
     private AudioSource bgmPlayer;
-    private AudioSource sfxPlayer;
+    public EBgm CurrentBGM { get; private set; } = EBgm.NONE;
+    public ESfx CurrentSFX { get; private set; } = ESfx.NONE;
 
     private void Awake()
     {
@@ -116,6 +119,7 @@ public class SoundManager : MonoBehaviour
                 }
                 else source.pitch = 1f;
                 source.Play();
+                CurrentSFX = sfxType;
 
                 StartCoroutine(ReturnToPool(source, clip.length));
             }
@@ -126,6 +130,7 @@ public class SoundManager : MonoBehaviour
                 newSource.playOnAwake = false;
                 newSource.enabled = true;
                 newSource.Play();
+                CurrentSFX = sfxType;
 
                 StartCoroutine(ReturnToPool(newSource, clip.length));
             }
@@ -141,10 +146,52 @@ public class SoundManager : MonoBehaviour
             {
                 bgmPlayer.clip = clip;
                 bgmPlayer.Play();
+                CurrentBGM = bgmType;
             }
         }
         else Debug.LogWarning("BGM not found: " + bgmType.ToString());
         
+    }
+
+    public void SetBGMVolume(float volume)
+    {
+        bgmPlayer.volume = Mathf.Clamp01(volume);
+    }
+
+    public void StopBGM()
+    {
+        bgmPlayer.Stop();
+        CurrentBGM = EBgm.NONE; // Reset to default BGM type
+    }
+
+    public void FadeOutBGM(float duration = 1.0f)
+    {
+        StartCoroutine(FadeOutCoroutine(duration));
+    }
+
+    private IEnumerator FadeOutCoroutine(float duration)
+    {
+        float startVolume = bgmPlayer.volume;
+        float elapsedTime = 0f;
+
+        while (elapsedTime < duration)
+        {
+            elapsedTime += Time.deltaTime;
+            bgmPlayer.volume = Mathf.Lerp(startVolume, 0f, elapsedTime / duration);
+            yield return null;
+        }
+
+        bgmPlayer.Stop();
+        bgmPlayer.volume = startVolume; // Reset volume for next play
+        CurrentBGM = EBgm.NONE; // Reset to default BGM type
+    }
+
+    public void SetSFXVolume(float volume)
+    {
+        foreach (var source in audioSourcePool)
+        {
+            source.volume = Mathf.Clamp01(volume);
+        }
     }
 
     private IEnumerator ReturnToPool(AudioSource source, float delay)

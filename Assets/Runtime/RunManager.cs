@@ -82,6 +82,8 @@ public class RunManager : MonoBehaviour, IDataPersistence
         SetPhase(RunPhase.Battle);
         EventBus.Publish(new BattleStartedEvent(battleConfig.EncounterId, RunState.CreateBattleSeed(), RunState.Money, battleConfig.OpponentStartingMoney));
         Debug.Log("Battle started against " + battleConfig.EncounterId + ", event published");
+
+        SoundManager.Instance?.PlayBGM(EBgm.GAME);
     }
 
     public void AdvanceAfterEncounter()
@@ -99,6 +101,8 @@ public class RunManager : MonoBehaviour, IDataPersistence
 
         SetPhase(RunPhase.Map);
         Debug.Log($"Returning to map. Money: {RunState.Money}, Encounter Index: {RunState.EncounterIndex}");
+        if (SoundManager.Instance != null && SoundManager.Instance.CurrentBGM != EBgm.NONE)
+            SoundManager.Instance?.FadeOutBGM(1.0f);
     }
 
     public bool OpenShop()
@@ -109,6 +113,7 @@ public class RunManager : MonoBehaviour, IDataPersistence
 
         SetPhase(RunPhase.Shop);
         EventBus.Publish(new ShopOpenedEvent(RunState.EncounterIndex, battle.RoundNumber));
+
         return true;
     }
 
