@@ -1,0 +1,67 @@
+%YAML 1.1
+%TAG !u! tag:unity3d.com,2011:
+--- !u!1 &6960757674052290180
+GameObject:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  serializedVersion: 6
+  m_Component:
+  - component: {fileID: 6212842997794272802}
+  - component: {fileID: 3807953318219346791}
+  m_Layer: 0
+  m_Name: AudioManager
+  m_TagString: Untagged
+  m_Icon: {fileID: 0}
+  m_NavMeshLayer: 0
+  m_StaticEditorFlags: 0
+  m_IsActive: 1
+--- !u!4 &6212842997794272802
+Transform:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 6960757674052290180}
+  serializedVersion: 2
+  m_LocalRotation: {x: 0, y: 0, z: 0, w: 1}
+  m_LocalPosition: {x: 726.0715, y: 473.256, z: 0}
+  m_LocalScale: {x: 1, y: 1, z: 1}
+  m_ConstrainProportionsScale: 0
+  m_Children: []
+  m_Father: {fileID: 0}
+  m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
+--- !u!114 &3807953318219346791
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 6960757674052290180}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: acb65638554d078479d1363d89534537, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: Assembly-CSharp::SoundManager
+  bgmClips: []
+  sfxClips:
+  - sfxType: 0
+    sfxClip: {fileID: 8300000, guid: 2d68cc75d5290a547997b3cb7d3b1536, type: 3}
+    description: 
+  - sfxType: 1
+    sfxClip: {fileID: 8300000, guid: 1a86e74f088f941429f03ea1bef1ef07, type: 3}
+    description: 
+  - sfxType: 2
+    sfxClip: {fileID: 8300000, guid: 8e4a57cb998db6f45b6af841151c881f, type: 3}
+    description: 
+  - sfxType: 3
+    sfxClip: {fileID: 8300000, guid: 37353c69680d7cc49ac80d7cd489db14, type: 3}
+    description: 
+  - sfxType: 4
+    sfxClip: {fileID: 8300000, guid: 20410ac89fa4f604dabe4159b5e9aae2, type: 3}
+    description: 
+  - sfxType: 5
+    sfxClip: {fileID: 8300000, guid: 7b3ce9ad562d3a74e8a5d0ef8f995629, type: 3}
+    description: 
+  poolSize: 10
