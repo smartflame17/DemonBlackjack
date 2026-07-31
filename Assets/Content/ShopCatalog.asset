@@ -28,8 +28,22 @@ MonoBehaviour:
   - {fileID: 11400000, guid: eeb4d0910e5f667428f6f92ad0ff41f9, type: 2}
   cardUpgrades:
   - {fileID: 11400000, guid: dbf9f9e2035dba4409d918b999db28bd, type: 2}
+  - {fileID: 11400000, guid: 8f1a45c5a7209e04a8702c01e1614d9b, type: 2}
+  - {fileID: 11400000, guid: 350a6767d7a0154498802dda2db8c715, type: 2}
+  - {fileID: 11400000, guid: 8c89df5b095899d4988fe7017fb9f167, type: 2}
+  - {fileID: 11400000, guid: 6a74fa3766df5f24a944360bd23d2c46, type: 2}
   - {fileID: 11400000, guid: 1d076513cf749054d9a9c5f8eb8a34fa, type: 2}
   - {fileID: 11400000, guid: c276ee6e796cc6a4ca8a341c3f1a4c53, type: 2}
+  - {fileID: 11400000, guid: 7a2478a47241cd848a978dc39f0cacec, type: 2}
+  - {fileID: 11400000, guid: 259ce5a68178594449c86ff6e9725a1a, type: 2}
   - {fileID: 11400000, guid: 46de8d85f124a244db3a8636bcbfb133, type: 2}
+  - {fileID: 11400000, guid: fa47e05bfd49d3d41aa885937cd66ac1, type: 2}
+  - {fileID: 11400000, guid: 39d0e6c00ca33014bb12b6942b0d89b8, type: 2}
   - {fileID: 11400000, guid: 24d441e244b606045acf570bcc2300a5, type: 2}
+  - {fileID: 11400000, guid: 658a98ef93354e94b811144e39f08c87, type: 2}
   - {fileID: 11400000, guid: 088c852b295b24c49b8d3cd259fb6352, type: 2}
+  - {fileID: 11400000, guid: 74c11605d5af0664c97152ddb0f4a3f0, type: 2}
+  - {fileID: 11400000, guid: 89cc1fb6052ca4b4fa1bf84c50fe4961, type: 2}
+  - {fileID: 11400000, guid: 357e178680e4e924bb575a4f7a817174, type: 2}
+  - {fileID: 11400000, guid: 732950b380ea94b41afa23ba5e64d23c, type: 2}
+  - {fileID: 11400000, guid: 7d187a8bdfb7be04ea8563ab18607d76, type: 2}
