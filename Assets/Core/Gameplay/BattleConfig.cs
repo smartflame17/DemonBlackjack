@@ -9,7 +9,6 @@ public sealed class BattleConfig
         int opponentStartingMoney,
         IDevilStrategy devilStrategy = null,
         int startingHandSize = 3,
-        int targetScore = 21,
         int burstThreshold = 21,
         int baseWager = 10,
         string devilId = null,
@@ -22,7 +21,6 @@ public sealed class BattleConfig
         OpponentStartingMoney = opponentStartingMoney <= 0 ? 100 : opponentStartingMoney;
         DevilStrategy = devilStrategy ?? new BasicDevilStrategy();
         StartingHandSize = startingHandSize <= 0 ? 3 : startingHandSize;
-        TargetScore = targetScore <= 0 ? 21 : targetScore;
         BurstThreshold = burstThreshold <= 0 ? 21 : burstThreshold;
         BaseWager = Math.Max(1, baseWager);
         InitialModifiers = initialModifiers?.ToList() ?? new List<Modifier>();

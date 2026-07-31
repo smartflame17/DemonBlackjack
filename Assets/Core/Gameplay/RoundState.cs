@@ -24,10 +24,9 @@ public sealed class RoundState
     private readonly int _maxPlayedPileCardCount;
     private int _lastPlayerHitCardIndex = -1;
 
-    public RoundState(int roundNumber, int targetScore, int playerBurstThreshold, int opponentBurstThreshold, int baseWager, bool playerActsFirst)
+    public RoundState(int roundNumber, int playerBurstThreshold, int opponentBurstThreshold, int baseWager, bool playerActsFirst)
         : this(
             roundNumber,
-            targetScore,
             playerBurstThreshold,
             opponentBurstThreshold,
             baseWager,
@@ -38,7 +37,6 @@ public sealed class RoundState
 
     public RoundState(
         int roundNumber,
-        int targetScore,
         int playerBurstThreshold,
         int opponentBurstThreshold,
         int baseWager,
@@ -46,7 +44,6 @@ public sealed class RoundState
         int maxPlayedPileCardCount)
     {
         RoundNumber = roundNumber;
-        TargetScore = targetScore;
         PlayerBurstThreshold = playerBurstThreshold;
         OpponentBurstThreshold = opponentBurstThreshold;
         BaseWager = Math.Max(0, baseWager);
@@ -55,7 +52,6 @@ public sealed class RoundState
     }
 
     public int RoundNumber { get; }
-    public int TargetScore { get; }
     public int PlayerBurstThreshold { get; private set; }
     public int OpponentBurstThreshold { get; private set; }
     public int BurstThreshold => PlayerBurstThreshold;

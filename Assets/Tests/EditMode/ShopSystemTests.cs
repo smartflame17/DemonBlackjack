@@ -3298,7 +3298,6 @@ public sealed class ShopSystemTests
     {
         return new RoundState(
             roundNumber: 1,
-            targetScore: 21,
             playerBurstThreshold: 21,
             opponentBurstThreshold: 21,
             baseWager: 10,

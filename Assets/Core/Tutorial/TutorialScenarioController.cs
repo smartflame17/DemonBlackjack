@@ -170,7 +170,6 @@ public sealed class TutorialScenarioController : MonoBehaviour, IBattleInputGate
             round.OpponentStartingMoney,
             new TutorialDevilStrategy(round.OpponentDrawValue, round.OpponentStandScore),
             round.PlayerStartingHandSize,
-            round.TargetScore,
             round.BurstThreshold,
             round.BaseWager,
             round.DevilId,

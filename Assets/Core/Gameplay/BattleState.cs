@@ -80,12 +80,11 @@ public sealed class BattleState
 
         bool playerActsFirst = RoundNumber % 2 == 0;
         int nextRoundNumber = RoundNumber + 1;
-        int targetScore = RelicRuleResolver.ResolveTargetScore(RunState, Config.TargetScore);
         int playerBurstThreshold = RelicRuleResolver.ResolvePlayerBurstThreshold(RunState, Config.BurstThreshold);
         int opponentBurstThreshold = RelicRuleResolver.ResolveOpponentBurstThreshold(RunState, Config.BurstThreshold);
         int playerStake = Math.Min(PlayerMoney, proposedWager);
         int opponentStake = Math.Min(OpponentMoney, proposedWager);
-        var nextRound = new RoundState(nextRoundNumber, targetScore, playerBurstThreshold, opponentBurstThreshold, proposedWager, playerActsFirst);
+        var nextRound = new RoundState(nextRoundNumber, playerBurstThreshold, opponentBurstThreshold, proposedWager, playerActsFirst);
         if (!nextRound.TryCommitWager(playerStake, opponentStake))
             return false;
 
@@ -1086,8 +1085,8 @@ public sealed class BattleState
 
     private void ResolveScores()
     {
-        ScoreResult playerScore = ScoreResolver.Resolve(CurrentRound.PlayerPlayedCards, CurrentRound.ScoringModifiers, CurrentRound.TargetScore, CurrentRound.PlayerBurstThreshold);
-        ScoreResult opponentScore = ScoreResolver.Resolve(CurrentRound.OpponentVisibleCards, CurrentRound.ScoringModifiers, CurrentRound.TargetScore, CurrentRound.OpponentBurstThreshold, GetOpponentBlackjackBonus());
+        ScoreResult playerScore = ScoreResolver.Resolve(CurrentRound.PlayerPlayedCards, CurrentRound.ScoringModifiers, CurrentRound.PlayerBurstThreshold);
+        ScoreResult opponentScore = ScoreResolver.Resolve(CurrentRound.OpponentVisibleCards, CurrentRound.ScoringModifiers,CurrentRound.OpponentBurstThreshold, GetOpponentBlackjackBonus());
         PokerResult playerPoker = ScoreResolver.ResolvePoker(CurrentRound.PlayerPlayedCards);
         PokerResult opponentPoker = ScoreResolver.ResolvePoker(CurrentRound.OpponentVisibleCards);
         CurrentRound.SetScores(playerScore, opponentScore);

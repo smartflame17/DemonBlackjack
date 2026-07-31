@@ -16,15 +16,15 @@ public static class ScoreResolver
         Rank.Ace
     };
 
-    public static ScoreResult Resolve(IReadOnlyList<Card> cards, IReadOnlyList<Modifier> modifiers, int targetScore, int burstThreshold, int blackjackBonus = 0)
+    public static ScoreResult Resolve(IReadOnlyList<Card> cards, IReadOnlyList<Modifier> modifiers, int burstThreshold, int blackjackBonus = 0)
     {
-        int blackjackScore = ResolveBlackjackScore(cards) + blackjackBonus;
+        int blackjackScore = ResolveBlackjackScore(cards, burstThreshold) + blackjackBonus;
         bool isBurst = blackjackScore > burstThreshold;
 
         PokerResult poker = ResolvePoker(cards);
 
         float modifiedScore = ApplyModifiers(blackjackScore, 1, modifiers);
-        bool isBlackjack = modifiedScore == targetScore;
+        bool isBlackjack = modifiedScore == burstThreshold;
 
         return new ScoreResult(blackjackScore, (int)modifiedScore, poker.Rank, poker.Multiplier, isBurst, isBlackjack);
     }
@@ -35,7 +35,7 @@ public static class ScoreResolver
         return new PokerResult(rank, GetPokerMultiplier(rank), cardIndices);
     }
 
-    private static int ResolveBlackjackScore(IReadOnlyList<Card> cards)
+    private static int ResolveBlackjackScore(IReadOnlyList<Card> cards, int burstThreshold)
     {
         int score = 0;
         int aces = 0;
@@ -49,7 +49,7 @@ public static class ScoreResolver
                 aces++;
         }
 
-        while (score > 21 && aces > 0)
+        while (score > burstThreshold && aces > 0)
         {
             score -= 10;
             aces--;

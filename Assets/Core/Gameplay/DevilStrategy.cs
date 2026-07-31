@@ -79,8 +79,8 @@ public class BasicDevilStrategy : IDevilStrategy
         if (battle == null || round == null)
             return DevilTurnChoice.Stand;
 
-        ScoreResult currentScore = ScoreResolver.Resolve(round.OpponentVisibleCards, round.ScoringModifiers, round.TargetScore, round.OpponentBurstThreshold);
-        if (currentScore.FinalScore >= round.TargetScore)
+        ScoreResult currentScore = ScoreResolver.Resolve(round.OpponentVisibleCards, round.ScoringModifiers, round.OpponentBurstThreshold);
+        if (currentScore.FinalScore >= round.OpponentBurstThreshold)
             return DevilTurnChoice.Stand;
 
         int bestHandIndex = FindBestPlayableCardIndex(round.OpponentHand, round.OpponentVisibleCards, round);
@@ -130,7 +130,7 @@ public class BasicDevilStrategy : IDevilStrategy
         for (int i = 0; i < hand.Count; i++)
         {
             var cards = new List<Card>(visibleCards) { hand[i] };
-            ScoreResult score = ScoreResolver.Resolve(cards, round.ScoringModifiers, round.TargetScore, round.OpponentBurstThreshold);
+            ScoreResult score = ScoreResolver.Resolve(cards, round.ScoringModifiers, round.OpponentBurstThreshold);
             if (score.IsBurst)
                 continue;
 
