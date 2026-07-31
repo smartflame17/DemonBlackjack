@@ -4,7 +4,6 @@ using UnityEngine;
 public class SoundOnMoneyTransfer : MonoBehaviour
 {
     [SerializeField] private BattleController battleController;
-    [SerializeField] private int lowSoundThreshold = 1000; // Minimum amount of money change to trigger low sound
     [SerializeField] private int midSoundThreshold = 5000; // Minimum amount of money change to trigger mid sound
     [SerializeField] private int highSoundThreshold = 10000; // Minimum amount of money change to trigger high sound
     private BattleState _subscribedBattle;
