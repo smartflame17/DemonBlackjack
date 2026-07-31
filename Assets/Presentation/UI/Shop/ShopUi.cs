@@ -206,6 +206,7 @@ public sealed class ShopUi : MonoBehaviour
 
         _soldOfferKeys.Add(offerKey);
         slot.SetUnavailable();
+        PlayPurchaseSFX(ESfx.SHOP_PURCHASE);
     }
 
     private void PurchaseRelic(ShopSlotView slot, RelicDefinition offer, RunState run, string offerKey)
@@ -217,6 +218,7 @@ public sealed class ShopUi : MonoBehaviour
 
         _soldOfferKeys.Add(offerKey);
         slot.SetUnavailable();
+        PlayPurchaseSFX(ESfx.SHOP_PURCHASE);
     }
 
     private void PurchaseUpgrade(ShopSlotView slot, CardUpgradeOffer offer, RunState run, BattleController battleController, string offerKey)
@@ -233,6 +235,12 @@ public sealed class ShopUi : MonoBehaviour
             : null;
         presenter ??= UnityEngine.Object.FindFirstObjectByType<BattleUiPresenter>(FindObjectsInactive.Include);
         presenter?.Refresh();
+        PlayPurchaseSFX(ESfx.SHOP_PURCHASE);
+    }
+
+    private void PlayPurchaseSFX(ESfx sfxType)
+    {
+        SoundManager.Instance?.PlaySFX(sfxType, randomPitch: false);
     }
 
     private static string CreateOfferKey(ShopOfferType type, string id, Rank? rank)

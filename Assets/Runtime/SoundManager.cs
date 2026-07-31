@@ -14,6 +14,26 @@ public enum ESfx
 {
     CARD_PLAY,
     CARD_DRAW,
+    MONEY_CHANGE_LOW,
+    MONEY_CHANGE_MID,
+    MONEY_CHANGE_HIGH,
+    SHOP_PURCHASE,
+}
+
+[System.Serializable]
+public struct BGMSoundData
+{
+    public EBgm bgmType;
+    public AudioClip bgmClip;
+    public string description;
+}
+
+[System.Serializable]
+public struct SFXSoundData
+{
+    public ESfx sfxType;
+    public AudioClip sfxClip;
+    public string description;
 }
 
 
@@ -22,10 +42,8 @@ public class SoundManager : MonoBehaviour
     public static SoundManager Instance { get; private set; }
 
     [Header("Audio Clips")]
-    [Tooltip("Clip order must match the order of the EBgm enum.")]
-    [SerializeField] private AudioClip[] bgmClips;
-    [Tooltip("Clip order must match the order of the ESfx enum.")]
-    [SerializeField] private AudioClip[] sfxClips;
+    [SerializeField] private BGMSoundData[] bgmClips;
+    [SerializeField] private SFXSoundData[] sfxClips;
 
     [Header("Pool Settings")]
     [SerializeField] private int poolSize = 10;
@@ -35,6 +53,7 @@ public class SoundManager : MonoBehaviour
     private Queue<AudioSource> audioSourcePool;
 
     private AudioSource bgmPlayer;
+    private AudioSource sfxPlayer;
 
     private void Awake()
     {
@@ -55,13 +74,13 @@ public class SoundManager : MonoBehaviour
         bgmDict = new Dictionary<EBgm, AudioClip>();
         for (int i = 0; i < bgmClips.Length; i++)
         {
-            bgmDict[(EBgm)i] = bgmClips[i];
+            bgmDict[bgmClips[i].bgmType] = bgmClips[i].bgmClip;
         }
 
         sfxDict = new Dictionary<ESfx, AudioClip>();
         for (int i = 0; i < sfxClips.Length; i++)
         {
-            sfxDict[(ESfx)i] = sfxClips[i];
+            sfxDict[sfxClips[i].sfxType] = sfxClips[i].sfxClip;
         }
 
         bgmPlayer = gameObject.AddComponent<AudioSource>();
@@ -82,7 +101,7 @@ public class SoundManager : MonoBehaviour
         }
     }
 
-    public void PlaySFX(ESfx sfxType)
+    public void PlaySFX(ESfx sfxType, bool randomPitch = true, float minPitch = 0.8f, float maxPitch = 1.2f)
     {
         if (sfxDict.TryGetValue(sfxType, out var clip))
         {
@@ -91,6 +110,11 @@ public class SoundManager : MonoBehaviour
                 AudioSource source = audioSourcePool.Dequeue();
                 source.clip = clip;
                 source.enabled = true;
+                if (randomPitch)
+                {
+                    source.pitch = Random.Range(minPitch, maxPitch);
+                }
+                else source.pitch = 1f;
                 source.Play();
 
                 StartCoroutine(ReturnToPool(source, clip.length));
@@ -106,7 +130,7 @@ public class SoundManager : MonoBehaviour
                 StartCoroutine(ReturnToPool(newSource, clip.length));
             }
         }
-        else Debug.LogWarning("SFX not found");
+        else Debug.LogWarning("SFX not found: " + sfxType.ToString());
     }
 
     public void PlayBGM(EBgm bgmType)
@@ -119,7 +143,7 @@ public class SoundManager : MonoBehaviour
                 bgmPlayer.Play();
             }
         }
-        else Debug.LogWarning("BGM not found");
+        else Debug.LogWarning("BGM not found: " + bgmType.ToString());
         
     }
 
