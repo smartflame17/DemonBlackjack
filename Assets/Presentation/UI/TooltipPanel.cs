@@ -4,7 +4,7 @@ using UnityEngine.InputSystem;
 
 public sealed class TooltipPanel : MonoBehaviour
 {
-    [SerializeField] private ShopCatalog catalog;
+    [SerializeField] private TooltipContentCatalog catalog;
     [SerializeField] private TMP_Text displayNameText;
     [SerializeField] private TMP_Text descriptionText;
     [SerializeField] private Vector2 cursorOffset = new(20f, -20f);
@@ -35,8 +35,13 @@ public sealed class TooltipPanel : MonoBehaviour
 
     public bool Show(string contentId, TooltipTrigger owner, Vector2 screenPosition)
     {
+        return Show(contentId, null, owner, screenPosition);
+    }
+
+    public bool Show(string contentId, string fallbackContentId, TooltipTrigger owner, Vector2 screenPosition)
+    {
         EnsureReferences();
-        if (owner == null || catalog == null || !catalog.TryGetDefinition(contentId, out ShopContentDefinition definition))
+        if (owner == null || catalog == null || !TryGetDefinition(contentId, fallbackContentId, out TooltipContentDefinition definition))
         {
             Hide(null);
             return false;
@@ -98,12 +103,25 @@ public sealed class TooltipPanel : MonoBehaviour
         descriptionText ??= FindText("DescriptionText");
 
         if (catalog == null)
-            catalog = Resources.Load<ShopCatalog>("Shop/ShopCatalog");
-        catalog ??= ShopCatalog.CreateRuntimeDefault();
+        {
+            TooltipContentCatalog[] catalogs = Resources.FindObjectsOfTypeAll<TooltipContentCatalog>();
+            if (catalogs.Length > 0)
+                catalog = catalogs[0];
+        }
+        catalog ??= TooltipContentCatalog.CreateRuntimeDefault();
 
         CanvasGroup group = GetComponent<CanvasGroup>() ?? gameObject.AddComponent<CanvasGroup>();
         group.interactable = false;
         group.blocksRaycasts = false;
+    }
+
+    private bool TryGetDefinition(string contentId, string fallbackContentId, out TooltipContentDefinition definition)
+    {
+        if (catalog.TryGetDefinition(contentId, out definition))
+            return true;
+
+        return !string.Equals(contentId, fallbackContentId, System.StringComparison.OrdinalIgnoreCase)
+            && catalog.TryGetDefinition(fallbackContentId, out definition);
     }
 
     private TMP_Text FindText(string objectName)

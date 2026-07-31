@@ -9078,7 +9078,7 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: b264307ad549408f845e4058b5b47179, type: 3}
   m_Name: 
   m_EditorClassIdentifier: Assembly-CSharp::TooltipPanel
-  catalog: {fileID: 11400000, guid: e0c9c811fc78ee442864ce546964af65, type: 2}
+  catalog: {fileID: 11400000, guid: 82775060d144412790bf4b9007b0babf, type: 2}
   displayNameText: {fileID: 3953130659274395382}
   descriptionText: {fileID: 6737620109219486986}
   cursorOffset: {x: 160, y: -50}
@@ -10409,6 +10409,8 @@ MonoBehaviour:
   combatant: 0
   runManager: {fileID: 0}
   battleController: {fileID: 0}
+  damageNumber: {fileID: 0}
+  textEffectDelaySeconds: 0.2
 --- !u!1 &3962235171410431396
 GameObject:
   m_ObjectHideFlags: 0
@@ -16017,7 +16019,7 @@ MonoBehaviour:
   m_Name: 
   m_EditorClassIdentifier: UnityEngine.UI::UnityEngine.UI.Image
   m_Material: {fileID: 0}
-  m_Color: {r: 0.4, g: 0.4, b: 0.4, a: 0.6862745}
+  m_Color: {r: 0.20784314, g: 0.20784314, b: 0.20784314, a: 0.6862745}
   m_RaycastTarget: 1
   m_RaycastPadding: {x: 0, y: 0, z: 0, w: 0}
   m_Maskable: 1

@@ -15,6 +15,9 @@ public sealed class BattleUiPresenter : MonoBehaviour
     [SerializeField] private RunManager runManager;
     [SerializeField] private GameplayAssetRegistry assetRegistry;
 
+    [Header("Devil Ability")]
+    [SerializeField] private TooltipTrigger devilAbilityTooltipTrigger;
+
     [Header("Main")]
     [SerializeField] private BattleUiCardView cardPrefab;
     [SerializeField] private TMP_Text playerScoreText;
@@ -218,6 +221,7 @@ public sealed class BattleUiPresenter : MonoBehaviour
 
         BattleState battle = battleController != null ? battleController.BattleState : null;
         RoundState round = battle?.CurrentRound;
+        RefreshDevilAbilityTooltip(battle);
         CaptureHandSnapshots();
 
         if (battle == null)
@@ -1001,6 +1005,7 @@ public sealed class BattleUiPresenter : MonoBehaviour
 
     private void AutoBindLayout()
     {
+        devilAbilityTooltipTrigger ??= FindDescendantComponent<TooltipTrigger>("DevilAbilityInfo");
         playerScoreText ??= FindDescendantComponent<TMP_Text>("PlayerScore");
         devilScoreText ??= FindDescendantComponent<TMP_Text>("DevilScore");
         playerBurstThresholdText ??= FindDescendantComponent<TMP_Text>("PlayerThreshold");
@@ -1060,6 +1065,20 @@ public sealed class BattleUiPresenter : MonoBehaviour
         }
 
         devilStandIndicator?.Configure(battleController);
+    }
+
+    private void RefreshDevilAbilityTooltip(BattleState battle)
+    {
+        if (devilAbilityTooltipTrigger == null)
+            return;
+
+        if (battle == null || battle.IsBattleOver || battle.Config == null)
+        {
+            devilAbilityTooltipTrigger.Clear();
+            return;
+        }
+
+        devilAbilityTooltipTrigger.Bind(battle.Config.EncounterId, battle.Config.DevilId);
     }
 
     private GameObject FindDescendant(string objectName)

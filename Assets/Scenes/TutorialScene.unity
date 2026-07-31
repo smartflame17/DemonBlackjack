@@ -13228,6 +13228,10 @@ PrefabInstance:
       propertyPath: battleController
       value: 
       objectReference: {fileID: 1399201285}
+    - target: {fileID: 8800000000000000004, guid: 8080b0b46eba5d14f97bc1a99c519826, type: 3}
+      propertyPath: m_IsActive
+      value: 0
+      objectReference: {fileID: 0}
     - target: {fileID: 9160155601583543236, guid: 8080b0b46eba5d14f97bc1a99c519826, type: 3}
       propertyPath: m_AnchorMax.x
       value: 0
