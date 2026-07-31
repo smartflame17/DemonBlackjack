@@ -17,8 +17,11 @@ public class SoundOnCardPlay : MonoBehaviour
             battleController = FindFirstObjectByType<BattleController>();
 
         SubscribeToCurrentBattle();
-        _subscribedBattle.EventBus.Subscribe<CardPlayedEvent>(OnCardPlayed);
-        _subscribedBattle.EventBus.Subscribe<CardDrawnEvent>(OnCardDrawn);
+        if (_subscribedBattle != null)
+        {
+            _subscribedBattle.EventBus.Subscribe<CardPlayedEvent>(OnCardPlayed);
+            _subscribedBattle.EventBus.Subscribe<CardDrawnEvent>(OnCardDrawn);
+        }
     }
 
     private void OnCardPlayed(CardPlayedEvent @event)
@@ -41,7 +44,7 @@ public class SoundOnCardPlay : MonoBehaviour
     private void SubscribeToCurrentBattle()
     {
         BattleState currentBattle = battleController != null ? battleController.BattleState : null;
-        if (_subscribedBattle == currentBattle)
+        if (_subscribedBattle == currentBattle || currentBattle == null)
             return;
 
         Unsubscribe();
