@@ -431,8 +431,8 @@ public sealed class BattleUiPresenter : MonoBehaviour
 
         var discardedCards = new List<Card>();
         discardedCards.AddRange(battle.PlayerDiscardPile);
-        if (battle.CurrentRound != null)
-            discardedCards.AddRange(battle.CurrentRound.PlayerPlayedCards);
+        // if (battle.CurrentRound != null)
+        //     discardedCards.AddRange(battle.CurrentRound.PlayerPlayedCards);  // played cards should be visible on the game view, not in the deck view
 
         DeckViewOptions options = DeckViewOptions.Default;
         options.Flags |= DeckViewFlags.ShowDiscardedCards;
@@ -644,7 +644,7 @@ public sealed class BattleUiPresenter : MonoBehaviour
             return;
 
         RoundResolution resolution = battle.CombatHistory[battle.CombatHistory.Count - 1];
-        string result = resolution.Winner == Combatant.Player ? "Round Won" : resolution.Winner == Combatant.Opponent ? "Round Lost" : "Round Draw";
+        string result = resolution.Winner == Combatant.Player ? "라운드 승리" : resolution.Winner == Combatant.Opponent ? "라운드 패배" : "무승부";
         SetText(roundResultText, result);
     }
 
