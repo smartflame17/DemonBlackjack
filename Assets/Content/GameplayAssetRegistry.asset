@@ -211,5 +211,11 @@ MonoBehaviour:
   defaultRelicSprite: {fileID: 8718766487758437651, guid: 154ac26240477ff45857e0b79de03f0e, type: 3}
   defaultCardUpgradeSprite: {fileID: -7059865415987956715, guid: 4eb2227a6c2001847a7e4bcdd5db3b4b, type: 3}
   activeItemSprites: []
-  relicSprites: []
+  relicSprites:
+  - id: add_jqk
+    sprite: {fileID: -4633348406346031269, guid: d4d360374c805f84885c2dbeb19d0aeb, type: 3}
+  - id: burst_extend
+    sprite: {fileID: -9113474185172384800, guid: dd0c4266806d2d74fb6e0c523d67d997, type: 3}
+  - id: suit_override
+    sprite: {fileID: -610915966366718389, guid: 557a0ee1bbf31dc45a12b5830f7fce20, type: 3}
   cardUpgradeSprites: []
