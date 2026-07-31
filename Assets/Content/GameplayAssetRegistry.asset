@@ -210,7 +210,25 @@ MonoBehaviour:
   defaultActiveItemSprite: {fileID: 6199116292139744875, guid: b7eb9b80f9c329a4d95ebce576fe6823, type: 3}
   defaultRelicSprite: {fileID: 8718766487758437651, guid: 154ac26240477ff45857e0b79de03f0e, type: 3}
   defaultCardUpgradeSprite: {fileID: -7059865415987956715, guid: 4eb2227a6c2001847a7e4bcdd5db3b4b, type: 3}
-  activeItemSprites: []
+  activeItemSprites:
+  - id: hit_to_played
+    sprite: {fileID: -7354322548008651868, guid: a54ac66d40fd685499142a18eb7ad070, type: 3}
+  - id: draw_three
+    sprite: {fileID: -3818982761539513507, guid: 522db6da5adb984429068ff606b1eb6e, type: 3}
+  - id: leverage_triple
+    sprite: {fileID: 6127503961247118764, guid: dbba752c10e044b4bb700645f6991921, type: 3}
+  - id: burst_threshold_plus_three
+    sprite: {fileID: -5246776963383115981, guid: 613a3c04145c1ed4a935fd3b206336ca, type: 3}
+  - id: return_player_field_card_to_hand
+    sprite: {fileID: 9150261964144613116, guid: 01b46cf092c31e84cab9c1f681efd7c8, type: 3}
+  - id: draw_two_hearts
+    sprite: {fileID: -8792375471566243214, guid: e275241e0756f304694d623767ba0dfa, type: 3}
+  - id: draw_two_clubs
+    sprite: {fileID: -1862533544786436312, guid: c179c6eafeedceb4896421d106b90d74, type: 3}
+  - id: draw_two_diamonds
+    sprite: {fileID: -4740649453684211624, guid: 25df7e2fb2a050a4f8834b1dee2fcd8c, type: 3}
+  - id: draw_two_spades
+    sprite: {fileID: 5530397530655274602, guid: 76b8f82113ffd1d4ca0f4ec522200fa3, type: 3}
   relicSprites:
   - id: add_jqk
     sprite: {fileID: -4633348406346031269, guid: d4d360374c805f84885c2dbeb19d0aeb, type: 3}
