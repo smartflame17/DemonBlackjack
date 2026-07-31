@@ -103,6 +103,6 @@ public sealed class OpponentHandDebugText : MonoBehaviour
         if (battleController != null || !autoFindBattleController)
             return;
 
-        battleController = FindObjectOfType<BattleController>();
+        battleController = FindAnyObjectByType<BattleController>();
     }
 }
