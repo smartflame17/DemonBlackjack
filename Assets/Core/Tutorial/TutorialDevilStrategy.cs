@@ -22,7 +22,7 @@ public sealed class TutorialDevilStrategy : IDevilStrategy
         if (round == null)
             return DevilTurnChoice.Stand;
 
-        ScoreResult score = ScoreResolver.Resolve(round.OpponentVisibleCards, round.ScoringModifiers, round.TargetScore, round.OpponentBurstThreshold);
+        ScoreResult score = ScoreResolver.Resolve(round.OpponentVisibleCards, round.ScoringModifiers, round.OpponentBurstThreshold);
         if (score.FinalScore >= standScore || score.IsBurst)
             return DevilTurnChoice.Stand;
 

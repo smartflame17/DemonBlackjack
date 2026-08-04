@@ -1,6 +1,13 @@
 using System;
 using System.Collections.Generic;
 
+internal enum PlayedPilePlacementResult
+{
+    Unavailable,
+    Placed,
+    Overflowed
+}
+
 public sealed class RoundState
 {
     private readonly List<Card> _playerHand = new();
@@ -14,20 +21,37 @@ public sealed class RoundState
     private readonly List<Card> _revealedFutureCards = new();
     private readonly List<string> _pendingEffectIds = new();
     private readonly List<Modifier> _scoringModifiers = new();
+    private readonly int _maxPlayedPileCardCount;
     private int _lastPlayerHitCardIndex = -1;
 
-    public RoundState(int roundNumber, int targetScore, int playerBurstThreshold, int opponentBurstThreshold, int baseWager, bool playerActsFirst)
+    public RoundState(int roundNumber, int playerBurstThreshold, int opponentBurstThreshold, int baseWager, bool playerActsFirst)
+        : this(
+            roundNumber,
+            playerBurstThreshold,
+            opponentBurstThreshold,
+            baseWager,
+            playerActsFirst,
+            GameplayConstants.GameSettingConfig.MaxPlayedPileCardCount)
+    {
+    }
+
+    public RoundState(
+        int roundNumber,
+        int playerBurstThreshold,
+        int opponentBurstThreshold,
+        int baseWager,
+        bool playerActsFirst,
+        int maxPlayedPileCardCount)
     {
         RoundNumber = roundNumber;
-        TargetScore = targetScore;
         PlayerBurstThreshold = playerBurstThreshold;
         OpponentBurstThreshold = opponentBurstThreshold;
         BaseWager = Math.Max(0, baseWager);
         PlayerActsFirst = playerActsFirst;
+        _maxPlayedPileCardCount = maxPlayedPileCardCount;
     }
 
     public int RoundNumber { get; }
-    public int TargetScore { get; }
     public int PlayerBurstThreshold { get; private set; }
     public int OpponentBurstThreshold { get; private set; }
     public int BurstThreshold => PlayerBurstThreshold;
@@ -61,6 +85,7 @@ public sealed class RoundState
     public IReadOnlyList<Card> RevealedFutureCards => _revealedFutureCards;
     public IReadOnlyList<string> PendingEffectIds => _pendingEffectIds;
     public IReadOnlyList<Modifier> ScoringModifiers => _scoringModifiers;
+    public int MaxPlayedPileCardCount => _maxPlayedPileCardCount;
 
     public void SetPlayerBurstThreshold(int threshold)
     {
@@ -123,6 +148,14 @@ public sealed class RoundState
         _sharedVisibleCards.Add(card);
     }
 
+    public bool CanPlacePlayedCard(Combatant combatant)
+    {
+        int currentCount = combatant == Combatant.Player
+            ? _playerPlayedCards.Count
+            : _opponentVisibleCards.Count;
+        return _maxPlayedPileCardCount <= 0 || currentCount < _maxPlayedPileCardCount;
+    }
+
     public void RefreshOpponentVisibleCards(Func<Card, Combatant, Card> transform)
     {
         for (int i = 0; i < _opponentOriginalVisibleCards.Count; i++)
@@ -160,7 +193,9 @@ public sealed class RoundState
 
     public bool TryPlayCard(int handIndex, Func<Card, Card> transform, out Card card)
     {
-        if (handIndex < 0 || handIndex >= _playerHand.Count)
+        if (!CanPlacePlayedCard(Combatant.Player)
+            || handIndex < 0
+            || handIndex >= _playerHand.Count)
         {
             card = default;
             return false;
@@ -179,7 +214,9 @@ public sealed class RoundState
 
     public bool TryPlayOpponentCard(int handIndex, out Card card)
     {
-        if (handIndex < 0 || handIndex >= _opponentHand.Count)
+        if (!CanPlacePlayedCard(Combatant.Opponent)
+            || handIndex < 0
+            || handIndex >= _opponentHand.Count)
         {
             card = default;
             return false;
@@ -195,6 +232,9 @@ public sealed class RoundState
 
     public bool TryPlayHitCard(Card card)
     {
+        if (!CanPlacePlayedCard(Combatant.Player))
+            return false;
+
         _playerPlayedCards.Add(card);
         _lastPlayerHitCardIndex = _playerPlayedCards.Count - 1;
         PlayerPlayedThisTurn = true;
@@ -228,11 +268,59 @@ public sealed class RoundState
         return true;
     }
 
-    public void PlayOpponentHitCard(Card card)
+    public bool TryPlayOpponentHitCard(Card card)
     {
+        if (!CanPlacePlayedCard(Combatant.Opponent))
+            return false;
+
         AddOpponentVisibleCard(card, Combatant.Opponent);
         OpponentPlayedThisTurn = true;
         OpponentStood = false;
+        return true;
+    }
+
+    internal PlayedPilePlacementResult TryPlayPlayerCardForEffect(
+        int handIndex,
+        Func<Card, Card> transform,
+        out Card card)
+    {
+        if (handIndex < 0 || handIndex >= _playerHand.Count)
+        {
+            card = default;
+            return PlayedPilePlacementResult.Unavailable;
+        }
+
+        card = _playerHand[handIndex];
+        _playerHand.RemoveAt(handIndex);
+        if (transform != null)
+            card = transform(card);
+
+        return TryPlaceEffectCard(Combatant.Player, card, Combatant.Player);
+    }
+
+    internal PlayedPilePlacementResult TryPlaceEffectCard(
+        Combatant combatant,
+        Card card,
+        Combatant opponentPileOwner)
+    {
+        if (!CanPlacePlayedCard(combatant))
+            return PlayedPilePlacementResult.Overflowed;
+
+        if (combatant == Combatant.Player)
+        {
+            _playerPlayedCards.Add(card);
+            _lastPlayerHitCardIndex = _playerPlayedCards.Count - 1;
+            PlayerPlayedThisTurn = true;
+            PlayerStood = false;
+        }
+        else
+        {
+            AddOpponentVisibleCard(card, opponentPileOwner);
+            OpponentPlayedThisTurn = true;
+            OpponentStood = false;
+        }
+
+        return PlayedPilePlacementResult.Placed;
     }
 
     public bool TryGetPreviousPlayerPlayedCard(out Card card)
@@ -274,13 +362,16 @@ public sealed class RoundState
         return true;
     }
 
-    public bool TryMovePreviousPlayerPlayedCardToOpponent(out Card card)
+    internal PlayedPilePlacementResult TryMovePreviousPlayerPlayedCardToOpponentForEffect(
+        out Card card,
+        out Combatant discardOwner)
     {
+        discardOwner = Combatant.Player;
         int previousIndex = _playerPlayedCards.Count - 2;
         if (previousIndex < 0)
         {
             card = default;
-            return false;
+            return PlayedPilePlacementResult.Unavailable;
         }
 
         card = _playerPlayedCards[previousIndex];
@@ -290,20 +381,22 @@ public sealed class RoundState
         else if (_lastPlayerHitCardIndex == previousIndex)
             _lastPlayerHitCardIndex = -1;
 
+        if (!CanPlacePlayedCard(Combatant.Opponent))
+            return PlayedPilePlacementResult.Overflowed;
+
         AddOpponentVisibleCard(card, Combatant.Player);
-        return true;
+        return PlayedPilePlacementResult.Placed;
     }
 
-    public bool TryMovePreviousOpponentVisibleCardToPlayer(out Card card)
+    internal PlayedPilePlacementResult TryMovePreviousOpponentVisibleCardToPlayerForEffect(
+        out Card card,
+        out Combatant discardOwner)
     {
+        discardOwner = Combatant.Player;
         if (!TryRemovePreviousOpponentVisibleCard(out card, out _))
-            return false;
+            return PlayedPilePlacementResult.Unavailable;
 
-        _playerPlayedCards.Add(card);
-        _lastPlayerHitCardIndex = _playerPlayedCards.Count - 1;
-        PlayerPlayedThisTurn = true;
-        PlayerStood = false;
-        return true;
+        return TryPlaceEffectCard(Combatant.Player, card, Combatant.Player);
     }
 
     public bool TryRemovePreviousOpponentVisibleCard(out Card card, out Combatant owner)
@@ -319,6 +412,7 @@ public sealed class RoundState
         card = _opponentVisibleCards[index];
         owner = _opponentVisibleCardOwners[index];
         _opponentVisibleCards.RemoveAt(index);
+        _opponentOriginalVisibleCards.RemoveAt(index);
         _opponentVisibleCardOwners.RemoveAt(index);
         return true;
     }

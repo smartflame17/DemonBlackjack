@@ -4,8 +4,8 @@ using System.Collections.Generic;
 public sealed class RunState
 {
     public const int StandardDeckSize = 52;
-    public const int DefaultMaxActiveItemSlots = 3;
-    public const int DefaultMaxRelicSlots = 1;
+    public const int DefaultMaxActiveItemSlots = GameplayConstants.GameSettingConfig.DefaultMaxActiveItemSlots;
+    public const int DefaultMaxRelicSlots = GameplayConstants.GameSettingConfig.DefaultMaxActiveRelicSlots;
 
     private readonly List<RunCard> _runDeck = new();
     private readonly List<Card> _deck = new();
@@ -16,7 +16,7 @@ public sealed class RunState
     private readonly Dictionary<string, int> _devilAffinities = new();
     private readonly Dictionary<Rank, OwnedRankUpgrade> _rankUpgrades = new();
 
-    public RunState(int seed, int startingMoney = 100, int maxActiveItemSlots = DefaultMaxActiveItemSlots)
+    public RunState(int seed, int startingMoney = 100, int maxActiveItemSlots = GameplayConstants.GameSettingConfig.DefaultMaxActiveItemSlots)
     {
         Seed = seed;
         Money = Math.Max(0, startingMoney);

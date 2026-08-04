@@ -1,5 +1,6 @@
 using System;
 using System.Collections.Generic;
+using GameplayConstants;
 
 public static class MoneyResolver
 {
@@ -17,8 +18,8 @@ public static class MoneyResolver
             : 0;
         //WARNING: now that burst transfer is realtime, we dont need round end burst transfer?
         int wager = Math.Max(0, round.EffectiveWager);
-        if (wager > 0 && applyBurstPenalty)
-            ResolveBurstTransfers(battle, round, wager);
+        //if (wager > 0 && applyBurstPenalty)
+        //    ResolveBurstTransfers(battle, round, wager);
 
         ResolveBlackjackPot(battle, round, winner);
 
@@ -34,8 +35,8 @@ public static class MoneyResolver
         }
 
         // WARNING: Like burst transfer, we dont need round end poker transfer?
-        if (battle.PlayerMoney > 0 && wager > 0)
-            ResolvePlayerPokerPayout(battle, round, wager);
+        //if (battle.PlayerMoney > 0 && wager > 0)
+        //    ResolvePlayerPokerPayout(battle, round, wager);
 
         return new RoundResolution(winner, round.OpponentMoneyLost, round.PlayerMoneyLost);
     }
@@ -65,15 +66,14 @@ public static class MoneyResolver
         RoundState round,
         int wager)
     {
-        const int burstPenaltyAmount = 50;
         int playerBurstOffset = Math.Max(0, round.PlayerScore.BlackjackScore - round.PlayerBurstThreshold);
-        if (playerBurstOffset > 0 && !round.PlayerBurstPenaltyResolved)
+        if (playerBurstOffset > 0)// && !round.PlayerBurstPenaltyResolved)
         {
             // Version 1: Transfer based on wager
             //int amount = playerBurstOffset * wager;
 
             // Version 2: Fixed amount
-            int amount = playerBurstOffset * burstPenaltyAmount;
+            int amount = playerBurstOffset * BurstTransferValue.burstPenaltyAmount;
             int lost = TransferPlayerToOpponent(battle, amount);
             round.RecordMoneyLost(Combatant.Player, lost);
             round.MarkBurstPenaltyResolved(Combatant.Player);
@@ -81,13 +81,13 @@ public static class MoneyResolver
         }
 
         int opponentBurstOffset = Math.Max(0, round.OpponentScore.BlackjackScore - round.OpponentBurstThreshold);
-        if (opponentBurstOffset > 0 && !round.OpponentBurstPenaltyResolved)
+        if (opponentBurstOffset > 0)// && !round.OpponentBurstPenaltyResolved)
         {
             // Version 1: Transfer based on wager
             //int amount = opponentBurstOffset * wager;
 
             // Version 2: Fixed amount
-            int amount = opponentBurstOffset * burstPenaltyAmount;
+            int amount = opponentBurstOffset * BurstTransferValue.burstPenaltyAmount;
             int lost = TransferOpponentToPlayer(battle, amount);
             round.RecordMoneyLost(Combatant.Opponent, lost);
             round.MarkBurstPenaltyResolved(Combatant.Opponent);
@@ -129,7 +129,7 @@ public static class MoneyResolver
 
         int lost = TransferOpponentToPlayer(battle, payout);
         round.RecordMoneyLost(Combatant.Opponent, lost);
-        EventBus.Publish(new MoneyTransferReasonEvent(MoneyTransferReason.PokerPayout, payout));
+        EventBus.Publish(new MoneyTransferReasonEvent(MoneyTransferReason.PokerPayout, lost));
     }
 
     public static int CalculatePokerPayout(IReadOnlyList<Card> cards, PokerResult poker, int wager)
@@ -170,9 +170,8 @@ public static class MoneyResolver
         };
         */
         // Version 2: Fixed Payout
-        const int payoutAmount = 100;
-        long payout = (long)poker.Multiplier * rankSum / poker.CardIndices.Count * payoutAmount;
-
+        long payout = (long)(poker.Multiplier * rankSum * PokerTransferValue.pokerPayoutAmount) / poker.CardIndices.Count;
+        UnityEngine.Debug.Log("<color=yellow>[Money]</color> Poker Payout Calculation: " + payout);
         return payout >= int.MaxValue ? int.MaxValue : (int)payout;
     }
 

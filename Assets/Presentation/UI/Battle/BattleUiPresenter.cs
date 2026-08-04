@@ -15,6 +15,9 @@ public sealed class BattleUiPresenter : MonoBehaviour
     [SerializeField] private RunManager runManager;
     [SerializeField] private GameplayAssetRegistry assetRegistry;
 
+    [Header("Devil Ability")]
+    [SerializeField] private TooltipTrigger devilAbilityTooltipTrigger;
+
     [Header("Main")]
     [SerializeField] private BattleUiCardView cardPrefab;
     [SerializeField] private TMP_Text playerScoreText;
@@ -218,14 +221,15 @@ public sealed class BattleUiPresenter : MonoBehaviour
 
         BattleState battle = battleController != null ? battleController.BattleState : null;
         RoundState round = battle?.CurrentRound;
+        RefreshDevilAbilityTooltip(battle);
         CaptureHandSnapshots();
 
         if (battle == null)
         {
             CancelPendingRoundStart();
             ClearBattleCardViews();
-            SetText(playerScoreText, "-");
-            SetText(devilScoreText, "-");
+            SetText(playerScoreText, " ");
+            SetText(devilScoreText, " ");
             SetBurstThresholdText(null);
             SetPanels(false, false, false);
             SetTurnButtons(false, false);
@@ -431,8 +435,8 @@ public sealed class BattleUiPresenter : MonoBehaviour
 
         var discardedCards = new List<Card>();
         discardedCards.AddRange(battle.PlayerDiscardPile);
-        if (battle.CurrentRound != null)
-            discardedCards.AddRange(battle.CurrentRound.PlayerPlayedCards);
+        // if (battle.CurrentRound != null)
+        //     discardedCards.AddRange(battle.CurrentRound.PlayerPlayedCards);  // played cards should be visible on the game view, not in the deck view
 
         DeckViewOptions options = DeckViewOptions.Default;
         options.Flags |= DeckViewFlags.ShowDiscardedCards;
@@ -644,7 +648,7 @@ public sealed class BattleUiPresenter : MonoBehaviour
             return;
 
         RoundResolution resolution = battle.CombatHistory[battle.CombatHistory.Count - 1];
-        string result = resolution.Winner == Combatant.Player ? "Round Won" : resolution.Winner == Combatant.Opponent ? "Round Lost" : "Round Draw";
+        string result = resolution.Winner == Combatant.Player ? "라운드 승리" : resolution.Winner == Combatant.Opponent ? "라운드 패배" : "무승부";
         SetText(roundResultText, result);
     }
 
@@ -1001,6 +1005,7 @@ public sealed class BattleUiPresenter : MonoBehaviour
 
     private void AutoBindLayout()
     {
+        devilAbilityTooltipTrigger ??= FindDescendantComponent<TooltipTrigger>("DevilAbilityInfo");
         playerScoreText ??= FindDescendantComponent<TMP_Text>("PlayerScore");
         devilScoreText ??= FindDescendantComponent<TMP_Text>("DevilScore");
         playerBurstThresholdText ??= FindDescendantComponent<TMP_Text>("PlayerThreshold");
@@ -1060,6 +1065,20 @@ public sealed class BattleUiPresenter : MonoBehaviour
         }
 
         devilStandIndicator?.Configure(battleController);
+    }
+
+    private void RefreshDevilAbilityTooltip(BattleState battle)
+    {
+        if (devilAbilityTooltipTrigger == null)
+            return;
+
+        if (battle == null || battle.IsBattleOver || battle.Config == null)
+        {
+            devilAbilityTooltipTrigger.Clear();
+            return;
+        }
+
+        devilAbilityTooltipTrigger.Bind(battle.Config.EncounterId, battle.Config.DevilId);
     }
 
     private GameObject FindDescendant(string objectName)
@@ -1138,8 +1157,8 @@ public sealed class BattleUiPresenter : MonoBehaviour
         if (layout == null)
             layout = view.gameObject.AddComponent<LayoutElement>();
 
-        layout.minWidth = 90f;
-        layout.minHeight = 126f;
+        //layout.minWidth = 90f;
+        //layout.minHeight = 126f;
         layout.preferredWidth = 90f;
         layout.preferredHeight = 126f;
         layout.flexibleWidth = 0f;
@@ -1151,16 +1170,16 @@ public sealed class BattleUiPresenter : MonoBehaviour
         if (root == null)
             return;
 
-        HorizontalLayoutGroup horizontal = root.GetComponent<HorizontalLayoutGroup>();
-        if (horizontal != null)
-        {
-            horizontal.childControlWidth = false;
-            horizontal.childControlHeight = false;
-            horizontal.childForceExpandWidth = false;
-            horizontal.childForceExpandHeight = false;
-            horizontal.childScaleWidth = false;
-            horizontal.childScaleHeight = false;
-        }
+        // HorizontalLayoutGroup horizontal = root.GetComponent<HorizontalLayoutGroup>();
+        // if (horizontal != null)
+        // {
+        //     horizontal.childControlWidth = true;
+        //     horizontal.childControlHeight = true;
+        //     horizontal.childForceExpandWidth = true;
+        //     horizontal.childForceExpandHeight = true;
+        //     horizontal.childScaleWidth = false;
+        //     horizontal.childScaleHeight = false;
+        // }
 
         GridLayoutGroup grid = root.GetComponent<GridLayoutGroup>();
         if (grid != null)

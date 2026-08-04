@@ -79,8 +79,8 @@ public class BasicDevilStrategy : IDevilStrategy
         if (battle == null || round == null)
             return DevilTurnChoice.Stand;
 
-        ScoreResult currentScore = ScoreResolver.Resolve(round.OpponentVisibleCards, round.ScoringModifiers, round.TargetScore, round.OpponentBurstThreshold);
-        if (currentScore.FinalScore >= round.TargetScore)
+        ScoreResult currentScore = ScoreResolver.Resolve(round.OpponentVisibleCards, round.ScoringModifiers, round.OpponentBurstThreshold);
+        if (currentScore.FinalScore >= round.OpponentBurstThreshold)
             return DevilTurnChoice.Stand;
 
         int bestHandIndex = FindBestPlayableCardIndex(round.OpponentHand, round.OpponentVisibleCards, round);
@@ -130,7 +130,7 @@ public class BasicDevilStrategy : IDevilStrategy
         for (int i = 0; i < hand.Count; i++)
         {
             var cards = new List<Card>(visibleCards) { hand[i] };
-            ScoreResult score = ScoreResolver.Resolve(cards, round.ScoringModifiers, round.TargetScore, round.OpponentBurstThreshold);
+            ScoreResult score = ScoreResolver.Resolve(cards, round.ScoringModifiers, round.OpponentBurstThreshold);
             if (score.IsBurst)
                 continue;
 
@@ -219,10 +219,10 @@ public class Devil1Strategy : BasicDevilStrategy, IDevilOpponentFieldModifier, I
                 spadeCount++;
         }
 
-        long multiplier = heartCount + 1L;
+        float multiplier = (heartCount + 1L) * GameplayConstants.Devil1Config.Devil1HeartMultiplier;
         for (int i = 0; i < spadeCount; i++)
         {
-            multiplier *= 4L;
+            multiplier *= GameplayConstants.Devil1Config.Devil1SpadeMultiplier;
             if (multiplier >= int.MaxValue)
             {
                 multiplier = int.MaxValue;
@@ -230,7 +230,7 @@ public class Devil1Strategy : BasicDevilStrategy, IDevilOpponentFieldModifier, I
             }
         }
 
-        long bonus = multiplier * round.BaseWager;
+        long bonus = (long)multiplier * round.BaseWager;
         return bonus >= int.MaxValue ? int.MaxValue : (int)bonus;
     }
 
@@ -257,14 +257,16 @@ public class Devil1Strategy : BasicDevilStrategy, IDevilOpponentFieldModifier, I
 
     private void UpdateStreaks(RoundResolution resolution)
     {
-        if (resolution.Winner == Combatant.Opponent)
+        //if (resolution.Winner == Combatant.Opponent)
+        if (resolution.OpponentMoneyLost < resolution.PlayerMoneyLost)
         {
             winStreak++;
             lossStreak = 0;
             int affinity = PixelCrushers.DialogueSystem.DialogueLua.GetVariable("Devil1Affinity").asInt;
             PixelCrushers.DialogueSystem.DialogueLua.SetVariable("Devil1Affinity", affinity + 5);
         }
-        else if (resolution.Winner == Combatant.Player)
+        //else if (resolution.Winner == Combatant.Player)
+        else if (resolution.PlayerMoneyLost < resolution.OpponentMoneyLost)
         {
             lossStreak++;
             winStreak = 0;
@@ -299,4 +301,26 @@ public class Devil1Strategy : BasicDevilStrategy, IDevilOpponentFieldModifier, I
     }
 
     // Additional devil-specific logic can be added here if needed
+}
+
+// TODO: Implement Devil2Strategy, Devil3Strategy, and Devil4Strategy with unique behaviors and AI logic as needed.
+public class Devil2Strategy : BasicDevilStrategy
+{
+    public Devil2Strategy(int drawValue = 3) : base(drawValue)
+    {
+    }
+}
+
+public class Devil3Strategy : BasicDevilStrategy
+{
+    public Devil3Strategy(int drawValue = 3) : base(drawValue)
+    {
+    }
+}
+
+public class Devil4Strategy : BasicDevilStrategy
+{
+    public Devil4Strategy(int drawValue = 3) : base(drawValue)
+    {
+    }
 }

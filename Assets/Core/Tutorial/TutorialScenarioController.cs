@@ -170,7 +170,6 @@ public sealed class TutorialScenarioController : MonoBehaviour, IBattleInputGate
             round.OpponentStartingMoney,
             new TutorialDevilStrategy(round.OpponentDrawValue, round.OpponentStandScore),
             round.PlayerStartingHandSize,
-            round.TargetScore,
             round.BurstThreshold,
             round.BaseWager,
             round.DevilId,
@@ -380,7 +379,12 @@ public sealed class TutorialScenarioController : MonoBehaviour, IBattleInputGate
             battleController.InputGate = null;
         HideSystemPreview();
         instructionOverlay?.Hide();
-        PersistenceManager.Instance.LoadScene("MainScene");
+        if (PersistenceManager.Instance != null)
+            PersistenceManager.Instance.LoadScene("MainScene");
+        else if (SceneTransitionManager.Instance != null)
+            SceneTransitionManager.Instance.LoadScene("MainScene");
+        else
+            UnityEngine.SceneManagement.SceneManager.LoadSceneAsync("MainScene");
     }
 
     private static bool IsCardPlayStep(TutorialStepKey key)

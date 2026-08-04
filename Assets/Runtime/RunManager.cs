@@ -1,4 +1,5 @@
 using UnityEngine;
+using GameplayConstants;
 
 public class RunManager : MonoBehaviour, IDataPersistence
 {
@@ -6,7 +7,7 @@ public class RunManager : MonoBehaviour, IDataPersistence
     [SerializeField] private bool startRunOnAwake = true;
     [SerializeField] private bool setRandomSeed = false;
     [SerializeField] private int debugSeed = 12345;
-    [SerializeField] private int startingMoney = 100;
+    private int startingMoney = GameplayConstants.GameSettingConfig.PlayerStartingMoney;
     [SerializeField] private int defaultOpponentStartingMoney = 100;
 
     public RunState RunState { get; private set; }
@@ -37,6 +38,8 @@ public class RunManager : MonoBehaviour, IDataPersistence
                 Seed = System.Environment.TickCount;
             else Seed = debugSeed;
 
+            if (PersistenceManager.Instance != null && PersistenceManager.Instance.PlayerSetSeed != -1)
+                Seed = PersistenceManager.Instance.PlayerSetSeed;
             StartOrLoadRun(Seed);
         }
     }
@@ -79,6 +82,8 @@ public class RunManager : MonoBehaviour, IDataPersistence
         SetPhase(RunPhase.Battle);
         EventBus.Publish(new BattleStartedEvent(battleConfig.EncounterId, RunState.CreateBattleSeed(), RunState.Money, battleConfig.OpponentStartingMoney));
         Debug.Log("Battle started against " + battleConfig.EncounterId + ", event published");
+
+        SoundManager.Instance?.PlayBGM(EBgm.GAME);
     }
 
     public void AdvanceAfterEncounter()
@@ -96,6 +101,8 @@ public class RunManager : MonoBehaviour, IDataPersistence
 
         SetPhase(RunPhase.Map);
         Debug.Log($"Returning to map. Money: {RunState.Money}, Encounter Index: {RunState.EncounterIndex}");
+        if (SoundManager.Instance != null && SoundManager.Instance.CurrentBGM != EBgm.NONE)
+            SoundManager.Instance?.FadeOutBGM(1.0f);
     }
 
     public bool OpenShop()
@@ -106,6 +113,7 @@ public class RunManager : MonoBehaviour, IDataPersistence
 
         SetPhase(RunPhase.Shop);
         EventBus.Publish(new ShopOpenedEvent(RunState.EncounterIndex, battle.RoundNumber));
+
         return true;
     }
 

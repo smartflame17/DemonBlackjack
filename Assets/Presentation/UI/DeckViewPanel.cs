@@ -418,8 +418,8 @@ public sealed class DeckViewPanel : MonoBehaviour
         if (layout == null)
             layout = view.gameObject.AddComponent<LayoutElement>();
 
-        layout.minWidth = 90f;
-        layout.minHeight = 126f;
+        //layout.minWidth = 90f;
+        //layout.minHeight = 126f;
         layout.preferredWidth = 90f;
         layout.preferredHeight = 126f;
         layout.flexibleWidth = 0f;

@@ -33,6 +33,7 @@ public class DevilDialogueController : MonoBehaviour
     {
         EventBus.Subscribe<BattleStartedEvent>(OnBattleStarted);
         EventBus.Subscribe<BattleEndedEvent>(OnBattleEnded);
+        BindActiveBattle(playBattleStartBark: false);
     }
 
     void OnDisable()
@@ -45,27 +46,48 @@ public class DevilDialogueController : MonoBehaviour
 
     private void OnBattleStarted(BattleStartedEvent @event)
     {
-        BattleState battle = battleController != null ? battleController.BattleState : null;
-        if (battle == null) return;
+        BindActiveBattle(playBattleStartBark: true);
+    }
 
-        StopIdleBarkTimer();
-        UnsubscribeFromBattleBus();
+    private void BindActiveBattle(bool playBattleStartBark)
+    {
+        if (battleController == null)
+            battleController = FindFirstObjectByType<BattleController>();
+
+        BattleState battle = battleController != null ? battleController.BattleState : null;
+        if (battle == null || battle.IsBattleOver)
+        {
+            StopIdleBarkTimer();
+            UnsubscribeFromBattleBus();
+            return;
+        }
+
+        ScopedEventBus activeBus = battle.EventBus;
+        bool alreadyBound = ReferenceEquals(battleBus, activeBus);
+        if (!alreadyBound)
+        {
+            StopIdleBarkTimer();
+            UnsubscribeFromBattleBus();
+            battleBus = activeBus;
+            battleBus.Subscribe<RoundStartedEvent>(OnRoundStarted);
+            battleBus.Subscribe<RoundEndedEvent>(OnRoundEnded);
+            battleBus.Subscribe<PlayerTurnStartedEvent>(OnPlayerTurnStarted);
+            battleBus.Subscribe<PlayerTurnEndedEvent>(OnPlayerTurnEnded);
+            battleBus.Subscribe<CardPlayedEvent>(OnCardPlayed);
+            battleBus.Subscribe<DevilTurnChoiceEvent>(OnDevilTurnChoice);
+            battleBus.Subscribe<BurstAttemptedEvent>(OnBurstAttempted);
+            battleBus.Subscribe<PokerResolvedEvent>(OnPokerResolved);
+        }
+
         _currentDevilId = battle.Config.DevilId;
         _devilStrategy = battle.Config.DevilStrategy;
 
-        battleBus = battle.EventBus;
-        battleBus.Subscribe<RoundStartedEvent>(OnRoundStarted);
-        battleBus.Subscribe<RoundEndedEvent>(OnRoundEnded);
-        battleBus.Subscribe<PlayerTurnStartedEvent>(OnPlayerTurnStarted);
-        battleBus.Subscribe<PlayerTurnEndedEvent>(OnPlayerTurnEnded);
-        battleBus.Subscribe<CardPlayedEvent>(OnCardPlayed);
-        battleBus.Subscribe<DevilTurnChoiceEvent>(OnDevilTurnChoice);
-        battleBus.Subscribe<BurstAttemptedEvent>(OnBurstAttempted);
-        battleBus.Subscribe<PokerResolvedEvent>(OnPokerResolved);
-
-        barkConversationId = $"{_currentDevilId}_BattleStart";
-        StartBark(barkConversationId);
-        // TODO: delayed second bark
+        if (playBattleStartBark)
+        {
+            barkConversationId = $"{_currentDevilId}_BattleStart";
+            StartBark(barkConversationId);
+            // TODO: delayed second bark
+        }
     }
 
     private void StartBark(string conversationId)
@@ -83,8 +105,9 @@ public class DevilDialogueController : MonoBehaviour
 
     private void OnRoundStarted(RoundStartedEvent @event)
     {
+        isBarking = false; // Reset the flag at the start of each round
         barkConversationId = $"{_currentDevilId}_RoundStart";
-        StartBark(barkConversationId);
+        //StartBark(barkConversationId);    // This call messes up the bark callback function, setting isBarking to true all the time
 
         lastPokerRank = PokerHandRank.HighCard; // Reset last poker rank at the start of each round
     }
@@ -137,9 +160,14 @@ public class DevilDialogueController : MonoBehaviour
 
     private void OnRoundEnded(RoundEndedEvent @event)
     {
+        if (_devilStrategy == null)
+            return;
+
         roundEndConversationId = _devilStrategy.GetDialogueId();
         if (string.IsNullOrWhiteSpace(roundEndConversationId)) return;
-        if (battleController.BattleState.IsBattleOver) return;
+
+        BattleState battle = battleController != null ? battleController.BattleState : null;
+        if (battle == null || battle.IsBattleOver) return;
 
         Debug.Log($"DevilDialogueController: OnRoundEnded, using conversation ID: {roundEndConversationId}");
         DialogueManager.StartConversation(roundEndConversationId, transform);
@@ -148,6 +176,7 @@ public class DevilDialogueController : MonoBehaviour
     private void OnDevilTurnChoice(DevilTurnChoiceEvent @event)
     {
         barkConversationId = $"{_currentDevilId}_DevilTurn";
+        Debug.Log($"DevilDialogueController: OnDevilTurnChoice, using conversation ID: {barkConversationId}");
         StartBark(barkConversationId);
     }
 

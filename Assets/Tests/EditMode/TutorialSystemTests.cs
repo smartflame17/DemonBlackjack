@@ -196,7 +196,6 @@ public sealed class TutorialSystemTests
                 round.OpponentStartingMoney,
                 new TutorialDevilStrategy(round.OpponentDrawValue, round.OpponentStandScore),
                 round.PlayerStartingHandSize,
-                round.TargetScore,
                 round.BurstThreshold,
                 round.BaseWager,
                 round.DevilId,

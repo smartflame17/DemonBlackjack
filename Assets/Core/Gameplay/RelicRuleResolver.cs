@@ -20,9 +20,4 @@ public static class RelicRuleResolver
     {
         return ResolvePlayerBurstThreshold(runState, defaultBurstThreshold);
     }
-
-    public static int ResolveTargetScore(RunState runState, int defaultTargetScore)
-    {
-        return defaultTargetScore;
-    }
 }

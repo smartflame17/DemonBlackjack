@@ -13,6 +13,7 @@ public class PersistenceManager : MonoBehaviour
     private GameData gameData;
     private FileDataHandler fileDataHandler;
     private List<IDataPersistence> dataPersistenceObjects;
+    public int PlayerSetSeed { get; set; }
     public static PersistenceManager Instance { get; private set; }
 
     private void Awake()
@@ -25,6 +26,7 @@ public class PersistenceManager : MonoBehaviour
 
         Instance = this;
         DontDestroyOnLoad(gameObject);
+        PlayerSetSeed = -1; // Initialize PlayerSetSeed to -1 (indicating no seed set)
     }
 
     private void Start()

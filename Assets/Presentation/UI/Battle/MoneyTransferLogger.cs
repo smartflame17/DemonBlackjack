@@ -1,8 +1,11 @@
+using System.Collections;
 using UnityEngine;
 using TMPro;
 using DG.Tweening;
 using EasyTextEffects.Editor.MyBoxCopy.Extensions;
-using System;
+using System.Collections.Generic;
+using DamageNumbersPro;
+
 public class MoneyTransferLogger : MonoBehaviour
 {
     [SerializeField] private GameObject loggerPanel;
@@ -14,11 +17,31 @@ public class MoneyTransferLogger : MonoBehaviour
     [SerializeField] private TMP_Text pokerResultText;
     [SerializeField] private BattleController battleController;
 
+    [Header("Text Effects")]
+    [SerializeField] private List<RectTransform> textEffectTargets; // List of RectTransforms for text effects
+    [SerializeField] private DamageNumber damageNumber;
+    [SerializeField, Min(0f)] private float textEffectDelaySeconds = 0.2f;
+
     private ScopedEventBus subscribedBattleBus;
+    private readonly Queue<TextEffectRequest> pendingTextEffects = new();
+    private Coroutine textEffectRoutine;
     private int roundResult;
-    private int blackjackResult;
     private int burstPenalty;
     private int pokerResult;
+
+    private readonly struct TextEffectRequest
+    {
+        public readonly RectTransform Target;
+        public readonly Vector2 Offset;
+        public readonly float Amount;
+
+        public TextEffectRequest(RectTransform target, Vector2 offset, float amount)
+        {
+            Target = target;
+            Offset = offset;
+            Amount = amount;
+        }
+    }
 
     void Awake()
     {
@@ -35,6 +58,8 @@ public class MoneyTransferLogger : MonoBehaviour
 
     void ResetTexts()
     {
+        ClearPendingTextEffects();
+
         entryFeeText.text = "0";
         entryFeeText.color = Color.white; // Reset color to default
         blackjackResultText.text = "0";
@@ -42,8 +67,10 @@ public class MoneyTransferLogger : MonoBehaviour
         roundResult = 0;
         burstPenaltyText.text = "0";
         burstPenaltyText.color = Color.white; // Reset color to default
+        burstPenalty = 0;
         pokerResultText.text = "0";
         pokerResultText.color = Color.white; // Reset color to default
+        pokerResult = 0;
         // TODO: Reset text effects if any are applied (e.g., animations, scaling, etc.)
     }
 
@@ -59,6 +86,7 @@ public class MoneyTransferLogger : MonoBehaviour
         global::EventBus.Unsubscribe<MoneyTransferReasonEvent>(OnMoneyTransfer);
         global::EventBus.Unsubscribe<ShopClosedEvent>(OnShopClosed);
         UnbindBattleBus();
+        ClearPendingTextEffects();
     }
 
     private void BindBattleBus()
@@ -118,30 +146,35 @@ public class MoneyTransferLogger : MonoBehaviour
         {
             case MoneyTransferReason.InitialWager:
                 entryFeeText.text = $"{eventData.Delta}";
+                QueueTextEffect(0, eventData.Delta);
                 break;
             case MoneyTransferReason.BlackjackPayout:
                 roundResult += eventData.Delta;
+                QueueTextEffect(1, eventData.Delta);
                 RefreshRoundResultText();
                 break;
             case MoneyTransferReason.DevilAbilityPayout:
                 roundResult -= eventData.Delta;
+                QueueTextEffect(2, -eventData.Delta);
                 RefreshRoundResultText();
                 break;
             case MoneyTransferReason.BurstPenalty:
                 burstPenalty += eventData.Delta;
+                QueueTextEffect(3, -eventData.Delta);
                 burstPenaltyText.text = $"-{burstPenalty}";
                 if (burstPenalty > 0)
-                    burstPenaltyText.color = Color.red; // Set color to red for negative values
+                    burstPenaltyText.color = Color.red;
                 else
-                    burstPenaltyText.color = Color.green; // Set color to green for positive values
+                    burstPenaltyText.color = Color.green;
                 break;
             case MoneyTransferReason.PokerPayout:
                 pokerResult += eventData.Delta;
+                QueueTextEffect(4, eventData.Delta);
                 pokerResultText.text = $"{pokerResult}";
                 if (pokerResult < 0)
-                    pokerResultText.color = Color.red; // Set color to red for negative values
+                    pokerResultText.color = Color.red;
                 else
-                    pokerResultText.color = Color.green; // Set color to green for positive values
+                    pokerResultText.color = Color.green;
                 break;
             default:
                 Debug.LogWarning($"Unhandled money transfer reason: {eventData.Reason}");
@@ -149,10 +182,52 @@ public class MoneyTransferLogger : MonoBehaviour
         }
     }
 
+    private void QueueTextEffect(int targetIndex, float amount)
+    {
+        if (damageNumber == null
+            || textEffectTargets == null
+            || targetIndex < 0
+            || targetIndex >= textEffectTargets.Count
+            || textEffectTargets[targetIndex] == null)
+            return;
+
+        pendingTextEffects.Enqueue(new TextEffectRequest(textEffectTargets[targetIndex], Vector2.zero, amount));
+
+        if (textEffectRoutine == null && isActiveAndEnabled)
+            textEffectRoutine = StartCoroutine(PlayQueuedTextEffects());
+    }
+
+    private IEnumerator PlayQueuedTextEffects()
+    {
+        while (pendingTextEffects.Count > 0)
+        {
+            TextEffectRequest request = pendingTextEffects.Dequeue();
+
+            if (textEffectDelaySeconds > 0f)
+                yield return new WaitForSeconds(textEffectDelaySeconds);
+            else
+                yield return null;
+
+            damageNumber.SpawnGUI(request.Target, request.Offset, request.Amount);
+        }
+
+        textEffectRoutine = null;
+    }
+
+    private void ClearPendingTextEffects()
+    {
+        if (textEffectRoutine != null)
+            StopCoroutine(textEffectRoutine);
+
+        textEffectRoutine = null;
+        pendingTextEffects.Clear();
+    }
+
     private void RefreshRoundResultText()
     {
         blackjackResultText.text = $"{roundResult}";
         blackjackResultText.color = roundResult < 0 ? Color.red : Color.green;
+        if (roundResult == 0) blackjackResultText.color = Color.white; // Reset to default color if zero
     }
 
     public void HideLoggerPanel()

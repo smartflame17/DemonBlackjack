@@ -14,7 +14,8 @@ MonoBehaviour:
   m_EditorClassIdentifier: Assembly-CSharp::CardUpgradeDefinition
   id: draw_suit
   displayName: "\uC0C9\uC778"
-  description: "\uC774 \uCE74\uB4DC\uB97C \uC0AC\uC6A9 \uC2DC, \uAC19\uC740 \uBB38\uC591\uC758
-    \uCE74\uB4DC\uB97C \uD55C \uC7A5 \uC190\uD328\uB85C \uAC00\uC838\uC635\uB2C8\uB2E4."
-  price: 10
+  description: "\uC774 \uCE74\uB4DC\uB97C \uC0AC\uC6A9 \uC2DC, \uB371\uC5D0\uC11C
+    \uAC19\uC740 \uBB38\uC591\uC758 \uCE74\uB4DC\uB97C \uD55C \uC7A5 \uC190\uD328\uB85C
+    \uAC00\uC838\uC635\uB2C8\uB2E4."
+  price: 25
   assignmentType: 0
