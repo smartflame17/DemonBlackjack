@@ -596,6 +596,7 @@ MonoBehaviour:
   m_Name: 
   m_EditorClassIdentifier: Assembly-CSharp::TooltipTrigger
   contentId: 
+  fallbackContentId: 
   tooltipPanel: {fileID: 0}
 --- !u!114 &1221368587968764743
 MonoBehaviour:
