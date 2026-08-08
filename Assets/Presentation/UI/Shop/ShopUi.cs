@@ -2,7 +2,6 @@ using System.Collections.Generic;
 using TMPro;
 using UnityEngine;
 using UnityEngine.UI;
-using DG.Tweening;
 
 public sealed class ShopUi : MonoBehaviour
 {
@@ -15,8 +14,6 @@ public sealed class ShopUi : MonoBehaviour
     [SerializeField] private GameObject shopPanel;
     [SerializeField] private GameObject upgradePreviewRoot;
     [SerializeField] private GameObject itemPreviewRoot;
-    [SerializeField] private float shopPanelAnimationDuration = 2.0f;
-    [SerializeField] private Ease shopPanelAnimationEase = Ease.OutBounce;
     [SerializeField] private int activeItemOfferCount = 3;
     [SerializeField] private int relicOfferCount = 3;
     [SerializeField] private int upgradeOfferCount = 5;
@@ -29,7 +26,6 @@ public sealed class ShopUi : MonoBehaviour
     private readonly List<CardUpgradeOffer> _currentUpgradeOffers = new();
     private readonly HashSet<string> _soldOfferKeys = new();
     private int _generatedShopCycle = -1;
-    private RectTransform shopPanelRectTransform => shopPanel != null ? shopPanel.transform as RectTransform : null;
 
     private void Awake()
     {
@@ -48,7 +44,6 @@ public sealed class ShopUi : MonoBehaviour
     private void OnEnable()
     {
         shopPanel.SetActive(true);
-        shopPanelRectTransform.DOAnchorPos(new Vector2(0, 0), shopPanelAnimationDuration).SetEase(shopPanelAnimationEase);
         if (continueButton != null)
             continueButton.onClick.AddListener(Continue);
         GenerateOffers();
@@ -57,7 +52,6 @@ public sealed class ShopUi : MonoBehaviour
     private void OnDisable()
     {
         shopPanel.SetActive(false);
-        shopPanelRectTransform.DOAnchorPos(new Vector2(0, 1000), shopPanelAnimationDuration).SetEase(shopPanelAnimationEase);
         if (continueButton != null)
             continueButton.onClick.RemoveListener(Continue);
     }
@@ -284,6 +278,7 @@ public sealed class ShopUi : MonoBehaviour
             if (prefab != null)
             {
                 cardView = Instantiate(prefab, root.transform, false);
+                cardView.EnsureRuntimeMaterial();
                 cardView.name = "UpgradeCard";
                 cardView.transform.SetSiblingIndex(0);
                 RectTransform rect = cardView.RectTransform;

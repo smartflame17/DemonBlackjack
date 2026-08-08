@@ -26,9 +26,8 @@ public sealed class BattleUiCardView : MonoBehaviour
 
     private void Awake()
     {
+        EnsureRuntimeMaterial();
         SetPokerHighlight(false);
-        _runtimeMaterial = Instantiate(upgradeMaterial);
-        image.material = _runtimeMaterial;
     }
 
     public void Initialize(Image cardImage, TMP_Text cardLabel, Button cardButton)
@@ -37,7 +36,7 @@ public sealed class BattleUiCardView : MonoBehaviour
         label = cardLabel;
         button = cardButton;
         visualRoot = cardImage != null ? cardImage.rectTransform : transform as RectTransform;
-        _runtimeMaterial = upgradeImage != null ? upgradeImage.material : null;
+        EnsureRuntimeMaterial();
         if (button != null && button.targetGraphic == null)
             button.targetGraphic = image;
 
@@ -65,7 +64,7 @@ public sealed class BattleUiCardView : MonoBehaviour
 
     public void Bind(Card card, Sprite sprite, bool faceUp, bool interactable, GameplayAssetRegistry assetRegistry)
     {
-        EnsureReferences();
+        EnsureRuntimeMaterial();
         SetSelected(false);
 
         if (image != null)
@@ -87,7 +86,7 @@ public sealed class BattleUiCardView : MonoBehaviour
 
     public void BindBack(Sprite sprite)
     {
-        EnsureReferences();
+        EnsureRuntimeMaterial();
         SetSelected(false);
 
         if (image != null)
@@ -138,6 +137,23 @@ public sealed class BattleUiCardView : MonoBehaviour
         visualRoot.anchoredPosition = _baseAnchoredPosition + (selected ? SelectedOffset : Vector2.zero);
     }
 
+    public void EnsureRuntimeMaterial()
+    {
+        EnsureReferences();
+
+        if (_runtimeMaterial == null)
+        {
+            Material sourceMaterial = upgradeMaterial != null
+                ? upgradeMaterial
+                : image != null ? image.material : null;
+            if (sourceMaterial != null)
+                _runtimeMaterial = Instantiate(sourceMaterial);
+        }
+
+        if (image != null && _runtimeMaterial != null)
+            image.material = _runtimeMaterial;
+    }
+
     private void EnsureReferences()
     {
         if (image == null)
@@ -159,8 +175,6 @@ public sealed class BattleUiCardView : MonoBehaviour
         uiEffect ??= gameObject.AddComponent<UIEffect>();
 
         tooltipTrigger ??= GetComponent<TooltipTrigger>() ?? gameObject.AddComponent<TooltipTrigger>();
-
-        _runtimeMaterial ??= upgradeImage != null ? upgradeImage.material : null;
 
         if (!_hasBasePosition)
             CacheBasePosition();
