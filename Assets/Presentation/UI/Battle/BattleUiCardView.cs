@@ -6,6 +6,7 @@ using Coffee.UIEffects;
 public sealed class BattleUiCardView : MonoBehaviour
 {
     private static readonly Vector2 SelectedOffset = new(0f, 18f);
+    private static readonly int EffectEnabledId = Shader.PropertyToID("_EffectEnabled");
 
     [SerializeField] private Image image;
     [SerializeField] private TMP_Text label;
@@ -14,7 +15,9 @@ public sealed class BattleUiCardView : MonoBehaviour
     [SerializeField] private Image upgradeImage;
     [SerializeField] private TooltipTrigger tooltipTrigger;
     [SerializeField] private UIEffect uiEffect;
+    [SerializeField] private Material upgradeMaterial;
 
+    private Material _runtimeMaterial;
     private Vector2 _baseAnchoredPosition;
     private bool _hasBasePosition;
 
@@ -24,6 +27,8 @@ public sealed class BattleUiCardView : MonoBehaviour
     private void Awake()
     {
         SetPokerHighlight(false);
+        _runtimeMaterial = Instantiate(upgradeMaterial);
+        image.material = _runtimeMaterial;
     }
 
     public void Initialize(Image cardImage, TMP_Text cardLabel, Button cardButton)
@@ -32,6 +37,7 @@ public sealed class BattleUiCardView : MonoBehaviour
         label = cardLabel;
         button = cardButton;
         visualRoot = cardImage != null ? cardImage.rectTransform : transform as RectTransform;
+        _runtimeMaterial = upgradeImage != null ? upgradeImage.material : null;
         if (button != null && button.targetGraphic == null)
             button.targetGraphic = image;
 
@@ -154,6 +160,8 @@ public sealed class BattleUiCardView : MonoBehaviour
 
         tooltipTrigger ??= GetComponent<TooltipTrigger>() ?? gameObject.AddComponent<TooltipTrigger>();
 
+        _runtimeMaterial ??= upgradeImage != null ? upgradeImage.material : null;
+
         if (!_hasBasePosition)
             CacheBasePosition();
     }
@@ -171,6 +179,7 @@ public sealed class BattleUiCardView : MonoBehaviour
 
         upgradeImage.sprite = assetRegistry.GetCardUpgradeSprite(card.ModifierId);
         upgradeImage.gameObject.SetActive(upgradeImage.sprite != null);
+        SetShaderEffectEnabled(true);
     }
 
     private void ClearUpgrade()
@@ -180,6 +189,12 @@ public sealed class BattleUiCardView : MonoBehaviour
 
         upgradeImage.sprite = null;
         upgradeImage.gameObject.SetActive(false);
+        SetShaderEffectEnabled(false);
+    }
+
+    private void SetShaderEffectEnabled(bool enabled)
+    {
+        _runtimeMaterial?.SetFloat(EffectEnabledId, enabled ? 1f : 0f);
     }
 
     private Image FindChildImage(string childName)

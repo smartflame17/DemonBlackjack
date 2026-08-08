@@ -902,7 +902,7 @@ public sealed class BattleUiPresenter : MonoBehaviour
             else if (cards != null && i < cards.Count)
                 BindCard(views[i], cards[i], faceUp, interactable, i);
 
-            views[i].SetSelected(interactable && _selectedHandIndices.Contains(i));
+            views[i].SetSelected(interactable && _selectedHandIndices.Contains(i)); // TODO: SetSelected is now deprecated, remove this logic as it may intefere with dragging selection
         }
 
         if (root != null)
