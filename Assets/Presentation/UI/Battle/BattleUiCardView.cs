@@ -5,7 +5,6 @@ using Coffee.UIEffects;
 
 public sealed class BattleUiCardView : MonoBehaviour
 {
-    private static readonly Vector2 SelectedOffset = new(0f, 18f);
     private static readonly int EffectEnabledId = Shader.PropertyToID("_EffectEnabled");
 
     [SerializeField] private Image image;
@@ -18,7 +17,6 @@ public sealed class BattleUiCardView : MonoBehaviour
     [SerializeField] private Material upgradeMaterial;
 
     private Material _runtimeMaterial;
-    private Vector2 _baseAnchoredPosition;
     private bool _hasBasePosition;
 
     public Button Button => button;
@@ -41,7 +39,6 @@ public sealed class BattleUiCardView : MonoBehaviour
             button.targetGraphic = image;
 
         SetPokerHighlight(false);
-        CacheBasePosition();
     }
 
     public Button EnsureButton()
@@ -65,7 +62,6 @@ public sealed class BattleUiCardView : MonoBehaviour
     public void Bind(Card card, Sprite sprite, bool faceUp, bool interactable, GameplayAssetRegistry assetRegistry)
     {
         EnsureRuntimeMaterial();
-        SetSelected(false);
 
         if (image != null)
             image.sprite = sprite;
@@ -87,7 +83,6 @@ public sealed class BattleUiCardView : MonoBehaviour
     public void BindBack(Sprite sprite)
     {
         EnsureRuntimeMaterial();
-        SetSelected(false);
 
         if (image != null)
             image.sprite = sprite;
@@ -122,19 +117,6 @@ public sealed class BattleUiCardView : MonoBehaviour
 
         if (uiEffect != null)
             uiEffect.edgeMode = highlighted ? EdgeMode.Shiny : EdgeMode.None;
-    }
-
-    public void SetSelected(bool selected)
-    {
-        EnsureReferences();
-
-        if (visualRoot == null)
-            return;
-
-        if (!_hasBasePosition)
-            CacheBasePosition();
-
-        visualRoot.anchoredPosition = _baseAnchoredPosition + (selected ? SelectedOffset : Vector2.zero);
     }
 
     public void EnsureRuntimeMaterial()
@@ -175,9 +157,6 @@ public sealed class BattleUiCardView : MonoBehaviour
         uiEffect ??= gameObject.AddComponent<UIEffect>();
 
         tooltipTrigger ??= GetComponent<TooltipTrigger>() ?? gameObject.AddComponent<TooltipTrigger>();
-
-        if (!_hasBasePosition)
-            CacheBasePosition();
     }
 
     private void BindUpgrade(Card card, bool faceUp, GameplayAssetRegistry assetRegistry)
@@ -221,15 +200,6 @@ public sealed class BattleUiCardView : MonoBehaviour
         }
 
         return null;
-    }
-
-    private void CacheBasePosition()
-    {
-        if (visualRoot == null)
-            return;
-
-        _baseAnchoredPosition = visualRoot.anchoredPosition;
-        _hasBasePosition = true;
     }
 
     private static string FormatCard(Card card)

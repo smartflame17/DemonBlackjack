@@ -30,9 +30,7 @@ public sealed class BattleUiPresenter : MonoBehaviour
     [SerializeField] private RectTransform sharedPlayPileRoot;
     [SerializeField] private RectTransform playerPlayPileRoot;
     [SerializeField] private RectTransform playPileRoot;
-    [SerializeField] private Button playButton;
     [SerializeField] private Button standButton;
-    [SerializeField] private Button hitButton;
 
     [Header("Round Start")]
     [FormerlySerializedAs("wagerPanel")]
@@ -79,7 +77,6 @@ public sealed class BattleUiPresenter : MonoBehaviour
     private readonly List<BattleUiCardView> _devilPlayPileCards = new();
     private readonly List<BattleUiCardView> _sharedPlayPileCards = new();
     private readonly List<BattleUiCardView> _playerPlayPileCards = new();
-    private readonly HashSet<int> _selectedHandIndices = new();
     private readonly List<CardLayoutSnapshot> _previousPlayerHand = new();
     private readonly List<CardLayoutSnapshot> _previousOpponentHand = new();
     private readonly List<Card> _lastPlayerHandCards = new();
@@ -232,7 +229,7 @@ public sealed class BattleUiPresenter : MonoBehaviour
             SetText(devilScoreText, " ");
             SetBurstThresholdText(null);
             SetPanels(false, false, false);
-            SetTurnButtons(false, false);
+            SetTurnButtons(false);
             RememberRenderedCards(null);
             return;
         }
@@ -265,8 +262,7 @@ public sealed class BattleUiPresenter : MonoBehaviour
         SetTurnButtons(
             battle.Phase == BattlePhase.PlayerPhase
             && !battleController.IsWaitingForVisuals
-            && !_turnHandoffPending,
-            _selectedHandIndices.Count > 0);
+            && !_turnHandoffPending);
         RememberRenderedCards(round);
     }
 
@@ -280,7 +276,6 @@ public sealed class BattleUiPresenter : MonoBehaviour
         if (!CanPlayerAct)
             return false;
 
-        _selectedHandIndices.Clear();
         if (!battleController.TryPlayCard(handIndex))
         {
             Refresh();
@@ -297,7 +292,6 @@ public sealed class BattleUiPresenter : MonoBehaviour
         if (!CanPlayerAct)
             return false;
 
-        _selectedHandIndices.Clear();
         if (!battleController.TryHitWithoutEndingTurn())
         {
             Refresh();
@@ -332,9 +326,7 @@ public sealed class BattleUiPresenter : MonoBehaviour
 
     private void RemoveListeners()
     {
-        Remove(playButton, PlaySelectedCards);
         Remove(standButton, Stand);
-        Remove(hitButton, Hit);
         Remove(toShopButton, OpenShop);
         Remove(nextRoundButton, ContinueToNextRound);
         Remove(backToMapButton, ReturnToMap);
@@ -346,48 +338,8 @@ public sealed class BattleUiPresenter : MonoBehaviour
             button.onClick.RemoveListener(action);
     }
 
-    private void ToggleCardSelection(int handIndex)
-    {
-        if (!_selectedHandIndices.Add(handIndex))
-        {
-            _selectedHandIndices.Remove(handIndex);
-        }
-        else
-        {
-            _selectedHandIndices.Clear();
-            _selectedHandIndices.Add(handIndex);
-        }
-
-        Refresh();
-    }
-
-    private void PlaySelectedCards()
-    {
-        if (!CanPlayerAct || battleController == null || _selectedHandIndices.Count == 0)
-            return;
-
-        int selectedIndex = -1;
-        foreach (int handIndex in _selectedHandIndices)
-        {
-            selectedIndex = handIndex;
-            break;
-        }
-
-        if (selectedIndex < 0 || !battleController.TryPlayCard(selectedIndex))
-        {
-            _selectedHandIndices.Clear();
-            Refresh();
-            return;
-        }
-
-        _selectedHandIndices.Clear();
-        ScheduleTurnHandoff(TurnHandoffAction.EndPlayerPhase);
-        Refresh();
-    }
-
     private void Stand()
     {
-        _selectedHandIndices.Clear();
         ScheduleTurnHandoff(TurnHandoffAction.Stand);
         Refresh();
     }
@@ -624,7 +576,6 @@ public sealed class BattleUiPresenter : MonoBehaviour
         }
 
         _pendingWager = battle.GetDefaultWager();
-        _selectedHandIndices.Clear();
         _suppressRoundPilesUntilNextRound = false;
 
         _roundStartRoutine = null;
@@ -667,7 +618,7 @@ public sealed class BattleUiPresenter : MonoBehaviour
         SetActive(battleResultPanel, showBattleResult);
     }
 
-    private void SetTurnButtons(bool playerTurn, bool hasSelectedCard)
+    private void SetTurnButtons(bool playerTurn)
     {
         if (standButton != null)
             standButton.interactable = playerTurn;
@@ -902,14 +853,10 @@ public sealed class BattleUiPresenter : MonoBehaviour
             else if (cards != null && i < cards.Count)
                 BindCard(views[i], cards[i], faceUp, interactable, i);
 
-            views[i].SetSelected(interactable && _selectedHandIndices.Contains(i)); // TODO: SetSelected is now deprecated, remove this logic as it may intefere with dragging selection
         }
 
         if (root != null)
             LayoutRebuilder.ForceRebuildLayoutImmediate(root);
-
-        for (int i = 0; i < views.Count && i < count; i++)
-            views[i].SetSelected(interactable && _selectedHandIndices.Contains(i));
     }
 
     private void BindCard(BattleUiCardView view, Card card, bool faceUp, bool interactable, int handIndex)
@@ -1019,9 +966,7 @@ public sealed class BattleUiPresenter : MonoBehaviour
         devilPlayPileRoot ??= playPileRoot;
         sharedPlayPileRoot ??= playPileRoot;
         playerPlayPileRoot ??= playPileRoot;
-        playButton ??= FindDescendantComponent<Button>("PlayButton");
         standButton ??= FindDescendantComponent<Button>("StandButton");
-        hitButton ??= FindDescendantComponent<Button>("HitButton");
         roundStartPanel ??= FindDescendant("RoundStartPanel");
         deckViewPanel ??= FindFirstObjectByType<DeckViewPanel>(FindObjectsInactive.Include);
         viewPileButton ??= FindDescendantComponent<Button>("ViewPileButton");
@@ -1040,12 +985,6 @@ public sealed class BattleUiPresenter : MonoBehaviour
 
     private void ConfigureDragInteractionComponents()
     {
-        if (playButton != null)
-            playButton.gameObject.SetActive(false);
-
-        if (hitButton != null)
-            hitButton.gameObject.SetActive(false);
-
         if (playerHandImage != null)
         {
             _playerHandHitDragHandler ??= playerHandImage.GetComponent<PlayerHandHitDragHandler>();
@@ -1245,7 +1184,6 @@ public sealed class BattleUiPresenter : MonoBehaviour
         ClearChildren(devilPlayPileRoot);
         ClearChildren(sharedPlayPileRoot);
         ClearChildren(playerPlayPileRoot);
-        _selectedHandIndices.Clear();
         _suppressRoundPilesUntilNextRound = false;
         RememberRenderedCards(null);
     }
