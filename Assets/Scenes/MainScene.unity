@@ -3160,7 +3160,7 @@ MonoBehaviour:
   devil2BattleButton: {fileID: 1109111272}
   devil3BattleButton: {fileID: 662458918}
   devil4BattleButton: {fileID: 425738047}
-  keepDebugCanvasVisible: 0
+  keepDebugCanvasVisible: 1
 --- !u!114 &562614340
 MonoBehaviour:
   m_ObjectHideFlags: 0
