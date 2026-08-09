@@ -186,15 +186,15 @@ MonoBehaviour:
   - devilId: devil1_widearms
     sprite: {fileID: -8419792903860666056, guid: fdc014e9913d8dd49a8afc3407a833f6, type: 3}
   - devilId: devil2_default
-    sprite: {fileID: -6633085491520740262, guid: a4159aaf18da0bb4cbdb0657a73604b5, type: 3}
+    sprite: {fileID: 580316479411144667, guid: 014c6a38faff078439163a0e74bdf334, type: 3}
   - devilId: devil2_eyeclosed
-    sprite: {fileID: 6440551708361957310, guid: a4159aaf18da0bb4cbdb0657a73604b5, type: 3}
+    sprite: {fileID: -904090978863980773, guid: 014c6a38faff078439163a0e74bdf334, type: 3}
   - devilId: devil2_handonhip
-    sprite: {fileID: 7683499744701254066, guid: a4159aaf18da0bb4cbdb0657a73604b5, type: 3}
+    sprite: {fileID: -589338163919037845, guid: 014c6a38faff078439163a0e74bdf334, type: 3}
   - devilId: devil2_sideeye
-    sprite: {fileID: -7308846822248113196, guid: a4159aaf18da0bb4cbdb0657a73604b5, type: 3}
+    sprite: {fileID: -1104434482324947157, guid: 014c6a38faff078439163a0e74bdf334, type: 3}
   - devilId: devil2_smug
-    sprite: {fileID: 572138449563588644, guid: a4159aaf18da0bb4cbdb0657a73604b5, type: 3}
+    sprite: {fileID: 5376934044355377436, guid: 014c6a38faff078439163a0e74bdf334, type: 3}
   - devilId: devil3_default
     sprite: {fileID: 9104241343962483977, guid: 1864d9e73dab91c4fb0532647c0dd186, type: 3}
   - devilId: devil3_cards
