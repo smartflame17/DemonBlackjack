@@ -188,6 +188,7 @@ public sealed class MoneyDisplay : MonoBehaviour
             return;
 
         int clampedAmount = Mathf.Max(0, amount);
-        moneyText.text = combatant == Combatant.Opponent ? $"상대 ${clampedAmount}" : $"${clampedAmount}";
+        string displayText = NumberFormatter.Abbreviate(amount);
+        moneyText.text = combatant == Combatant.Opponent ? $"상대 $"+ displayText : "$"+ displayText;
     }
 }

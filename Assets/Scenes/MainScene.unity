@@ -12825,14 +12825,6 @@ PrefabInstance:
       propertyPath: m_AnchoredPosition.y
       value: 0
       objectReference: {fileID: 0}
-    - target: {fileID: 130314719306839228, guid: 8080b0b46eba5d14f97bc1a99c519826, type: 3}
-      propertyPath: m_SizeDelta.x
-      value: 420
-      objectReference: {fileID: 0}
-    - target: {fileID: 130314719306839228, guid: 8080b0b46eba5d14f97bc1a99c519826, type: 3}
-      propertyPath: m_AnchoredPosition.x
-      value: -569.2611
-      objectReference: {fileID: 0}
     - target: {fileID: 358748738511990820, guid: 8080b0b46eba5d14f97bc1a99c519826, type: 3}
       propertyPath: m_HorizontalAlignment
       value: 2
@@ -13105,14 +13097,6 @@ PrefabInstance:
       propertyPath: runManager
       value: 
       objectReference: {fileID: 562614337}
-    - target: {fileID: 7236148481247055535, guid: 8080b0b46eba5d14f97bc1a99c519826, type: 3}
-      propertyPath: m_SizeDelta.x
-      value: 414.9071
-      objectReference: {fileID: 0}
-    - target: {fileID: 7236148481247055535, guid: 8080b0b46eba5d14f97bc1a99c519826, type: 3}
-      propertyPath: m_AnchoredPosition.x
-      value: -557.45355
-      objectReference: {fileID: 0}
     - target: {fileID: 7243943459331610305, guid: 8080b0b46eba5d14f97bc1a99c519826, type: 3}
       propertyPath: battleController
       value: 
