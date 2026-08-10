@@ -549,6 +549,15 @@ public sealed class BattleState
         return transformed;
     }
 
+    public Card PreviewPlayerCardForPlay(Card card)
+    {
+        Card transformed = ApplyPlayerCardUpgrade(card);
+        for (int i = 0; i < _relicRuntimes.Count; i++)
+            transformed = _relicRuntimes[i].PreviewPlayerPlayedCard(transformed);
+
+        return transformed;
+    }
+
     public void ApplyRankUpgradeToPlayerBattleCards(Rank rank, string upgradeId)
     {
         if (!Enum.IsDefined(typeof(Rank), rank) || string.IsNullOrWhiteSpace(upgradeId))

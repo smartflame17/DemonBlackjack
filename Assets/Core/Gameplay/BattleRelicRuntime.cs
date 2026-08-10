@@ -23,6 +23,11 @@ public abstract class BattleRelicRuntime : IDisposable
 
     public virtual Card TransformPlayerPlayedCard(Card card)
     {
+        return PreviewPlayerPlayedCard(card);
+    }
+
+    public virtual Card PreviewPlayerPlayedCard(Card card)
+    {
         return card;
     }
 
@@ -217,6 +222,14 @@ public sealed class SuitOverrideRelicRuntime : BattleRelicRuntime
             _hasAnchor = true;
             return card;
         }
+
+        return PreviewPlayerPlayedCard(card);
+    }
+
+    public override Card PreviewPlayerPlayedCard(Card card)
+    {
+        if (!_hasAnchor)
+            return card;
 
         return card.Rank == _anchorRank
             ? new Card(_anchorSuit, card.Rank, card.ModifierId)

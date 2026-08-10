@@ -7,6 +7,7 @@ using UnityEngine.EventSystems;
 using UnityEngine.UI;
 using UnityEngine.Serialization;
 using System;
+using System.Globalization;
 
 // This component is responsible for battle UI presentation - Runtime monobehaviour binding.
 public sealed class BattleUiPresenter : MonoBehaviour
@@ -49,6 +50,8 @@ public sealed class BattleUiPresenter : MonoBehaviour
     [Header("Drag Interactions")]
     [SerializeField] private RectTransform playerHandImage;
     [SerializeField] private DevilStandIndicator devilStandIndicator;
+    [SerializeField] private TMP_Text playerChoiceMoneyPreviewText;
+    [SerializeField, Range(0f, 1f)] private float playerChoiceMoneyPreviewActiveAlpha = 0.3f;
 
     [Header("Results")]
     [SerializeField] private GameObject roundResultPanel;
@@ -153,6 +156,7 @@ public sealed class BattleUiPresenter : MonoBehaviour
         ConfigureCardLayout(sharedPlayPileRoot);
         ConfigureCardLayout(playerPlayPileRoot);
         ConfigureDragInteractionComponents();
+        HidePlayerChoiceMoneyPreview();
     }
 
     private void OnEnable()
@@ -170,6 +174,7 @@ public sealed class BattleUiPresenter : MonoBehaviour
     {
         CancelPendingRoundStart();
         CancelPendingTurnHandoff();
+        HidePlayerChoiceMoneyPreview();
         SetActive(roundStartPanel, false);
         ClearGeneratedBattleCards();
         EventBus.Unsubscribe<RunPhaseChangedEvent>(OnRunPhaseChanged);
@@ -301,6 +306,64 @@ public sealed class BattleUiPresenter : MonoBehaviour
         bool hit = ScheduleTurnHandoff(TurnHandoffAction.EndPlayerPhase);
         Refresh();
         return hit;
+    }
+
+    public bool TryCalculateCardPlayPreview(
+        int handIndex,
+        out ScoreResult scoreResult,
+        out MoneyDeltaPreview moneyPreview)
+    {
+        scoreResult = default;
+        moneyPreview = default;
+
+        if (!CanPlayerAct)
+            return false;
+
+        BattleState battle = battleController.BattleState;
+        RoundState round = battle?.CurrentRound;
+        if (round == null
+            || !round.CanPlacePlayedCard(Combatant.Player)
+            || handIndex < 0
+            || handIndex >= round.PlayerHand.Count
+            || battleController.InputGate != null && !battleController.InputGate.CanPlayCard(battle, handIndex))
+        {
+            return false;
+        }
+
+        var previewPlayedCards = new List<Card>(round.PlayerPlayedCards.Count + 1);
+        previewPlayedCards.AddRange(round.PlayerPlayedCards);
+        previewPlayedCards.Add(battle.PreviewPlayerCardForPlay(round.PlayerHand[handIndex]));
+
+        scoreResult = ScoreResolver.Resolve(
+            previewPlayedCards,
+            round.ScoringModifiers,
+            round.PlayerBurstThreshold);
+
+        var previewPokerCards = new List<Card>(previewPlayedCards.Count + round.SharedVisibleCards.Count);
+        previewPokerCards.AddRange(previewPlayedCards);
+        previewPokerCards.AddRange(round.SharedVisibleCards);
+        moneyPreview = MoneyResolver.CalculatePlayerRealtimeMoneyPreview(
+            previewPokerCards,
+            scoreResult,
+            round.PlayerBurstThreshold,
+            round.EffectiveWager,
+            battle.PlayerMoney,
+            battle.OpponentMoney);
+        return true;
+    }
+
+    public void ShowPlayerChoiceMoneyPreview(ScoreResult scoreResult, MoneyDeltaPreview moneyPreview)
+    {
+        if (playerChoiceMoneyPreviewText == null)
+            return;
+
+        playerChoiceMoneyPreviewText.text = NumberFormatter.Abbreviate(moneyPreview.FinalDelta) + "$";
+        SetPlayerChoiceMoneyPreviewAlpha(playerChoiceMoneyPreviewActiveAlpha);
+    }
+
+    public void HidePlayerChoiceMoneyPreview()
+    {
+        SetPlayerChoiceMoneyPreviewAlpha(0f);
     }
 
     public bool IsPointerOverPlayerPlayPile(PointerEventData eventData)
@@ -936,6 +999,7 @@ public sealed class BattleUiPresenter : MonoBehaviour
         GetNormalizedOpponentTurnDelayRange(out float minimum, out float maximum);
         opponentTurnDelayMinSeconds = minimum;
         opponentTurnDelayMaxSeconds = maximum;
+        playerChoiceMoneyPreviewActiveAlpha = Mathf.Clamp01(playerChoiceMoneyPreviewActiveAlpha);
     }
 
     private void SetScoreText(RoundState round)
@@ -972,6 +1036,7 @@ public sealed class BattleUiPresenter : MonoBehaviour
         viewPileButton ??= FindDescendantComponent<Button>("ViewPileButton");
         viewPileButton ??= FindDescendantComponent<Button>("ViewDrawPileButton");
         playerHandImage ??= FindDescendantRect("PlayerHandImage");
+        playerChoiceMoneyPreviewText ??= FindDescendantComponent<TMP_Text>("PlayerChoiceMoneyPreview");
         devilStandIndicator ??= FindOrAddDescendantComponent<DevilStandIndicator>("DevilStandIndicator");
         ConfigureDragInteractionComponents();
         roundResultPanel ??= FindDescendant("RoundResultPanel");
@@ -1154,6 +1219,16 @@ public sealed class BattleUiPresenter : MonoBehaviour
     {
         if (text != null)
             text.text = value;
+    }
+
+    private void SetPlayerChoiceMoneyPreviewAlpha(float alpha)
+    {
+        if (playerChoiceMoneyPreviewText == null)
+            return;
+
+        Color color = playerChoiceMoneyPreviewText.color;
+        color.a = Mathf.Clamp01(alpha);
+        playerChoiceMoneyPreviewText.color = color;
     }
 
     private static void SetActive(GameObject target, bool active)
