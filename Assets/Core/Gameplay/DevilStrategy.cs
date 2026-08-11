@@ -43,6 +43,16 @@ public interface IDevilRoundPayoutModifier
     int GetOpponentWinBonus(BattleState battle, RoundState round);
 }
 
+public interface IDevilRoundWagerModifier
+{
+    int GetRoundWager(BattleState battle, int baseWager);
+}
+
+public interface IDevilPokerPayoutModifier
+{
+    int ModifyPlayerPokerPayout(BattleState battle, RoundState round, int proposedPayout);
+}
+
 // Core strategy interface for devil AI behavior.
 public interface IDevilStrategy
 {
@@ -303,14 +313,69 @@ public class Devil1Strategy : BasicDevilStrategy, IDevilOpponentFieldModifier, I
     // Additional devil-specific logic can be added here if needed
 }
 
-// TODO: Implement Devil2Strategy, Devil3Strategy, and Devil4Strategy with unique behaviors and AI logic as needed.
-public class Devil2Strategy : BasicDevilStrategy
+public class Devil2Strategy : BasicDevilStrategy, IDevilRoundWagerModifier, IDevilPokerPayoutModifier
 {
+    private int currentWager;
+    private int lastResolvedRoundNumber = -1;
+
     public Devil2Strategy(int drawValue = 3) : base(drawValue)
     {
     }
+
+    public override void UpdateDevilState(DevilStateUpdateContext context)
+    {
+        if (context.UpdatePoint != DevilStateUpdatePoint.RoundResolved
+            || context.Round.RoundNumber <= lastResolvedRoundNumber)
+        {
+            return;
+        }
+
+        lastResolvedRoundNumber = context.Round.RoundNumber;
+        if (context.Resolution.Value.Winner == Combatant.Player)
+            currentWager = InflateWager(context.Round.BaseWager);
+    }
+
+    public int GetRoundWager(BattleState battle, int baseWager)
+    {
+        return currentWager > 0 ? currentWager : Math.Max(1, baseWager);
+    }
+
+    public int ModifyPlayerPokerPayout(BattleState battle, RoundState round, int proposedPayout)
+    {
+        int payout = Math.Max(0, proposedPayout);
+        if (battle == null
+            || round == null
+            || battle.OpponentMoney >= GameplayConstants.Devil2Config.Devil2CircuitBreakerThreshold)
+        {
+            return payout;
+        }
+
+        int remainingPayout = Math.Max(
+            0,
+            GameplayConstants.Devil2Config.Devil2PokerPayoutThreshold - round.PlayerPokerEarnings);
+        return Math.Min(payout, remainingPayout);
+    }
+
+    private static int InflateWager(int wager)
+    {
+        float inflationRate = GameplayConstants.Devil2Config.Devil2WagerInflationRate;
+        if (float.IsNaN(inflationRate) || inflationRate <= 0f)
+            return 1;
+
+        double inflatedWager = Math.Truncate(Math.Max(1, wager) * (double)inflationRate);
+        if (double.IsInfinity(inflatedWager) || inflatedWager >= int.MaxValue)
+            return int.MaxValue;
+
+        return Math.Max(1, (int)inflatedWager);
+    }
+
+    public override string GetDialogueId()
+    {
+        return null;
+    }
 }
 
+// TODO: Implement Devil3Strategy and Devil4Strategy with unique behaviors and AI logic as needed.
 public class Devil3Strategy : BasicDevilStrategy
 {
     public Devil3Strategy(int drawValue = 3) : base(drawValue)

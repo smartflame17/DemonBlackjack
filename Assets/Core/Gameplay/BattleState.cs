@@ -900,7 +900,22 @@ public sealed class BattleState
         if (PlayerMoney <= 0 || OpponentMoney <= 0)
             return 0;
 
-        return Config.BaseWager;
+        int wager = Config.DevilStrategy is IDevilRoundWagerModifier wagerModifier
+            ? wagerModifier.GetRoundWager(this, Config.BaseWager)
+            : Config.BaseWager;
+        return Math.Max(1, wager);
+    }
+
+    internal int GetModifiedPlayerPokerPayout(RoundState round, int proposedPayout)
+    {
+        int payout = Math.Max(0, proposedPayout);
+        if (Config.DevilStrategy is not IDevilPokerPayoutModifier payoutModifier)
+            return payout;
+
+        return Math.Clamp(
+            payoutModifier.ModifyPlayerPokerPayout(this, round, payout),
+            0,
+            payout);
     }
 
     private void RestoreCarryoverHands()

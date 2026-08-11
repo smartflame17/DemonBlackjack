@@ -343,12 +343,10 @@ public sealed class BattleUiPresenter : MonoBehaviour
         previewPokerCards.AddRange(previewPlayedCards);
         previewPokerCards.AddRange(round.SharedVisibleCards);
         moneyPreview = MoneyResolver.CalculatePlayerRealtimeMoneyPreview(
+            battle,
+            round,
             previewPokerCards,
-            scoreResult,
-            round.PlayerBurstThreshold,
-            round.EffectiveWager,
-            battle.PlayerMoney,
-            battle.OpponentMoney);
+            scoreResult);
         return true;
     }
 

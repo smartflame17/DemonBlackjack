@@ -68,6 +68,7 @@ public sealed class RoundState
     public bool OpponentBurstPenaltyResolved { get; private set; }
     public int OpponentMoneyLost { get; private set; }
     public int PlayerMoneyLost { get; private set; }
+    public int PlayerPokerEarnings { get; private set; }
     public bool PlayerHasPlayed => _playerPlayedCards.Count > 0;
     public bool OpponentHasPlayed => _opponentVisibleCards.Count > 0;
     public bool PlayerStood { get; private set; }
@@ -579,6 +580,16 @@ public sealed class RoundState
             PlayerMoneyLost += finalAmount;
         else
             OpponentMoneyLost += finalAmount;
+    }
+
+    public void RecordPlayerPokerEarnings(int amount)
+    {
+        int finalAmount = Math.Max(0, amount);
+        if (finalAmount <= 0)
+            return;
+
+        long total = (long)PlayerPokerEarnings + finalAmount;
+        PlayerPokerEarnings = total >= int.MaxValue ? int.MaxValue : (int)total;
     }
 
     public IReadOnlyList<Card> GetPokerCardsForPlayerPayout()

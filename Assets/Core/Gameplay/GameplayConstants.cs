@@ -37,9 +37,12 @@ namespace GameplayConstants
     public static class Devil2Config
     {
         // 2스테이지 악마 초기 자금
-        public static readonly int Devil2StartingMoney = 200000;
+        public static readonly int Devil2StartingMoney = 1000000;
         // 2스테이지 악마 라운드배팅 기본금
-        public static readonly int Devil2Wager = 2000;
+        public static readonly int Devil2Wager = 1000;
+        public static readonly float Devil2WagerInflationRate = 2f; // 2스테이지 악마 패배 시 기본금 인플레이션율 (다음 라운드 기본 배팅금이 증가)
+        public static readonly int Devil2CircuitBreakerThreshold = 200000; // 2스테이지 악마 족보 제한 모드 발동 기준
+        public static readonly int Devil2PokerPayoutThreshold = 10000; // 족보 제한 시, 한 라운드에 플레이어가 받을 수 있는 포커 상금의 최대 한도
     }
 
     // 3스테이지 관련 설정 값

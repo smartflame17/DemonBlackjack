@@ -117,8 +117,10 @@ public static class MoneyResolver
         if (payout <= 0)
             return;
 
+        payout = battle.GetModifiedPlayerPokerPayout(round, payout);
         int lost = TransferOpponentToPlayer(battle, payout);
         round.RecordMoneyLost(Combatant.Opponent, lost);
+        round.RecordPlayerPokerEarnings(lost);
         EventBus.Publish(new MoneyTransferReasonEvent(MoneyTransferReason.PokerPayout, lost));
     }
 
@@ -165,6 +167,28 @@ public static class MoneyResolver
     }
 
     public static MoneyDeltaPreview CalculatePlayerRealtimeMoneyPreview(
+        BattleState battle,
+        RoundState round,
+        IReadOnlyList<Card> pokerCards,
+        ScoreResult playerScore)
+    {
+        if (battle == null)
+            throw new ArgumentNullException(nameof(battle));
+
+        if (round == null)
+            throw new ArgumentNullException(nameof(round));
+
+        return CalculatePlayerRealtimeMoneyPreview(
+            pokerCards,
+            playerScore,
+            round.PlayerBurstThreshold,
+            round.EffectiveWager,
+            battle.PlayerMoney,
+            battle.OpponentMoney,
+            payout => battle.GetModifiedPlayerPokerPayout(round, payout));
+    }
+
+    public static MoneyDeltaPreview CalculatePlayerRealtimeMoneyPreview(
         IReadOnlyList<Card> pokerCards,
         ScoreResult playerScore,
         int playerBurstThreshold,
@@ -172,11 +196,32 @@ public static class MoneyResolver
         int playerMoney,
         int opponentMoney)
     {
+        return CalculatePlayerRealtimeMoneyPreview(
+            pokerCards,
+            playerScore,
+            playerBurstThreshold,
+            wager,
+            playerMoney,
+            opponentMoney,
+            null);
+    }
+
+    private static MoneyDeltaPreview CalculatePlayerRealtimeMoneyPreview(
+        IReadOnlyList<Card> pokerCards,
+        ScoreResult playerScore,
+        int playerBurstThreshold,
+        int wager,
+        int playerMoney,
+        int opponentMoney,
+        Func<int, int> modifyPokerPayout)
+    {
         if (wager <= 0)
             return default;
 
         PokerResult poker = ScoreResolver.ResolvePoker(pokerCards);
         int pokerPayout = CalculatePokerPayout(pokerCards, poker, wager);
+        if (modifyPokerPayout != null)
+            pokerPayout = Math.Clamp(modifyPokerPayout(pokerPayout), 0, pokerPayout);
         int pokerDelta = Math.Min(Math.Max(0, opponentMoney), pokerPayout);
 
         long playerMoneyAfterPoker = (long)Math.Max(0, playerMoney) + pokerDelta;
