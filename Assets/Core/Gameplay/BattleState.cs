@@ -631,11 +631,12 @@ public sealed class BattleState
         if (!CanUseActiveItem(itemId))
             return false;
 
+        EventBus.Publish(new ItemUsedEvent(itemId));
+        RunState.RemoveActiveItem(itemId);
+
         if (!ActiveItemResolver.TryApply(itemId, this))
             return false;
-
-        RunState.RemoveActiveItem(itemId);
-        EventBus.Publish(new ItemUsedEvent(itemId));
+        
         return true;
     }
 
