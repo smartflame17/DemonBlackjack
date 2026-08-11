@@ -25,6 +25,7 @@ public sealed class ScoreProgressionSlider : MonoBehaviour
     {
         EventBus.Subscribe<BattleStartedEvent>(OnBattleStarted);
         EventBus.Subscribe<BattleEndedEvent>(OnBattleEnded);
+        EventBus.Subscribe<ItemUsedEvent>(OnItemUsed);
         BindBattleBus();
         RefreshFromBattleState();
     }
@@ -33,6 +34,7 @@ public sealed class ScoreProgressionSlider : MonoBehaviour
     {
         EventBus.Unsubscribe<BattleStartedEvent>(OnBattleStarted);
         EventBus.Unsubscribe<BattleEndedEvent>(OnBattleEnded);
+        EventBus.Unsubscribe<ItemUsedEvent>(OnItemUsed);
         UnbindBattleBus();
         SetProgress(0f);
     }
@@ -49,6 +51,11 @@ public sealed class ScoreProgressionSlider : MonoBehaviour
         lastScore = 0;
         lastThreshold = 1;
         SetProgress(0f);
+    }
+
+    private void OnItemUsed(ItemUsedEvent eventData)
+    {
+        RefreshFromBattleState();
     }
 
     private void BindBattleBus()
