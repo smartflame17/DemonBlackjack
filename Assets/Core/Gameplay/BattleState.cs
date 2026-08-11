@@ -64,7 +64,6 @@ public sealed class BattleState
     public void Initialize()
     {
         SetPhase(BattlePhase.Init);
-        EventBus.Publish(new BattleStartedEvent(Config.EncounterId, BattleSeed, PlayerMoney, OpponentMoney));
         CommandQueue.Enqueue(new VisualCommand(VisualCommandType.BattleStarted, Config.EncounterId));
         SetPhase(BattlePhase.PreRound);
     }
@@ -207,14 +206,18 @@ public sealed class BattleState
     public BattleResult EndBattle()
     {
         if (Phase == BattlePhase.BattleEnd)
-            return new BattleResult(OpponentMoney <= 0 && PlayerMoney > 0, RoundNumber, PlayerMoney, OpponentMoney);
+            return GetBattleResult();
 
         SetPhase(BattlePhase.BattleEnd);
-        var result = new BattleResult(OpponentMoney <= 0 && PlayerMoney > 0, RoundNumber, PlayerMoney, OpponentMoney);
-        EventBus.Publish(new BattleEndedEvent(result));
+        BattleResult result = GetBattleResult();
         CommandQueue.Enqueue(new VisualCommand(VisualCommandType.BattleEnded, result.PlayerWon.ToString()));
         Dispose();
         return result;
+    }
+
+    internal BattleResult GetBattleResult()
+    {
+        return new BattleResult(OpponentMoney <= 0 && PlayerMoney > 0, RoundNumber, PlayerMoney, OpponentMoney);
     }
 
     public void Dispose()
@@ -580,7 +583,6 @@ public sealed class BattleState
             return 0;
 
         RunState.AddMoney(finalAmount);
-        EventBus.Publish(new MoneyChangedEvent(Combatant.Player, PlayerMoney, finalAmount));
         CommandQueue.Enqueue(new VisualCommand(VisualCommandType.MoneyChanged, $"{Combatant.Player}:{PlayerMoney}"));
         return finalAmount;
     }
@@ -592,7 +594,6 @@ public sealed class BattleState
             return 0;
 
         RunState.AddMoney(-finalAmount);
-        EventBus.Publish(new MoneyChangedEvent(Combatant.Player, PlayerMoney, -finalAmount));
         CommandQueue.Enqueue(new VisualCommand(VisualCommandType.MoneyChanged, $"{Combatant.Player}:{PlayerMoney}"));
 
         if (PlayerMoney <= 0)
@@ -621,7 +622,7 @@ public sealed class BattleState
         int actualDelta = OpponentMoney - previous;
         if (actualDelta != 0)
             RefreshDevilOpponentField();
-        EventBus.Publish(new MoneyChangedEvent(Combatant.Opponent, OpponentMoney, actualDelta));
+        global::EventBus.Publish(new MoneyChangedEvent(Combatant.Opponent, OpponentMoney, actualDelta));
         CommandQueue.Enqueue(new VisualCommand(VisualCommandType.MoneyChanged, $"{Combatant.Opponent}:{OpponentMoney}"));
         return actualDelta;
     }
@@ -631,12 +632,13 @@ public sealed class BattleState
         if (!CanUseActiveItem(itemId))
             return false;
 
-        EventBus.Publish(new ItemUsedEvent(itemId));
-        RunState.RemoveActiveItem(itemId);
-
         if (!ActiveItemResolver.TryApply(itemId, this))
             return false;
-        
+
+        if (!RunState.RemoveActiveItem(itemId))
+            return false;
+
+        global::EventBus.Publish(new ItemUsedEvent(itemId));
         return true;
     }
 
@@ -661,6 +663,7 @@ public sealed class BattleState
         _playerDeck.Discard(card);
         EventBus.Publish(new CardDiscardedEvent(Combatant.Player, card));
         CommandQueue.Enqueue(new VisualCommand(VisualCommandType.CardsPlayed, card.ToString()));
+        ResolveScoresOnly();
         return true;
     }
 
@@ -771,7 +774,7 @@ public sealed class BattleState
 
         EventBus.Publish(new HandRefilledEvent(CurrentRound.PlayerHand.Count));
         CommandQueue.Enqueue(new VisualCommand(VisualCommandType.CardsDrawn, CurrentRound.PlayerHand.Count.ToString()));
-        ResolveScores();
+        ResolveScoresOnly();
         return true;
     }
 
@@ -1108,7 +1111,9 @@ public sealed class BattleState
         return false;
     }
 
-    private void ResolveScores()
+    // For altering battle state without triggering any money transfers or round resolution. This is useful for effects that need to know the current score but don't want to end the round.
+    // Specifically used for active items
+    private void ResolveScoresOnly()
     {
         ScoreResult playerScore = ScoreResolver.Resolve(CurrentRound.PlayerPlayedCards, CurrentRound.ScoringModifiers, CurrentRound.PlayerBurstThreshold);
         ScoreResult opponentScore = ScoreResolver.Resolve(CurrentRound.OpponentVisibleCards, CurrentRound.ScoringModifiers,CurrentRound.OpponentBurstThreshold, GetOpponentBlackjackBonus());
@@ -1118,8 +1123,14 @@ public sealed class BattleState
 
         PublishScoreEvents(Combatant.Player, playerScore, playerPoker);
         PublishScoreEvents(Combatant.Opponent, opponentScore, opponentPoker);
+    }
+
+    private void ResolveScores()
+    {
+        ResolveScoresOnly();
+
         ResolveRealtimeMoney();
-        CommandQueue.Enqueue(new VisualCommand(VisualCommandType.ScoresResolved, $"{playerScore.FinalScore}:{opponentScore.FinalScore}"));
+        CommandQueue.Enqueue(new VisualCommand(VisualCommandType.ScoresResolved, $"{CurrentRound.PlayerScore.FinalScore}:{CurrentRound.OpponentScore.FinalScore}"));
         //TODO: we require game over check every resolve
     }
 

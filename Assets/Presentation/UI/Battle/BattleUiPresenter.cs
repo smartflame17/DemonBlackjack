@@ -164,7 +164,7 @@ public sealed class BattleUiPresenter : MonoBehaviour
         EventBus.Subscribe<RunPhaseChangedEvent>(OnRunPhaseChanged);
         EventBus.Subscribe<BattleStartedEvent>(OnBattleStarted);
         EventBus.Subscribe<BattleEndedEvent>(OnBattleEnded);
-        EventBus.Subscribe<BurstThresholdChangedEvent>(OnBurstThresholdChanged);
+        EventBus.Subscribe<ItemUsedEvent>(OnItemUsed);
 
         AddListeners();
         Refresh();
@@ -180,7 +180,7 @@ public sealed class BattleUiPresenter : MonoBehaviour
         EventBus.Unsubscribe<RunPhaseChangedEvent>(OnRunPhaseChanged);
         EventBus.Unsubscribe<BattleStartedEvent>(OnBattleStarted);
         EventBus.Unsubscribe<BattleEndedEvent>(OnBattleEnded);
-        EventBus.Unsubscribe<BurstThresholdChangedEvent>(OnBurstThresholdChanged);
+        EventBus.Unsubscribe<ItemUsedEvent>(OnItemUsed);
 
         RemoveListeners();
     }
@@ -591,7 +591,7 @@ public sealed class BattleUiPresenter : MonoBehaviour
         _turnHandoffPending = false;
     }
 
-    private void OnBurstThresholdChanged(BurstThresholdChangedEvent eventData)
+    private void OnItemUsed(ItemUsedEvent eventData)
     {
         Refresh();
     }

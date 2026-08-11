@@ -59,10 +59,8 @@ public sealed class RunState
 
     public void SetMoney(int money)
     {
-        int previous = Money;
-        Money = Math.Max(0, money);
-        int delta = Money - previous;
-        EventBus.Publish(new MoneyChangedEvent(Combatant.Player, Money, delta));
+        int target = Math.Max(0, money);
+        AddMoney(target - Money);
     }
 
     public int GetDevilAffinity(string devilId)

@@ -203,7 +203,7 @@ public sealed class CardPlayPreviewTests
             int scoreEvents = 0;
             int moneyEvents = 0;
             battle.EventBus.Subscribe<ScoreCalculatedEvent>(_ => scoreEvents++);
-            battle.EventBus.Subscribe<MoneyChangedEvent>(_ => moneyEvents++);
+            EventBus.Subscribe<MoneyChangedEvent>(_ => moneyEvents++);
 
             bool calculated = presenter.TryCalculateCardPlayPreview(0, out ScoreResult score, out MoneyDeltaPreview money);
 

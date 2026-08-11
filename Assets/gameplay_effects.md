@@ -22,7 +22,7 @@ The use path is:
 2. `BattleState.TryUseActiveItem` verifies that a round exists, the battle is active, and `RunState` owns at least one copy.
 3. `ActiveItemResolver.TryApply` maps the ID to a `BattleState` operation.
 4. The item is removed from `RunState` only if the effect succeeds.
-5. The battle's scoped bus publishes `ItemUsedEvent`.
+5. The global bus publishes `ItemUsedEvent` after the effect and inventory removal are complete.
 
 Current operations reject the last player Hit card, draw three cards into the player's hand, or double the current round wager. Failed effects do not consume an item.
 
@@ -70,9 +70,9 @@ The current upgrades change the played card's suit, which affects poker-hand eva
 
 ## Scoped events and lifecycle
 
-Every `BattleState` owns a `ScopedEventBus`. Core battle events such as `CardPlayedEvent`, `ItemUsedEvent`, score events, and round events are published on this bus.
+Every `BattleState` owns a `ScopedEventBus`. Battle-only card, score, threshold, phase, and round events are published on this bus. Battle lifetime, money, and completed item-use events are published on the global bus.
 
-`BattleEffectRuntime` is constructed with the battle and is the central lifecycle owner for future reactive handlers. It currently establishes the `CardPlayedEvent` and `ItemUsedEvent` extension points. Add event-driven dispatch or concrete `IBattleEffectHandler` implementations there as content requires them.
+`BattleEffectRuntime` is constructed with the battle and is the central lifecycle owner for battle-scoped reactive handlers. It currently establishes the `CardPlayedEvent` extension point. Add event-driven dispatch or concrete `IBattleEffectHandler` implementations there as content requires them.
 
 Any future handler must:
 

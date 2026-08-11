@@ -1,3 +1,4 @@
+// Global event bus: battle lifetime events are published once by runtime orchestration.
 public readonly struct BattleStartedEvent
 {
     public BattleStartedEvent(string encounterId, int seed, int playerMoney, int opponentMoney)
@@ -24,6 +25,7 @@ public readonly struct BattleEndedEvent
     public BattleResult Result { get; }
 }
 
+// Global event bus: player changes originate from RunState and opponent changes from BattleState.
 public readonly struct MoneyChangedEvent
 {
     public MoneyChangedEvent(Combatant owner, int currentMoney, int delta)
@@ -37,7 +39,7 @@ public readonly struct MoneyChangedEvent
     public int CurrentMoney { get; }
     public int Delta { get; }
 }
-// For informing ui why money has changed. Fire this event for every money transfer manually.
+// Global event bus. For informing UI why money has changed; publish once per transfer manually.
 // TODO: Consider adding multipliers for better ui representation later.
 public readonly struct MoneyTransferReasonEvent
 {
@@ -52,6 +54,7 @@ public readonly struct MoneyTransferReasonEvent
     public int Delta { get; }
 }
 
+// Battle-scoped local event bus.
 public readonly struct DeathPreventedEvent
 {
     public DeathPreventedEvent(Combatant target, bool wasPrevented)
@@ -64,6 +67,7 @@ public readonly struct DeathPreventedEvent
     public bool WasPrevented { get; }
 }
 
+// Global event bus: published after an active item is applied and consumed successfully.
 public readonly struct ItemUsedEvent
 {
     public ItemUsedEvent(string itemId)
@@ -74,6 +78,7 @@ public readonly struct ItemUsedEvent
     public string ItemId { get; }
 }
 
+// Battle-scoped local event bus.
 public readonly struct VisualsResolvedEvent
 {
     public VisualsResolvedEvent(VisualCommandType commandType)
@@ -84,6 +89,7 @@ public readonly struct VisualsResolvedEvent
     public VisualCommandType CommandType { get; }
 }
 
+// Global event bus.
 public readonly struct RunPhaseChangedEvent
 {
     public RunPhaseChangedEvent(RunPhase phase)
@@ -94,6 +100,7 @@ public readonly struct RunPhaseChangedEvent
     public RunPhase Phase { get; }
 }
 
+// Battle-scoped local event bus.
 public readonly struct BattlePhaseChangedEvent
 {
     public BattlePhaseChangedEvent(BattlePhase phase)
@@ -104,6 +111,7 @@ public readonly struct BattlePhaseChangedEvent
     public BattlePhase Phase { get; }
 }
 
+// Battle-scoped local event bus.
 public readonly struct DevilTurnChoiceEvent
 {
     public DevilTurnChoiceEvent(DevilTurnChoice choice)

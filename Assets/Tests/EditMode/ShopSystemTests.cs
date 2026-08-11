@@ -561,6 +561,10 @@ public sealed class ShopSystemTests
         var battle = new BattleState(run, TestBattleConfig(startingHandSize: 1));
         battle.StartRound(battle.GetDefaultWager());
         battle.StartRound(battle.GetDefaultWager());
+        int globalThresholdEvents = 0;
+        int scopedThresholdEvents = 0;
+        EventBus.Subscribe<BurstThresholdChangedEvent>(_ => globalThresholdEvents++);
+        battle.EventBus.Subscribe<BurstThresholdChangedEvent>(_ => scopedThresholdEvents++);
 
         for (int i = 0; i < 5; i++)
             Assert.That(battle.TryHit(), Is.True, $"Hit {i + 1}");
@@ -568,6 +572,8 @@ public sealed class ShopSystemTests
         Assert.That(battle.Phase, Is.Not.EqualTo(BattlePhase.Cleanup));
         Assert.That(battle.CurrentRound.PlayerScore.BlackjackScore, Is.EqualTo(10));
         Assert.That(battle.CurrentRound.PlayerBurstThreshold, Is.EqualTo(22));
+        Assert.That(globalThresholdEvents, Is.Zero);
+        Assert.That(scopedThresholdEvents, Is.EqualTo(1));
         battle.Dispose();
     }
 
@@ -1664,6 +1670,10 @@ public sealed class ShopSystemTests
         run.AddActiveItem(ActiveItemResolver.LeverageTriple);
         var battle = new BattleState(run, new BattleConfig("test", 100, baseWager: 10));
         battle.StartRound(battle.GetDefaultWager());
+        var globalMoneyEvents = new List<MoneyChangedEvent>();
+        int scopedMoneyEvents = 0;
+        EventBus.Subscribe<MoneyChangedEvent>(eventData => globalMoneyEvents.Add(eventData));
+        battle.EventBus.Subscribe<MoneyChangedEvent>(_ => scopedMoneyEvents++);
 
         Assert.That(battle.TryUseActiveItem(ActiveItemResolver.LeverageTriple), Is.True);
 
@@ -1673,6 +1683,14 @@ public sealed class ShopSystemTests
         Assert.That(run.Money, Is.EqualTo(70));
         Assert.That(battle.OpponentMoney, Is.EqualTo(70));
         Assert.That(run.HasActiveItem(ActiveItemResolver.LeverageTriple), Is.False);
+        Assert.That(globalMoneyEvents.Count, Is.EqualTo(2));
+        Assert.That(globalMoneyEvents[0].Owner, Is.EqualTo(Combatant.Player));
+        Assert.That(globalMoneyEvents[0].CurrentMoney, Is.EqualTo(70));
+        Assert.That(globalMoneyEvents[0].Delta, Is.EqualTo(-20));
+        Assert.That(globalMoneyEvents[1].Owner, Is.EqualTo(Combatant.Opponent));
+        Assert.That(globalMoneyEvents[1].CurrentMoney, Is.EqualTo(70));
+        Assert.That(globalMoneyEvents[1].Delta, Is.EqualTo(-20));
+        Assert.That(scopedMoneyEvents, Is.Zero);
 
         battle.Dispose();
     }
@@ -1685,13 +1703,147 @@ public sealed class ShopSystemTests
         var battle = new BattleState(run, new BattleConfig("test", 100));
         battle.StartRound(battle.GetDefaultWager());
         int before = battle.CurrentRound.PlayerBurstThreshold;
+        int globalItemEvents = 0;
+        int scopedItemEvents = 0;
+        int globalThresholdEvents = 0;
+        int scopedThresholdEvents = 0;
+        bool itemRemovedWhenPublished = false;
+        int thresholdWhenPublished = 0;
+        EventBus.Subscribe<ItemUsedEvent>(eventData =>
+        {
+            globalItemEvents++;
+            itemRemovedWhenPublished = !run.HasActiveItem(eventData.ItemId);
+            thresholdWhenPublished = battle.CurrentRound.PlayerBurstThreshold;
+        });
+        EventBus.Subscribe<BurstThresholdChangedEvent>(_ => globalThresholdEvents++);
+        battle.EventBus.Subscribe<ItemUsedEvent>(_ => scopedItemEvents++);
+        battle.EventBus.Subscribe<BurstThresholdChangedEvent>(_ => scopedThresholdEvents++);
 
         Assert.That(battle.TryUseActiveItem(ActiveItemResolver.BurstThresholdPlusThree), Is.True);
 
         Assert.That(battle.CurrentRound.PlayerBurstThreshold, Is.EqualTo(before + 3));
         Assert.That(run.HasActiveItem(ActiveItemResolver.BurstThresholdPlusThree), Is.False);
+        Assert.That(globalItemEvents, Is.EqualTo(1));
+        Assert.That(scopedItemEvents, Is.Zero);
+        Assert.That(itemRemovedWhenPublished, Is.True);
+        Assert.That(thresholdWhenPublished, Is.EqualTo(before + 3));
+        Assert.That(globalThresholdEvents, Is.Zero);
+        Assert.That(scopedThresholdEvents, Is.EqualTo(1));
+        Assert.That(battle.TryUseActiveItem(ActiveItemResolver.BurstThresholdPlusThree), Is.False);
+        Assert.That(globalItemEvents, Is.EqualTo(1));
 
         battle.Dispose();
+    }
+
+    [Test]
+    public void BattleUiPresenter_ItemUsedEventRefreshesThresholdImmediately()
+    {
+        var controllerObject = new GameObject("BattleController");
+        var presenterObject = new GameObject("BattleUiPresenter");
+        presenterObject.SetActive(false);
+
+        try
+        {
+            BattleController controller = controllerObject.AddComponent<BattleController>();
+            var run = new RunState(1);
+            run.AddActiveItem(ActiveItemResolver.BurstThresholdPlusThree);
+            controller.InitializeBattle(run, new BattleConfig("test", 100));
+            Assert.That(controller.StartNextRound(controller.BattleState.GetDefaultWager()), Is.True);
+
+            var thresholdObject = new GameObject(
+                "PlayerThreshold",
+                typeof(RectTransform),
+                typeof(CanvasRenderer),
+                typeof(TextMeshProUGUI));
+            thresholdObject.transform.SetParent(presenterObject.transform);
+            TMP_Text thresholdText = thresholdObject.GetComponent<TMP_Text>();
+
+            var labelObject = new GameObject(
+                "BackToMapButtonText",
+                typeof(RectTransform),
+                typeof(CanvasRenderer),
+                typeof(TextMeshProUGUI));
+            labelObject.transform.SetParent(presenterObject.transform);
+
+            BattleUiPresenter presenter = presenterObject.AddComponent<BattleUiPresenter>();
+            SetField(presenter, "battleController", controller);
+            SetField(presenter, "playerBurstThresholdText", thresholdText);
+            SetField(presenter, "backToMapButtonText", labelObject.GetComponent<TMP_Text>());
+            Invoke(presenter, "OnEnable");
+
+            int expectedThreshold = controller.BattleState.CurrentRound.PlayerBurstThreshold + 3;
+            Assert.That(controller.TryUseActiveItem(ActiveItemResolver.BurstThresholdPlusThree), Is.True);
+
+            Assert.That(thresholdText.text, Is.EqualTo(expectedThreshold.ToString()));
+            Invoke(presenter, "OnDisable");
+        }
+        finally
+        {
+            Object.DestroyImmediate(presenterObject);
+            Object.DestroyImmediate(controllerObject);
+        }
+    }
+
+    [Test]
+    public void MoneyDisplays_ReceiveGlobalPlayerAndOpponentChangesImmediately()
+    {
+        var controllerObject = new GameObject("BattleController");
+        var managerObject = new GameObject("RunManager");
+        var playerDisplayObject = new GameObject(
+            "PlayerMoney",
+            typeof(RectTransform),
+            typeof(CanvasRenderer),
+            typeof(TextMeshProUGUI));
+        var opponentDisplayObject = new GameObject(
+            "OpponentMoney",
+            typeof(RectTransform),
+            typeof(CanvasRenderer),
+            typeof(TextMeshProUGUI));
+        playerDisplayObject.SetActive(false);
+        opponentDisplayObject.SetActive(false);
+
+        try
+        {
+            BattleController controller = controllerObject.AddComponent<BattleController>();
+            RunManager manager = managerObject.AddComponent<RunManager>();
+            SetField(manager, "battleController", controller);
+            manager.StartRun(2);
+            manager.StartBattle(new BattleConfig("test", 100));
+
+            TMP_Text playerText = playerDisplayObject.GetComponent<TMP_Text>();
+            MoneyDisplay playerDisplay = playerDisplayObject.AddComponent<MoneyDisplay>();
+            SetField(playerDisplay, "moneyText", playerText);
+            SetField(playerDisplay, "combatant", Combatant.Player);
+            SetField(playerDisplay, "runManager", manager);
+            SetField(playerDisplay, "battleController", controller);
+
+            TMP_Text opponentText = opponentDisplayObject.GetComponent<TMP_Text>();
+            MoneyDisplay opponentDisplay = opponentDisplayObject.AddComponent<MoneyDisplay>();
+            SetField(opponentDisplay, "moneyText", opponentText);
+            SetField(opponentDisplay, "combatant", Combatant.Opponent);
+            SetField(opponentDisplay, "runManager", manager);
+            SetField(opponentDisplay, "battleController", controller);
+
+            Invoke(playerDisplay, "OnEnable");
+            Invoke(opponentDisplay, "OnEnable");
+
+            int expectedPlayerMoney = manager.RunState.Money + 25;
+            int expectedOpponentMoney = controller.BattleState.OpponentMoney - 20;
+            controller.BattleState.AddPlayerMoney(25);
+            controller.BattleState.AddOpponentMoney(-20);
+
+            Assert.That(playerText.text, Is.EqualTo("$" + NumberFormatter.Abbreviate(expectedPlayerMoney)));
+            Assert.That(opponentText.text, Does.Contain(NumberFormatter.Abbreviate(expectedOpponentMoney)));
+            Invoke(opponentDisplay, "OnDisable");
+            Invoke(playerDisplay, "OnDisable");
+        }
+        finally
+        {
+            Object.DestroyImmediate(opponentDisplayObject);
+            Object.DestroyImmediate(playerDisplayObject);
+            Object.DestroyImmediate(managerObject);
+            Object.DestroyImmediate(controllerObject);
+        }
     }
 
     [Test]

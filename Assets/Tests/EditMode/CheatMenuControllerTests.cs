@@ -34,7 +34,7 @@ public sealed class CheatMenuControllerTests
     }
 
     [Test]
-    public void MoneyMutation_UsesRunHookOutsideBattleAndScopedHookDuringBattle()
+    public void MoneyMutation_UsesRunHookAndPublishesOneGlobalEventDuringBattle()
     {
         RunManager runManager = CreateRunManager();
         CheatMenuController controller = CreateController(
@@ -49,23 +49,26 @@ public sealed class CheatMenuControllerTests
         battleController.InitializeBattle(runManager.RunState, new BattleConfig("cheat_test", 100));
         SetField(controller, "battleController", battleController);
 
-        MoneyChangedEvent scopedEvent = default;
-        bool receivedScopedEvent = false;
-        battleController.BattleState.EventBus.Subscribe<MoneyChangedEvent>(eventData =>
+        MoneyChangedEvent globalEvent = default;
+        int globalEvents = 0;
+        int scopedEvents = 0;
+        EventBus.Subscribe<MoneyChangedEvent>(eventData =>
         {
             if (eventData.Owner != Combatant.Player)
                 return;
 
-            scopedEvent = eventData;
-            receivedScopedEvent = true;
+            globalEvent = eventData;
+            globalEvents++;
         });
+        battleController.BattleState.EventBus.Subscribe<MoneyChangedEvent>(_ => scopedEvents++);
 
         Invoke(controller, "SetPlayerMoney", 400);
 
         Assert.That(runManager.RunState.Money, Is.EqualTo(400));
-        Assert.That(receivedScopedEvent, Is.True);
-        Assert.That(scopedEvent.CurrentMoney, Is.EqualTo(400));
-        Assert.That(scopedEvent.Delta, Is.EqualTo(150));
+        Assert.That(globalEvents, Is.EqualTo(1));
+        Assert.That(scopedEvents, Is.Zero);
+        Assert.That(globalEvent.CurrentMoney, Is.EqualTo(400));
+        Assert.That(globalEvent.Delta, Is.EqualTo(150));
         battleController.CleanupBattle();
     }
 

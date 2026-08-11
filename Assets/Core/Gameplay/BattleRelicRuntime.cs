@@ -36,11 +36,17 @@ public abstract class BattleRelicRuntime : IDisposable
         if (_disposed)
             return;
 
+        OnDisposing();
+
         for (int i = _unsubscribeActions.Count - 1; i >= 0; i--)
             _unsubscribeActions[i]();
 
         _unsubscribeActions.Clear();
         _disposed = true;
+    }
+
+    protected virtual void OnDisposing()
+    {
     }
 
     protected void Subscribe<T>(Action<T> callback)
@@ -75,7 +81,7 @@ public abstract class BattleRelicRuntime : IDisposable
         if (round.PlayerBurstThreshold == previousThreshold)
             return false;
 
-        EventBus.Publish(new BurstThresholdChangedEvent(Combatant.Player, round.PlayerBurstThreshold));
+        Battle.EventBus.Publish(new BurstThresholdChangedEvent(Combatant.Player, round.PlayerBurstThreshold));
         return true;
     }
 
@@ -173,7 +179,6 @@ public sealed class BurstExtendRelicRuntime : BattleRelicRuntime
         : base(RelicRuleResolver.BurstExtend, battle)
     {
         Subscribe<PlayerHitUsedEvent>(OnPlayerHitUsed);
-        Subscribe<BattleEndedEvent>(OnBattleEnded);
     }
 
     private void OnPlayerHitUsed(PlayerHitUsedEvent eventData)
@@ -193,7 +198,7 @@ public sealed class BurstExtendRelicRuntime : BattleRelicRuntime
         PublishActivation();
     }
 
-    private void OnBattleEnded(BattleEndedEvent eventData)
+    protected override void OnDisposing()
     {
         _hitCount = 0;
         PublishCounter(0);

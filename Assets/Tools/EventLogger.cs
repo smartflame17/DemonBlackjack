@@ -23,6 +23,7 @@ public class EventLogger : MonoBehaviour
         EventBus.Subscribe<BattleStartedEvent>(OnBattleStarted);
         EventBus.Subscribe<BattleEndedEvent>(OnBattleEnded);
         EventBus.Subscribe<MoneyChangedEvent>(OnMoneyChanged);
+        EventBus.Subscribe<ItemUsedEvent>(OnItemUsed);
         EventBus.Subscribe<RunPhaseChangedEvent>(OnRunPhaseChanged);
 
         BindBattleState(battleController != null ? battleController.BattleState : null);
@@ -33,6 +34,7 @@ public class EventLogger : MonoBehaviour
         EventBus.Unsubscribe<BattleStartedEvent>(OnBattleStarted);
         EventBus.Unsubscribe<BattleEndedEvent>(OnBattleEnded);
         EventBus.Unsubscribe<MoneyChangedEvent>(OnMoneyChanged);
+        EventBus.Unsubscribe<ItemUsedEvent>(OnItemUsed);
         EventBus.Unsubscribe<RunPhaseChangedEvent>(OnRunPhaseChanged);
 
         UnbindBattleState();
@@ -96,7 +98,6 @@ public class EventLogger : MonoBehaviour
         battleState = activeBattle;
         battleBus = activeBus;
         battleBus.Subscribe<BattlePhaseChangedEvent>(OnBattlePhaseChanged);
-        battleBus.Subscribe<ItemUsedEvent>(OnItemUsed);
         battleBus.Subscribe<RoundStartedEvent>(OnRoundStarted);
         battleBus.Subscribe<RoundEndedEvent>(OnRoundEnded);
         battleBus.Subscribe<CardPlayedEvent>(OnCardPlayed);
@@ -116,7 +117,6 @@ public class EventLogger : MonoBehaviour
         if (battleBus != null)
         {
             battleBus.Unsubscribe<BattlePhaseChangedEvent>(OnBattlePhaseChanged);
-            battleBus.Unsubscribe<ItemUsedEvent>(OnItemUsed);
             battleBus.Unsubscribe<RoundStartedEvent>(OnRoundStarted);
             battleBus.Unsubscribe<RoundEndedEvent>(OnRoundEnded);
             battleBus.Unsubscribe<CardPlayedEvent>(OnCardPlayed);
@@ -143,8 +143,8 @@ public class EventLogger : MonoBehaviour
 
     private void OnItemUsed(ItemUsedEvent eventData)
     {
-        if (logBattleEvents)
-            Debug.Log($"<color=red>[Battle]</color> Item Used: ItemId={eventData.ItemId}");
+        if (logGlobalEvents)
+            Debug.Log($"<color=green>[Global]</color> Item Used: ItemId={eventData.ItemId}");
     }
 
     private void OnRoundStarted(RoundStartedEvent eventData)
