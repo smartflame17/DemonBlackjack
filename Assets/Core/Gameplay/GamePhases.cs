@@ -28,7 +28,8 @@ public enum BattlePhase
 public enum Combatant
 {
     Player,
-    Opponent
+    Opponent,
+    System      // For system events that are not specific to either player or opponent
 }
 
 public enum Suit

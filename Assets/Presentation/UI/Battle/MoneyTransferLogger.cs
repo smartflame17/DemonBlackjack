@@ -159,10 +159,18 @@ public class MoneyTransferLogger : MonoBehaviour
                 RefreshRoundResultText();
                 break;
             case MoneyTransferReason.BurstPenalty:
-                burstPenalty += eventData.Delta;
-                QueueTextEffect(3, -eventData.Delta);
-                burstPenaltyText.text = "-"+NumberFormatter.Abbreviate(burstPenalty);
-                if (burstPenalty > 0)
+                if (eventData.Receiver == Combatant.Opponent)
+                {
+                    burstPenalty -= eventData.Delta;
+                    QueueTextEffect(3, -eventData.Delta);
+                }
+                else if (eventData.Receiver == Combatant.Player)
+                {
+                    burstPenalty += eventData.Delta;
+                    QueueTextEffect(3, eventData.Delta);
+                }
+                burstPenaltyText.text = NumberFormatter.Abbreviate(burstPenalty);
+                if (burstPenalty < 0)
                     burstPenaltyText.color = Color.red;
                 else
                     burstPenaltyText.color = Color.green;

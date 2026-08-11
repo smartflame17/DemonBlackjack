@@ -41,12 +41,13 @@ public readonly struct MoneyChangedEvent
 // TODO: Consider adding multipliers for better ui representation later.
 public readonly struct MoneyTransferReasonEvent
 {
-    public MoneyTransferReasonEvent(MoneyTransferReason reason, int delta)
+    public MoneyTransferReasonEvent(Combatant receiver, MoneyTransferReason reason, int delta)
     {
+        Receiver = receiver;
         Reason = reason;
         Delta = delta;
     }
-
+    public Combatant Receiver { get; }
     public MoneyTransferReason Reason { get; }
     public int Delta { get; }
 }

@@ -30,7 +30,7 @@ public static class MoneyResolver
             if (lost > 0)
             {
                 round.RecordMoneyLost(Combatant.Player, lost);
-                EventBus.Publish(new MoneyTransferReasonEvent(MoneyTransferReason.DevilAbilityPayout, lost));
+                EventBus.Publish(new MoneyTransferReasonEvent(Combatant.Opponent,MoneyTransferReason.DevilAbilityPayout, lost));
             }
         }
 
@@ -72,7 +72,7 @@ public static class MoneyResolver
             int lost = TransferPlayerToOpponent(battle, playerBurstAmount);
             round.RecordMoneyLost(Combatant.Player, lost);
             round.MarkBurstPenaltyResolved(Combatant.Player);
-            EventBus.Publish(new MoneyTransferReasonEvent(MoneyTransferReason.BurstPenalty, playerBurstAmount));
+            EventBus.Publish(new MoneyTransferReasonEvent(Combatant.Opponent, MoneyTransferReason.BurstPenalty, playerBurstAmount));
         }
 
         int opponentBurstAmount = CalculateBurstTransferAmount(round.OpponentScore, round.OpponentBurstThreshold);
@@ -81,7 +81,7 @@ public static class MoneyResolver
             int lost = TransferOpponentToPlayer(battle, opponentBurstAmount);
             round.RecordMoneyLost(Combatant.Opponent, lost);
             round.MarkBurstPenaltyResolved(Combatant.Opponent);
-            EventBus.Publish(new MoneyTransferReasonEvent(MoneyTransferReason.BurstPenalty, -opponentBurstAmount));
+            EventBus.Publish(new MoneyTransferReasonEvent(Combatant.Player, MoneyTransferReason.BurstPenalty, opponentBurstAmount));
         }
     }
 
@@ -93,19 +93,18 @@ public static class MoneyResolver
         if (winner == Combatant.Player)
         {
             battle.AddPlayerMoney(round.Pot);
-            EventBus.Publish(new MoneyTransferReasonEvent(MoneyTransferReason.BlackjackPayout, round.Pot));
+            EventBus.Publish(new MoneyTransferReasonEvent(Combatant.Player, MoneyTransferReason.BlackjackPayout, round.Pot));
         }
             
         else if (winner == Combatant.Opponent)
         {
             battle.AddOpponentMoney(round.Pot);
-            EventBus.Publish(new MoneyTransferReasonEvent(MoneyTransferReason.BlackjackPayout, -round.Pot));
+            EventBus.Publish(new MoneyTransferReasonEvent(Combatant.Opponent, MoneyTransferReason.BlackjackPayout, -round.Pot));
         }
         else
         {
             battle.AddPlayerMoney(round.PlayerStake);
             battle.AddOpponentMoney(round.OpponentStake);
-            EventBus.Publish(new MoneyTransferReasonEvent(MoneyTransferReason.BlackjackPayout, 0));
         }
     }
 
@@ -121,7 +120,7 @@ public static class MoneyResolver
         int lost = TransferOpponentToPlayer(battle, payout);
         round.RecordMoneyLost(Combatant.Opponent, lost);
         round.RecordPlayerPokerEarnings(lost);
-        EventBus.Publish(new MoneyTransferReasonEvent(MoneyTransferReason.PokerPayout, lost));
+        EventBus.Publish(new MoneyTransferReasonEvent(Combatant.Player, MoneyTransferReason.PokerPayout, lost));
     }
 
     public static int CalculatePokerPayout(IReadOnlyList<Card> cards, PokerResult poker, int wager)
