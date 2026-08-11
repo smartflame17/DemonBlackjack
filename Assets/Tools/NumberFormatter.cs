@@ -4,7 +4,7 @@ public static class NumberFormatter
 {
     private static readonly string[] suffixes =
     {
-        "", "k", "m", "b", "t", "q"
+        "", "K", "M", "B", "T", "Q"
     };
 
     public static string Abbreviate(int value)
