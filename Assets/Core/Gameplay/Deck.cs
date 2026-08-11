@@ -137,16 +137,17 @@ public sealed class Deck
         return cards;
     }
 
-    public static List<Card> CreateAllHeartsDeck(int duplicateCount = 4)
+    public static List<Card> CreateDeckOfSuits(Suit suit, int duplicateCount = 4)
     {
         var cards = new List<Card>(13 * duplicateCount);
 
         for (int i = 0; i < duplicateCount; i++)
         {
             foreach (Rank rank in Enum.GetValues(typeof(Rank)))
-            cards.Add(new Card(Suit.Hearts, rank));
+                cards.Add(new Card(suit, rank));
         }
 
         return cards;
     }
+
 }

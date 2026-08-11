@@ -282,7 +282,7 @@ public class Devil1Strategy : BasicDevilStrategy, IDevilOpponentFieldModifier, I
 
     public override IEnumerable<Card> CreateStartingDeck(RunState runState, BattleConfig config)
     {
-        return Deck.CreateAllHeartsDeck(4);
+        return Deck.CreateDeckOfSuits(Suit.Hearts, duplicateCount: 4);
     }
 
     public override string GetDialogueId()
