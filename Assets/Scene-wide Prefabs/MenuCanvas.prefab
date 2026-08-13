@@ -5071,8 +5071,8 @@ RectTransform:
   m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
   m_AnchorMin: {x: 0.5, y: 0.5}
   m_AnchorMax: {x: 0.5, y: 0.5}
-  m_AnchoredPosition: {x: 0, y: 22}
-  m_SizeDelta: {x: 860, y: 570}
+  m_AnchoredPosition: {x: 0, y: 30}
+  m_SizeDelta: {x: 860, y: 427.6521}
   m_Pivot: {x: 0.5, y: 0.5}
 --- !u!222 &5736000423043257891
 CanvasRenderer:
@@ -5315,7 +5315,7 @@ RectTransform:
   m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
   m_AnchorMin: {x: 0.5, y: 0.5}
   m_AnchorMax: {x: 0.5, y: 0.5}
-  m_AnchoredPosition: {x: 0, y: -332}
+  m_AnchoredPosition: {x: 0, y: -269}
   m_SizeDelta: {x: 240, y: 66}
   m_Pivot: {x: 0.5, y: 0.5}
 --- !u!222 &751894314678839949
@@ -5889,6 +5889,7 @@ MonoBehaviour:
   m_EditorClassIdentifier: Assembly-CSharp::ItemUseMenu
   runManager: {fileID: 0}
   battleController: {fileID: 0}
+  activeItemUseProxy: {fileID: 9000000000000001001}
   popup: {fileID: 7654295504943154573}
   useButton: {fileID: 2405783695396379937}
   discardButton: {fileID: 8359659905362504388}
@@ -11902,7 +11903,7 @@ RectTransform:
   m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
   m_AnchorMin: {x: 0.5, y: 0.5}
   m_AnchorMax: {x: 0.5, y: 0.5}
-  m_AnchoredPosition: {x: 0, y: 344}
+  m_AnchoredPosition: {x: 0, y: 291}
   m_SizeDelta: {x: 760, y: 64}
   m_Pivot: {x: 0.5, y: 0.5}
 --- !u!222 &2003538750390138114
@@ -12957,6 +12958,7 @@ GameObject:
   - component: {fileID: 4463773648509840010}
   - component: {fileID: 1545591316206927994}
   - component: {fileID: 6033103954871090450}
+  - component: {fileID: 9000000000000001001}
   m_Layer: 5
   m_Name: MenuCanvas
   m_TagString: Untagged
@@ -13054,6 +13056,20 @@ MonoBehaviour:
   m_BlockingMask:
     serializedVersion: 2
     m_Bits: 4294967295
+--- !u!114 &9000000000000001001
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 4518048737529090215}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: e13a539004ef40bb8e7747f7d0b2a321, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: Assembly-CSharp::ActiveItemUseProxy
+  battleController: {fileID: 0}
+  cardSelectionPanel: {fileID: 5090149583112042885}
 --- !u!1 &4587929171610186852
 GameObject:
   m_ObjectHideFlags: 0
@@ -13250,8 +13266,8 @@ RectTransform:
   m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
   m_AnchorMin: {x: 0.5, y: 0.5}
   m_AnchorMax: {x: 0.5, y: 0.5}
-  m_AnchoredPosition: {x: 0, y: 0}
-  m_SizeDelta: {x: 960, y: 780}
+  m_AnchoredPosition: {x: 0, y: 0.000015259}
+  m_SizeDelta: {x: 960, y: 664.3423}
   m_Pivot: {x: 0.5, y: 0.5}
 --- !u!222 &3847375994094818590
 CanvasRenderer:

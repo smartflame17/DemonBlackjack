@@ -3,6 +3,8 @@ using System.Collections.Generic;
 
 public sealed class BattleState
 {
+    public event Action ActiveItemSelectionCancelled;
+
     private readonly Deck _playerDeck;
     private readonly Deck _opponentDeck;
     private readonly Random _random;
@@ -12,6 +14,9 @@ public sealed class BattleState
     private readonly List<Card> _opponentHandCarryover = new();
     private readonly List<BattleRelicRuntime> _relicRuntimes;
     private readonly BattleEffectRuntime _effectRuntime;
+    private string _pendingActiveItemId;
+    private RoundState _pendingActiveItemRound;
+    private Card[] _pendingActiveItemCards;
     private bool _disposed;
 
     public BattleState(RunState runState, BattleConfig config)
@@ -60,6 +65,7 @@ public sealed class BattleState
     public IReadOnlyList<Card> PlayerDiscardPile => _playerDeck.DiscardPile;
     public IReadOnlyList<Card> OpponentDrawPile => _opponentDeck.DrawPile;
     public IReadOnlyList<Card> OpponentDiscardPile => _opponentDeck.DiscardPile;
+    public bool HasPendingActiveItemSelection => _pendingActiveItemRound != null;
 
     public void Initialize()
     {
@@ -186,6 +192,8 @@ public sealed class BattleState
 
     public void CleanupRound()
     {
+        CancelPendingActiveItemUse();
+
         if (CurrentRound == null)
             return;
 
@@ -225,6 +233,7 @@ public sealed class BattleState
         if (_disposed)
             return;
 
+        CancelPendingActiveItemUse();
         Config.DevilStrategy.UnregisterAffinityHooks(this);
         _effectRuntime.Dispose();
         for (int i = 0; i < _relicRuntimes.Count; i++)
@@ -629,35 +638,93 @@ public sealed class BattleState
 
     public bool TryUseActiveItem(string itemId)
     {
+        ActiveItemUseStartResult result = TryBeginActiveItemUse(itemId, out _);
+        if (result == ActiveItemUseStartResult.SelectionRequired)
+            CancelPendingActiveItemUse();
+
+        return result == ActiveItemUseStartResult.Applied;
+    }
+
+    public ActiveItemUseStartResult TryBeginActiveItemUse(
+        string itemId,
+        out ActiveItemSelectionRequest selectionRequest)
+    {
+        selectionRequest = default;
         if (!CanUseActiveItem(itemId))
-            return false;
+            return ActiveItemUseStartResult.Rejected;
 
-        if (!ActiveItemResolver.TryApply(itemId, this))
-            return false;
+        if (ActiveItemResolver.RequiresCardSelection(itemId))
+        {
+            Card[] snapshot = CopyPlayerPlayedCards(CurrentRound);
+            _pendingActiveItemId = itemId;
+            _pendingActiveItemRound = CurrentRound;
+            _pendingActiveItemCards = snapshot;
+            selectionRequest = new ActiveItemSelectionRequest(itemId, snapshot, 1);
+            return ActiveItemUseStartResult.SelectionRequired;
+        }
 
-        if (!RunState.RemoveActiveItem(itemId))
-            return false;
+        if (!ActiveItemResolver.TryApply(itemId, this) || !ConsumeActiveItem(itemId))
+            return ActiveItemUseStartResult.Rejected;
 
-        global::EventBus.Publish(new ItemUsedEvent(itemId));
-        return true;
+        return ActiveItemUseStartResult.Applied;
+    }
+
+    public bool TryCompletePendingActiveItemUse(IReadOnlyList<int> selectedIndices)
+    {
+        string itemId = _pendingActiveItemId;
+        RoundState originatingRound = _pendingActiveItemRound;
+        Card[] cardSnapshot = _pendingActiveItemCards;
+        bool hadPendingSelection = originatingRound != null;
+        ClearPendingActiveItemUse();
+
+        if (string.IsNullOrWhiteSpace(itemId)
+            || originatingRound == null
+            || cardSnapshot == null
+            || selectedIndices == null
+            || selectedIndices.Count != 1
+            || !ReferenceEquals(CurrentRound, originatingRound)
+            || !RunState.HasActiveItem(itemId)
+            || !MatchesPlayerPlayedCards(originatingRound, cardSnapshot))
+        {
+            return RejectPendingActiveItemCompletion(hadPendingSelection);
+        }
+
+        int selectedIndex = selectedIndices[0];
+        if (selectedIndex < 0 || selectedIndex >= cardSnapshot.Length)
+            return RejectPendingActiveItemCompletion(hadPendingSelection);
+
+        bool completed = ActiveItemResolver.TryApplySelection(itemId, this, selectedIndices)
+            && ConsumeActiveItem(itemId);
+        return completed || RejectPendingActiveItemCompletion(hadPendingSelection);
+    }
+
+    public bool CancelPendingActiveItemUse()
+    {
+        bool hadPendingSelection = HasPendingActiveItemSelection;
+        ClearPendingActiveItemUse();
+        if (hadPendingSelection)
+            ActiveItemSelectionCancelled?.Invoke();
+        return hadPendingSelection;
     }
 
     public bool CanUseActiveItem(string itemId)
     {
-        return !IsBattleOver
+        return !_disposed
+            && !IsBattleOver
             && CurrentRound != null
+            && !HasPendingActiveItemSelection
             && RunState.HasActiveItem(itemId)
             && ActiveItemResolver.CanApply(itemId, this);
     }
 
-    public bool CanDiscardLastPlayerHitCard()
+    public bool CanTargetPlayerPlayedCard()
     {
-        return CurrentRound != null && CurrentRound.CanRemoveLastPlayerHitCard;
+        return CurrentRound != null && CurrentRound.PlayerPlayedCards.Count > 0;
     }
 
-    public bool DiscardLastPlayerHitCard()
+    public bool DiscardPlayerPlayedCard(int index)
     {
-        if (CurrentRound == null || !CurrentRound.TryRemoveLastPlayerHitCard(out Card card))
+        if (CurrentRound == null || !CurrentRound.TryRemovePlayerPlayedCard(index, out Card card))
             return false;
 
         _playerDeck.Discard(card);
@@ -762,19 +829,61 @@ public sealed class BattleState
         return true;
     }
 
-    public bool CanReturnPlayerFieldCardToHand()
+    public bool ReturnPlayerPlayedCardToHand(int index)
     {
-        return CurrentRound != null && CurrentRound.PlayerPlayedCards.Count > 0;
-    }
-
-    public bool ReturnPlayerFieldCardToHand()
-    {
-        if (CurrentRound == null || !CurrentRound.TryReturnLastPlayerFieldCardToHand(out Card card))
+        if (CurrentRound == null || !CurrentRound.TryReturnPlayerPlayedCardToHand(index, out Card card))
             return false;
 
         EventBus.Publish(new HandRefilledEvent(CurrentRound.PlayerHand.Count));
         CommandQueue.Enqueue(new VisualCommand(VisualCommandType.CardsDrawn, CurrentRound.PlayerHand.Count.ToString()));
         ResolveScoresOnly();
+        return true;
+    }
+
+    private bool ConsumeActiveItem(string itemId)
+    {
+        if (!RunState.RemoveActiveItem(itemId))
+            return false;
+
+        global::EventBus.Publish(new ItemUsedEvent(itemId));
+        return true;
+    }
+
+    private void ClearPendingActiveItemUse()
+    {
+        _pendingActiveItemId = null;
+        _pendingActiveItemRound = null;
+        _pendingActiveItemCards = null;
+    }
+
+    private bool RejectPendingActiveItemCompletion(bool notifyCancellation)
+    {
+        if (notifyCancellation)
+            ActiveItemSelectionCancelled?.Invoke();
+        return false;
+    }
+
+    private static Card[] CopyPlayerPlayedCards(RoundState round)
+    {
+        IReadOnlyList<Card> cards = round.PlayerPlayedCards;
+        var snapshot = new Card[cards.Count];
+        for (int i = 0; i < cards.Count; i++)
+            snapshot[i] = cards[i];
+        return snapshot;
+    }
+
+    private static bool MatchesPlayerPlayedCards(RoundState round, IReadOnlyList<Card> snapshot)
+    {
+        IReadOnlyList<Card> currentCards = round.PlayerPlayedCards;
+        if (currentCards.Count != snapshot.Count)
+            return false;
+
+        for (int i = 0; i < currentCards.Count; i++)
+        {
+            if (!currentCards[i].Equals(snapshot[i]))
+                return false;
+        }
+
         return true;
     }
 

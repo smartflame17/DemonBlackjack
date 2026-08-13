@@ -15,6 +15,8 @@ public sealed class CardSelectionPanelTests
     private Type cardType;
     private Type suitType;
     private Type rankType;
+    private Type activeItemUseProxyType;
+    private Type itemUseMenuType;
     private MethodInfo showMethod;
 
     [SetUp]
@@ -29,6 +31,8 @@ public sealed class CardSelectionPanelTests
         cardType = RequireRuntimeType("Card");
         suitType = RequireRuntimeType("Suit");
         rankType = RequireRuntimeType("Rank");
+        activeItemUseProxyType = RequireRuntimeType("ActiveItemUseProxy");
+        itemUseMenuType = RequireRuntimeType("ItemUseMenu");
         showMethod = panelType.GetMethod("Show", BindingFlags.Instance | BindingFlags.Public);
         Assert.That(showMethod, Is.Not.Null);
     }
@@ -155,6 +159,41 @@ public sealed class CardSelectionPanelTests
     }
 
     [Test]
+    public void Cancel_NotifiesOnceAndCleansGeneratedCards()
+    {
+        Component panel = CreatePanelFixture(
+            out GameObject panelObject,
+            out GameObject cardPrefabObject,
+            out RectTransform cardContainer,
+            out _);
+
+        try
+        {
+            int cancellationCount = 0;
+            EventInfo cancelledEvent = panelType.GetEvent("SelectionCancelled");
+            Assert.That(cancelledEvent, Is.Not.Null);
+            cancelledEvent.AddEventHandler(panel, (Action)(() => cancellationCount++));
+
+            Show(panel, CreateCards(2), _ => { }, 1);
+            MethodInfo cancel = panelType.GetMethod("Cancel", BindingFlags.Instance | BindingFlags.Public);
+            Assert.That(cancel, Is.Not.Null);
+            Assert.That((bool)cancel.Invoke(panel, null), Is.True);
+
+            Assert.That(cancellationCount, Is.EqualTo(1));
+            Assert.That((bool)panelType.GetProperty("IsOpen").GetValue(panel), Is.False);
+            Assert.That(panelObject.activeSelf, Is.False);
+            Assert.That(cardContainer.childCount, Is.Zero);
+            Assert.That((bool)cancel.Invoke(panel, null), Is.False);
+            Assert.That(cancellationCount, Is.EqualTo(1));
+        }
+        finally
+        {
+            UnityEngine.Object.DestroyImmediate(panelObject);
+            UnityEngine.Object.DestroyImmediate(cardPrefabObject);
+        }
+    }
+
+    [Test]
     public void MenuCanvasPrefab_ContainsConfiguredInactiveSevenColumnCardSelectionPanel()
     {
         GameObject prefab = AssetDatabase.LoadAssetAtPath<GameObject>(
@@ -181,6 +220,14 @@ public sealed class CardSelectionPanelTests
         Assert.That(cardContainer.GetComponentInParent<ScrollRect>(true), Is.Not.Null);
         Assert.That(grid.constraint, Is.EqualTo(GridLayoutGroup.Constraint.FixedColumnCount));
         Assert.That(grid.constraintCount, Is.EqualTo(7));
+
+        Component proxy = prefab.GetComponent(activeItemUseProxyType);
+        Assert.That(proxy, Is.Not.Null);
+        Assert.That(GetPrivateField<Component>(proxy, "cardSelectionPanel"), Is.SameAs(panel));
+
+        Component itemUseMenu = prefab.GetComponentInChildren(itemUseMenuType, true);
+        Assert.That(itemUseMenu, Is.Not.Null);
+        Assert.That(GetPrivateField<Component>(itemUseMenu, "activeItemUseProxy"), Is.SameAs(proxy));
     }
 
     private Component CreatePanelFixture(

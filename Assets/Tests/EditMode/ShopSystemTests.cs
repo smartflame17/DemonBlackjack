@@ -1221,7 +1221,7 @@ public sealed class ShopSystemTests
     }
 
     [Test]
-    public void DiscardLastHit_IsObservedBeforeRefillDraw()
+    public void DiscardPlayerPlayedCard_IsObservedBeforeRefillDraw()
     {
         RunState run = CreateRunWithDeck(
             CardData(Suit.Clubs, Rank.Two),
@@ -1243,7 +1243,7 @@ public sealed class ShopSystemTests
                 received.Add("drawn");
         });
 
-        Assert.That(battle.DiscardLastPlayerHitCard(), Is.True);
+        Assert.That(battle.DiscardPlayerPlayedCard(1), Is.True);
 
         CollectionAssert.AreEqual(new[] { "discarded", "drawn" }, received);
         battle.Dispose();
@@ -1342,7 +1342,7 @@ public sealed class ShopSystemTests
         Assert.That(round.OpponentHand.Count, Is.EqualTo(opponentHandCount));
         Assert.That(round.SharedVisibleCards.Count, Is.EqualTo(limit + 1));
 
-        Assert.That(round.TryRemoveLastPlayerHitCard(out _), Is.True);
+        Assert.That(round.TryRemovePlayerPlayedCard(round.PlayerPlayedCards.Count - 1, out _), Is.True);
         Assert.That(round.TryRemovePreviousOpponentVisibleCard(out _, out _), Is.True);
         Assert.That(round.CanPlacePlayedCard(Combatant.Player), Is.True);
         Assert.That(round.CanPlacePlayedCard(Combatant.Opponent), Is.True);
@@ -1646,21 +1646,47 @@ public sealed class ShopSystemTests
     }
 
     [Test]
-    public void RejectLastHit_RemovesLatestHitCardFromScoringField()
+    public void RejectLastHit_UsesDeferredSelection()
     {
         var run = new RunState(1);
         run.AddActiveItem(ActiveItemResolver.RejectLastHit);
         var battle = new BattleState(run, new BattleConfig("test", 100));
         battle.StartRound(battle.GetDefaultWager());
-        battle.StartRound(battle.GetDefaultWager());
-        Card hitCard = new(Suit.Hearts, Rank.Eight);
-        battle.CurrentRound.TryPlayHitCard(hitCard);
+        Card firstCard = new(Suit.Clubs, Rank.Three);
+        Card selectedCard = new(Suit.Hearts, Rank.Eight);
+        Card duplicateFirstCard = firstCard;
+        battle.CurrentRound.TryPlayHitCard(firstCard);
+        battle.CurrentRound.TryPlayHitCard(selectedCard);
+        battle.CurrentRound.TryPlayHitCard(duplicateFirstCard);
+        int itemUsedEvents = 0;
+        EventBus.Subscribe<ItemUsedEvent>(_ => itemUsedEvents++);
 
-        Assert.That(battle.TryUseActiveItem(ActiveItemResolver.RejectLastHit), Is.True);
+        Assert.That(battle.TryUseActiveItem(ActiveItemResolver.RejectLastHit), Is.False);
+        Assert.That(battle.HasPendingActiveItemSelection, Is.False);
+        Assert.That(run.HasActiveItem(ActiveItemResolver.RejectLastHit), Is.True);
 
-        Assert.That(battle.CurrentRound.PlayerPlayedCards.Count, Is.EqualTo(0));
+        Assert.That(
+            battle.TryBeginActiveItemUse(ActiveItemResolver.RejectLastHit, out ActiveItemSelectionRequest request),
+            Is.EqualTo(ActiveItemUseStartResult.SelectionRequired));
+        Assert.That(request.Cards.Count, Is.EqualTo(3));
+        Assert.That(battle.CurrentRound.PlayerPlayedCards.Count, Is.EqualTo(3));
+        Assert.That(itemUsedEvents, Is.Zero);
+        Assert.That(battle.TryCompletePendingActiveItemUse(new[] { 1 }), Is.True);
+
+        Assert.That(battle.CurrentRound.PlayerPlayedCards.Count, Is.EqualTo(2));
         Assert.That(battle.PlayerDiscardPile.Count, Is.EqualTo(1));
-        Assert.That(battle.PlayerDiscardPile[0], Is.EqualTo(hitCard));
+        Assert.That(battle.PlayerDiscardPile[0], Is.EqualTo(selectedCard));
+        Assert.That(battle.CurrentRound.PlayerPlayedCards[0], Is.EqualTo(firstCard));
+        Assert.That(battle.CurrentRound.PlayerPlayedCards[1], Is.EqualTo(duplicateFirstCard));
+        Assert.That(run.HasActiveItem(ActiveItemResolver.RejectLastHit), Is.False);
+        Assert.That(itemUsedEvents, Is.EqualTo(1));
+        Assert.That(
+            battle.CurrentRound.PlayerScore.FinalScore,
+            Is.EqualTo(ScoreResolver.Resolve(
+                battle.CurrentRound.PlayerPlayedCards,
+                battle.CurrentRound.ScoringModifiers,
+                battle.CurrentRound.PlayerBurstThreshold).FinalScore));
+        battle.Dispose();
     }
 
     [Test]
@@ -1847,21 +1873,27 @@ public sealed class ShopSystemTests
     }
 
     [Test]
-    public void ReturnPlayerFieldCardToHand_ReturnsLatestFieldCard()
+    public void ReturnPlayerFieldCardToHand_UsesDeferredSelection()
     {
         var run = new RunState(1);
         run.AddActiveItem(ActiveItemResolver.ReturnPlayerFieldCardToHand);
         var battle = new BattleState(run, new BattleConfig("test", 100));
         battle.StartRound(battle.GetDefaultWager());
         Card fieldCard = new(Suit.Hearts, Rank.Eight);
+        Card lastFieldCard = new(Suit.Spades, Rank.Four);
         battle.CurrentRound.TryPlayHitCard(fieldCard);
+        battle.CurrentRound.TryPlayHitCard(lastFieldCard);
         int handBefore = battle.CurrentRound.PlayerHand.Count;
 
-        Assert.That(battle.TryUseActiveItem(ActiveItemResolver.ReturnPlayerFieldCardToHand), Is.True);
+        Assert.That(
+            battle.TryBeginActiveItemUse(ActiveItemResolver.ReturnPlayerFieldCardToHand, out _),
+            Is.EqualTo(ActiveItemUseStartResult.SelectionRequired));
+        Assert.That(battle.TryCompletePendingActiveItemUse(new[] { 0 }), Is.True);
 
-        Assert.That(battle.CurrentRound.PlayerPlayedCards.Count, Is.EqualTo(0));
+        Assert.That(battle.CurrentRound.PlayerPlayedCards.Count, Is.EqualTo(1));
         Assert.That(battle.CurrentRound.PlayerHand.Count, Is.EqualTo(handBefore + 1));
         Assert.That(ContainsRank(battle.CurrentRound.PlayerHand, Rank.Eight), Is.True);
+        Assert.That(battle.CurrentRound.PlayerPlayedCards[0], Is.EqualTo(lastFieldCard));
         Assert.That(run.HasActiveItem(ActiveItemResolver.ReturnPlayerFieldCardToHand), Is.False);
 
         battle.Dispose();
@@ -3013,6 +3045,52 @@ public sealed class ShopSystemTests
             Assert.That(strategy.TurnCount, Is.EqualTo(1));
             Assert.That(GetField<bool>(presenter, "_turnHandoffPending"), Is.False);
             Assert.That(battle.Phase, Is.EqualTo(BattlePhase.PlayerPhase));
+        }
+        finally
+        {
+            UnityEngine.Object.DestroyImmediate(presenterObject);
+            UnityEngine.Object.DestroyImmediate(controllerObject);
+        }
+    }
+
+    [Test]
+    public void BattleUiPresenter_CardPlayHandoffPausesForActiveItemSelection()
+    {
+        var controllerObject = new UnityEngine.GameObject("Controller");
+        var presenterObject = new UnityEngine.GameObject("Presenter");
+        try
+        {
+            var strategy = new SequenceDevilStrategy(DevilTurnChoice.Stand);
+            RunState run = CreateRunWithDeck(TenTwos());
+            run.AddActiveItem(ActiveItemResolver.RejectLastHit);
+            BattleController controller = controllerObject.AddComponent<BattleController>();
+            controller.InitializeBattle(
+                run,
+                new BattleConfig("test", 500, strategy, baseWager: 10));
+            Assert.That(controller.StartNextRound(controller.BattleState.GetDefaultWager()), Is.True);
+
+            BattleUiPresenter presenter = presenterObject.AddComponent<BattleUiPresenter>();
+            ConfigureTurnHandoffTestPresenter(presenter, controller);
+
+            BattleState battle = controller.BattleState;
+            RoundState round = battle.CurrentRound;
+            Assert.That(controller.TryPlayCard(0), Is.True);
+            Assert.That(
+                controller.TryBeginActiveItemUse(ActiveItemResolver.RejectLastHit, out _),
+                Is.EqualTo(ActiveItemUseStartResult.SelectionRequired));
+
+            PrepareTurnHandoff(presenter, battle, round);
+            IEnumerator routine = CreateTurnHandoffRoutine(presenter, battle, round, "EndPlayerPhase");
+            Assert.That(routine.MoveNext(), Is.True);
+            Assert.That(routine.MoveNext(), Is.True);
+            Assert.That(routine.MoveNext(), Is.True);
+            Assert.That(strategy.TurnCount, Is.Zero);
+            Assert.That(battle.Phase, Is.EqualTo(BattlePhase.PlayerPhase));
+
+            Assert.That(controller.TryCompletePendingActiveItemUse(new[] { 0 }), Is.True);
+            Assert.That(routine.MoveNext(), Is.False);
+            Assert.That(strategy.TurnCount, Is.EqualTo(1));
+            Assert.That(GetField<bool>(presenter, "_turnHandoffPending"), Is.False);
         }
         finally
         {

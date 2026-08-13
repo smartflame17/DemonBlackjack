@@ -507,6 +507,9 @@ public sealed class BattleUiPresenter : MonoBehaviour
             else
                 yield return null;
 
+            while (ShouldPauseTurnHandoffForActiveItemSelection(battle, round))
+                yield return null;
+
             if (!CanExecuteTurnHandoff(battle, round))
                 break;
 
@@ -518,6 +521,16 @@ public sealed class BattleUiPresenter : MonoBehaviour
         while (true);
 
         CompleteTurnHandoff(battle, round);
+    }
+
+    private bool ShouldPauseTurnHandoffForActiveItemSelection(BattleState battle, RoundState round)
+    {
+        return isActiveAndEnabled
+            && battleController != null
+            && ReferenceEquals(battleController.BattleState, battle)
+            && battle != null
+            && ReferenceEquals(battle.CurrentRound, round)
+            && battle.HasPendingActiveItemSelection;
     }
 
     private bool ExecuteTurnHandoff(TurnHandoffAction action)

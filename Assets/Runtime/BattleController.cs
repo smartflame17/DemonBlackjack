@@ -1,3 +1,4 @@
+using System.Collections.Generic;
 using UnityEngine;
 
 public class BattleController : MonoBehaviour
@@ -5,6 +6,7 @@ public class BattleController : MonoBehaviour
     public BattleState BattleState { get; private set; }
     public CommandQueue CommandQueue => BattleState?.CommandQueue;
     public bool HasActiveBattle => BattleState != null && !BattleState.IsBattleOver;
+    public bool HasPendingActiveItemSelection => BattleState != null && BattleState.HasPendingActiveItemSelection;
     public bool IsWaitingForVisuals { get; private set; }
     public IBattleInputGate InputGate { get; set; }
 
@@ -82,6 +84,31 @@ public class BattleController : MonoBehaviour
             && BattleState != null
             && (InputGate == null || InputGate.CanUseActiveItem(BattleState, itemId))
             && BattleState.TryUseActiveItem(itemId);
+    }
+
+    public ActiveItemUseStartResult TryBeginActiveItemUse(
+        string itemId,
+        out ActiveItemSelectionRequest selectionRequest)
+    {
+        selectionRequest = default;
+        if (IsWaitingForVisuals
+            || BattleState == null
+            || InputGate != null && !InputGate.CanUseActiveItem(BattleState, itemId))
+        {
+            return ActiveItemUseStartResult.Rejected;
+        }
+
+        return BattleState.TryBeginActiveItemUse(itemId, out selectionRequest);
+    }
+
+    public bool TryCompletePendingActiveItemUse(IReadOnlyList<int> selectedIndices)
+    {
+        return BattleState != null && BattleState.TryCompletePendingActiveItemUse(selectedIndices);
+    }
+
+    public bool CancelPendingActiveItemUse()
+    {
+        return BattleState != null && BattleState.CancelPendingActiveItemUse();
     }
 
     public bool CanUseActiveItem(string itemId)

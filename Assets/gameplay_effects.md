@@ -24,13 +24,13 @@ The use path is:
 4. The item is removed from `RunState` only if the effect succeeds.
 5. The global bus publishes `ItemUsedEvent` after the effect and inventory removal are complete.
 
-Current operations reject the last player Hit card, draw three cards into the player's hand, or double the current round wager. Failed effects do not consume an item.
+Current operations can select and reject a player field card, draw cards into the player's hand, or modify the current round wager. Failed effects do not consume an item.
 
 Use this hook for explicit, player-triggered consumables. Add public, invariant-preserving methods to `BattleState` when an item needs a new operation; do not let UI code mutate `RoundState` collections directly.
 
 Current active item IDs:
 
-- `hit_to_played`: move the latest player Hit card from the played field to the player discard pile so it no longer contributes to score or poker hands.
+- `hit_to_played`: choose one card from the player's played field and move it to the player discard pile so it no longer contributes to score or poker hands.
 - `draw_three`: draw up to three cards from the player deck into hand. This can exceed the normal hand size.
 - `double_wager`: commit an additional stake equal to the current wager from both sides, doubling the current round pot. It only succeeds when both sides can pay the extra stake.
 

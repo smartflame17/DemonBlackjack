@@ -5,6 +5,8 @@ using UnityEngine.UI;
 
 public sealed class CardSelectionPanel : MonoBehaviour
 {
+    public event Action SelectionCancelled;
+
     [SerializeField] private GameplayAssetRegistry assetRegistry;
     [SerializeField] private BattleUiCardView cardPrefab;
     [SerializeField] private GameObject panelRoot;
@@ -42,10 +44,10 @@ public sealed class CardSelectionPanel : MonoBehaviour
 
     private void OnDisable()
     {
-        if (chooseButton != null)
-            chooseButton.onClick.RemoveListener(ConfirmSelection);
-
+        bool notifyCancellation = _requestActive;
         CleanupRequest();
+        if (notifyCancellation)
+            SelectionCancelled?.Invoke();
     }
 
     private void OnValidate()
@@ -95,6 +97,23 @@ public sealed class CardSelectionPanel : MonoBehaviour
 
         if (panelRoot != null && !panelRoot.activeSelf)
             panelRoot.SetActive(true);
+    }
+
+    public bool Cancel()
+    {
+        if (!_requestActive)
+            return false;
+
+        if (panelRoot != null && panelRoot.activeSelf)
+            panelRoot.SetActive(false);
+
+        if (_requestActive)
+        {
+            CleanupRequest();
+            SelectionCancelled?.Invoke();
+        }
+
+        return true;
     }
 
     private void ToggleSelection(int index)
