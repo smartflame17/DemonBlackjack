@@ -111,6 +111,14 @@ public sealed class BattleUiCardView : MonoBehaviour
             upgradeImage.color = color;
     }
 
+    public void SetVisualScale(float scale)
+    {
+        EnsureReferences();
+
+        if (visualRoot != null)
+            visualRoot.localScale = Vector3.one * Mathf.Max(0f, scale);
+    }
+
     public void SetPokerHighlight(bool highlighted)
     {
         EnsureReferences();
