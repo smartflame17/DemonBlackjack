@@ -13,6 +13,10 @@ namespace GameplayConstants
         // 게임 시작 시 플레이어의 초기 자금
         public static readonly int PlayerStartingMoney = 10000;
 
+        // 상점 관련 설정 값
+        public static readonly float ShopItemPriceInflationRate = 1.2f; // 매 라운드 상점 가격 상승폭
+        public static readonly int ShopItemPriceRoundingUnit = 100; // 상점 가격 반올림 단위  (100원 단위로 반올림)
+
         // 게임 시작 시 플레이어의 초기 아이템 슬롯 수
         public const int DefaultMaxActiveItemSlots = 3;
         // 게임 시작 시 플레이어의 초기 유물 슬롯 수

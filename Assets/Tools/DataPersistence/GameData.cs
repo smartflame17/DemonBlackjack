@@ -26,6 +26,7 @@ public sealed class RunStateData
     public int encounterIndex;
     public int difficultyLevel;
     public int devilProgression;
+    public float currentShopPriceInflationRate;
     public int maxActiveItemSlots;
     public int playerBurstThresholdBonus;
     public List<RunCardData> deck = new();

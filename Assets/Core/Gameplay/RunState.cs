@@ -32,6 +32,7 @@ public sealed class RunState
     public int EncounterIndex { get; private set; }
     public int DifficultyLevel { get; private set; } = 1;
     public int DevilProgression { get; private set; } = 1;
+    public float CurrentShopPriceInflationRate { get; private set; } = ShopOfferGenerator.DefaultPriceInflationRate;
     public int MaxActiveItemSlots { get; private set; }
     public int PlayerBurstThresholdBonus { get; private set; }
     public bool AreActiveItemSlotsFull => FindEmptyActiveItemSlot() < 0;
@@ -61,6 +62,16 @@ public sealed class RunState
     {
         int target = Math.Max(0, money);
         AddMoney(target - Money);
+    }
+
+    public void AdvanceShopPriceInflation()
+    {
+        CurrentShopPriceInflationRate = ShopOfferGenerator.GetNextPriceInflationRate(CurrentShopPriceInflationRate);
+    }
+
+    public int CalculateShopPrice(int basePrice)
+    {
+        return ShopOfferGenerator.CalculatePrice(basePrice, CurrentShopPriceInflationRate);
     }
 
     public int GetDevilAffinity(string devilId)
@@ -301,6 +312,7 @@ public sealed class RunState
             encounterIndex = EncounterIndex,
             difficultyLevel = DifficultyLevel,
             devilProgression = DevilProgression,
+            currentShopPriceInflationRate = CurrentShopPriceInflationRate,
             maxActiveItemSlots = MaxActiveItemSlots,
             playerBurstThresholdBonus = PlayerBurstThresholdBonus
         };
@@ -370,6 +382,7 @@ public sealed class RunState
         state.EncounterIndex = Math.Max(0, data.encounterIndex);
         state.DifficultyLevel = Math.Max(1, data.difficultyLevel);
         state.DevilProgression = Math.Max(0, data.devilProgression);
+        state.CurrentShopPriceInflationRate = ShopOfferGenerator.NormalizePriceInflationRate(data.currentShopPriceInflationRate);
         state.PlayerBurstThresholdBonus = Math.Max(0, data.playerBurstThresholdBonus);
 
         state._runDeck.Clear();

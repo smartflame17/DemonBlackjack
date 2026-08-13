@@ -1287,6 +1287,7 @@ public sealed class BattleState
             CurrentRound,
             DevilStateUpdatePoint.RoundResolved,
             resolution));
+        RunState.AdvanceShopPriceInflation();
         RefreshDevilOpponentField();
         SetPhase(BattlePhase.PostRound);
         EventBus.Publish(new RoundEndedEvent(RoundNumber));
