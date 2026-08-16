@@ -135,6 +135,45 @@ public sealed class CardPlayPreviewTests
     }
 
     [Test]
+    public void CalculatePlayerRealtimeMoneyPreview_DoesNotPreviewAnAlreadyAchievedRankPayout()
+    {
+        var run = new RunState(1, startingMoney: 500);
+        var battle = new BattleState(
+            run,
+            new BattleConfig("preview", 1000, new BasicDevilStrategy(), baseWager: 10));
+
+        try
+        {
+            Assert.That(battle.StartRound(battle.GetDefaultWager()), Is.True);
+            RoundState round = battle.CurrentRound;
+            Assert.That(round.TryPlayHitCard(new Card(Suit.Clubs, Rank.King)), Is.True);
+            Assert.That(round.TryPlayHitCard(new Card(Suit.Hearts, Rank.King)), Is.True);
+            MoneyResolver.ResolvePlayerPokerPayout(battle, round, round.EffectiveWager);
+
+            Card[] previewCards =
+            {
+                new(Suit.Clubs, Rank.King),
+                new(Suit.Hearts, Rank.King),
+                new(Suit.Spades, Rank.Two)
+            };
+            ScoreResult previewScore = ScoreResolver.Resolve(previewCards, null, round.PlayerBurstThreshold);
+
+            MoneyDeltaPreview preview = MoneyResolver.CalculatePlayerRealtimeMoneyPreview(
+                battle,
+                round,
+                previewCards,
+                previewScore);
+
+            Assert.That(preview.PokerDelta, Is.Zero);
+            Assert.That(round.AchievedPlayerPokerHandRanks, Has.Count.EqualTo(1));
+        }
+        finally
+        {
+            battle.Dispose();
+        }
+    }
+
+    [Test]
     public void PreviewPlayerCardForPlay_DoesNotEstablishSuitOverrideAnchor()
     {
         var run = new RunState(1, startingMoney: 500);

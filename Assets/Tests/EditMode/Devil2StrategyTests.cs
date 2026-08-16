@@ -268,6 +268,70 @@ public sealed class Devil2StrategyTests
         }
     }
 
+    [Test]
+    public void PokerPayout_EachAchievedRankPaysOnlyOncePerRound()
+    {
+        BattleState battle = CreateBattle(new BasicDevilStrategy());
+        try
+        {
+            Assert.That(battle.StartRound(battle.GetDefaultWager()), Is.True);
+            RoundState round = battle.CurrentRound;
+            PlayPair(round, Rank.King);
+
+            MoneyResolver.ResolvePlayerPokerPayout(battle, round, round.EffectiveWager);
+            int moneyAfterPair = battle.PlayerMoney;
+            int earningsAfterPair = round.PlayerPokerEarnings;
+
+            Assert.That(earningsAfterPair, Is.GreaterThan(0));
+            Assert.That(round.HasAchievedPlayerPokerHandRank(PokerHandRank.Pair), Is.True);
+
+            Assert.That(round.TryPlayHitCard(new Card(Suit.Spades, Rank.Two)), Is.True);
+            MoneyResolver.ResolvePlayerPokerPayout(battle, round, round.EffectiveWager);
+
+            Assert.That(battle.PlayerMoney, Is.EqualTo(moneyAfterPair));
+            Assert.That(round.PlayerPokerEarnings, Is.EqualTo(earningsAfterPair));
+
+            Assert.That(round.TryPlayHitCard(new Card(Suit.Spades, Rank.King)), Is.True);
+            MoneyResolver.ResolvePlayerPokerPayout(battle, round, round.EffectiveWager);
+
+            Assert.That(battle.PlayerMoney, Is.GreaterThan(moneyAfterPair));
+            Assert.That(round.HasAchievedPlayerPokerHandRank(PokerHandRank.ThreeOfAKind), Is.True);
+            CollectionAssert.AreEquivalent(
+                new[] { PokerHandRank.Pair, PokerHandRank.ThreeOfAKind },
+                round.AchievedPlayerPokerHandRanks);
+        }
+        finally
+        {
+            battle.Dispose();
+        }
+    }
+
+    [Test]
+    public void PokerPayout_AchievedRanksResetForANewRoundState()
+    {
+        BattleState battle = CreateBattle(new BasicDevilStrategy());
+        try
+        {
+            Assert.That(battle.StartRound(battle.GetDefaultWager()), Is.True);
+            RoundState firstRound = battle.CurrentRound;
+            PlayPair(firstRound, Rank.King);
+            MoneyResolver.ResolvePlayerPokerPayout(battle, firstRound, firstRound.EffectiveWager);
+
+            var nextRound = new RoundState(2, 21, 21, battle.GetDefaultWager(), false);
+            PlayPair(nextRound, Rank.King);
+            int moneyBeforeNextRoundPayout = battle.PlayerMoney;
+
+            MoneyResolver.ResolvePlayerPokerPayout(battle, nextRound, battle.GetDefaultWager());
+
+            Assert.That(nextRound.HasAchievedPlayerPokerHandRank(PokerHandRank.Pair), Is.True);
+            Assert.That(battle.PlayerMoney, Is.GreaterThan(moneyBeforeNextRoundPayout));
+        }
+        finally
+        {
+            battle.Dispose();
+        }
+    }
+
     private static BattleState CreateBattle(IDevilStrategy strategy)
     {
         return CreateBattle(strategy, GameplayConstants.Devil2Config.Devil2StartingMoney);

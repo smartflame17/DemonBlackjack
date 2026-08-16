@@ -21,6 +21,7 @@ public sealed class RoundState
     private readonly List<Card> _revealedFutureCards = new();
     private readonly List<string> _pendingEffectIds = new();
     private readonly List<Modifier> _scoringModifiers = new();
+    private readonly HashSet<PokerHandRank> _achievedPlayerPokerHandRanks = new();
     private readonly int _maxPlayedPileCardCount;
 
     public RoundState(int roundNumber, int playerBurstThreshold, int opponentBurstThreshold, int baseWager, bool playerActsFirst)
@@ -85,6 +86,7 @@ public sealed class RoundState
     public IReadOnlyList<Card> RevealedFutureCards => _revealedFutureCards;
     public IReadOnlyList<string> PendingEffectIds => _pendingEffectIds;
     public IReadOnlyList<Modifier> ScoringModifiers => _scoringModifiers;
+    public IReadOnlyCollection<PokerHandRank> AchievedPlayerPokerHandRanks => _achievedPlayerPokerHandRanks;
     public int MaxPlayedPileCardCount => _maxPlayedPileCardCount;
 
     public void SetPlayerBurstThreshold(int threshold)
@@ -567,6 +569,16 @@ public sealed class RoundState
 
         long total = (long)PlayerPokerEarnings + finalAmount;
         PlayerPokerEarnings = total >= int.MaxValue ? int.MaxValue : (int)total;
+    }
+
+    public bool HasAchievedPlayerPokerHandRank(PokerHandRank rank)
+    {
+        return _achievedPlayerPokerHandRanks.Contains(rank);
+    }
+
+    public bool TryRecordAchievedPlayerPokerHandRank(PokerHandRank rank)
+    {
+        return _achievedPlayerPokerHandRanks.Add(rank);
     }
 
     public IReadOnlyList<Card> GetPokerCardsForPlayerPayout()

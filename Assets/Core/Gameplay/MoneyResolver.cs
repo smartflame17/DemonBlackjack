@@ -116,6 +116,9 @@ public static class MoneyResolver
         if (payout <= 0)
             return;
 
+        if (!round.TryRecordAchievedPlayerPokerHandRank(poker.Rank))
+            return;
+
         payout = battle.GetModifiedPlayerPokerPayout(round, payout);
         int lost = TransferOpponentToPlayer(battle, payout);
         round.RecordMoneyLost(Combatant.Opponent, lost);
@@ -184,7 +187,8 @@ public static class MoneyResolver
             round.EffectiveWager,
             battle.PlayerMoney,
             battle.OpponentMoney,
-            payout => battle.GetModifiedPlayerPokerPayout(round, payout));
+            payout => battle.GetModifiedPlayerPokerPayout(round, payout),
+            round.HasAchievedPlayerPokerHandRank);
     }
 
     public static MoneyDeltaPreview CalculatePlayerRealtimeMoneyPreview(
@@ -202,6 +206,7 @@ public static class MoneyResolver
             wager,
             playerMoney,
             opponentMoney,
+            null,
             null);
     }
 
@@ -212,13 +217,16 @@ public static class MoneyResolver
         int wager,
         int playerMoney,
         int opponentMoney,
-        Func<int, int> modifyPokerPayout)
+        Func<int, int> modifyPokerPayout,
+        Func<PokerHandRank, bool> hasAchievedPokerHandRank)
     {
         if (wager <= 0)
             return default;
 
         PokerResult poker = ScoreResolver.ResolvePoker(pokerCards);
-        int pokerPayout = CalculatePokerPayout(pokerCards, poker, wager);
+        int pokerPayout = hasAchievedPokerHandRank?.Invoke(poker.Rank) == true
+            ? 0
+            : CalculatePokerPayout(pokerCards, poker, wager);
         if (modifyPokerPayout != null)
             pokerPayout = Math.Clamp(modifyPokerPayout(pokerPayout), 0, pokerPayout);
         int pokerDelta = Math.Min(Math.Max(0, opponentMoney), pokerPayout);
