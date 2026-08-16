@@ -11,7 +11,8 @@ public class MainMenu : MonoBehaviour
     [SerializeField] private Image mainMenuBackground;
     [SerializeField] private Button newGameButton;
     [SerializeField] private Button continueGameButton;
-    [SerializeField] private Button loadGameButton;
+    [SerializeField] private Button settingMenuButton;
+    [SerializeField] private SettingMenuController settingMenuController;
     [SerializeField] private Button quitGameButton;
 
     [Header("New Game Settings")]
@@ -33,6 +34,8 @@ public class MainMenu : MonoBehaviour
         newGameButton.onClick.AddListener(OpenNewGameMenu);
         if (continueGameButton != null)
             continueGameButton.onClick.AddListener(ContinueGame);
+        if (settingMenuButton != null)
+            settingMenuButton.onClick.AddListener(ShowSettingMenu);
         quitGameButton.onClick.AddListener(QuitGame);
         startGameButton.onClick.AddListener(StartNewGame);
         returnButton.onClick.AddListener(ReturnToMainMenu);
@@ -47,6 +50,7 @@ public class MainMenu : MonoBehaviour
     {
         newGameButton?.onClick.RemoveListener(OpenNewGameMenu);
         continueGameButton?.onClick.RemoveListener(ContinueGame);
+        settingMenuButton?.onClick.RemoveListener(ShowSettingMenu);
         quitGameButton?.onClick.RemoveListener(QuitGame);
         startGameButton?.onClick.RemoveListener(StartNewGame);
         returnButton?.onClick.RemoveListener(ReturnToMainMenu);
@@ -106,6 +110,12 @@ public class MainMenu : MonoBehaviour
         }
 
         RefreshContinueButton();
+    }
+
+    private void ShowSettingMenu()
+    {
+        if (settingMenuController != null)
+            settingMenuController.gameObject.SetActive(true);
     }
 
     private void RefreshContinueButton()

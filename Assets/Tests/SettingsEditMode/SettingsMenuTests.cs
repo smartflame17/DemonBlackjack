@@ -5,7 +5,10 @@ using System.Linq;
 using System.Reflection;
 using NUnit.Framework;
 using UnityEditor;
+using UnityEditor.SceneManagement;
 using UnityEngine;
+using UnityEngine.SceneManagement;
+using UnityEngine.UI;
 
 public sealed class SettingsMenuTests
 {
@@ -138,6 +141,60 @@ public sealed class SettingsMenuTests
         }
     }
 
+    [Test]
+    public void MenuScene_UsesSharedSettingsMenuWithoutReturnButton()
+    {
+        Scene scene = EditorSceneManager.OpenScene(
+            "Assets/Scenes/MenuScene.unity",
+            OpenSceneMode.Additive);
+
+        try
+        {
+            Transform settingMenuButton = FindInScene(scene, "SettingMenuButton");
+            Assert.That(settingMenuButton, Is.Not.Null);
+            Assert.That(FindInScene(scene, "LoadGameButton"), Is.Null);
+
+            Button button = settingMenuButton.GetComponent<Button>();
+            Assert.That(button, Is.Not.Null);
+            Assert.That(button.interactable, Is.True);
+
+            Component hover = GetComponentNamed(settingMenuButton, "EnlargeOnHover");
+            Assert.That(hover, Is.InstanceOf<Behaviour>());
+            Assert.That(((Behaviour)hover).enabled, Is.True);
+
+            Transform labelTransform = FindChildRecursive(settingMenuButton, "Text (TMP)");
+            Component label = GetComponentNamed(labelTransform, "TextMeshProUGUI");
+            Assert.That(label, Is.Not.Null);
+            PropertyInfo textProperty = label.GetType().GetProperty("text");
+            Assert.That(textProperty, Is.Not.Null);
+            Assert.That(textProperty.GetValue(label), Is.EqualTo("설정"));
+
+            Transform settingMenu = FindInScene(scene, "SettingMenu");
+            Assert.That(settingMenu, Is.Not.Null);
+            Assert.That(settingMenu.gameObject.activeSelf, Is.False);
+            Component settingMenuController = GetComponentNamed(settingMenu, "SettingMenuController");
+            Assert.That(settingMenuController, Is.Not.Null);
+
+            Transform returnButton = FindChildRecursive(settingMenu, "ReturnToMainMenuButton");
+            Assert.That(returnButton, Is.Not.Null);
+            Assert.That(returnButton.gameObject.activeSelf, Is.False);
+
+            Component mainMenu = FindComponentInScene(scene, "MainMenu");
+            Assert.That(mainMenu, Is.Not.Null);
+            SerializedObject serializedMainMenu = new SerializedObject(mainMenu);
+            Assert.That(
+                serializedMainMenu.FindProperty("settingMenuButton").objectReferenceValue,
+                Is.SameAs(button));
+            Assert.That(
+                serializedMainMenu.FindProperty("settingMenuController").objectReferenceValue,
+                Is.SameAs(settingMenuController));
+        }
+        finally
+        {
+            EditorSceneManager.CloseScene(scene, true);
+        }
+    }
+
     private object Normalize(params object[] options)
     {
         Array typedOptions = Array.CreateInstance(resolutionOptionType, options.Length);
@@ -195,8 +252,37 @@ public sealed class SettingsMenuTests
 
     private static Component GetComponentNamed(Transform root, string typeName)
     {
+        if (root == null)
+            return null;
+
         return root.GetComponents<Component>()
             .FirstOrDefault(component => component != null && component.GetType().Name == typeName);
+    }
+
+    private static Component FindComponentInScene(Scene scene, string typeName)
+    {
+        foreach (GameObject root in scene.GetRootGameObjects())
+        {
+            Component[] components = root.GetComponentsInChildren<Component>(true);
+            Component result = components.FirstOrDefault(
+                component => component != null && component.GetType().Name == typeName);
+            if (result != null)
+                return result;
+        }
+
+        return null;
+    }
+
+    private static Transform FindInScene(Scene scene, string childName)
+    {
+        foreach (GameObject root in scene.GetRootGameObjects())
+        {
+            Transform result = FindChildRecursive(root.transform, childName);
+            if (result != null)
+                return result;
+        }
+
+        return null;
     }
 
     private static int CountComponentsNamed(Transform root, string typeName)
