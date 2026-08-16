@@ -5,12 +5,14 @@ public class RunManager : MonoBehaviour, IDataPersistence
 {
     [SerializeField] private BattleController battleController;
     [SerializeField] private bool startRunOnAwake = true;
+    [SerializeField] private bool persistenceEnabled = true;
     [SerializeField] private bool setRandomSeed = false;
     [SerializeField] private int debugSeed = 12345;
     private int startingMoney = GameplayConstants.GameSettingConfig.PlayerStartingMoney;
     [SerializeField] private int defaultOpponentStartingMoney = 100;
 
     public RunState RunState { get; private set; }
+    private BattleState checkpointBattle;
 
     private void Awake()
     {
@@ -26,6 +28,7 @@ public class RunManager : MonoBehaviour, IDataPersistence
     private void OnDisable()
     {
         EventBus.Unsubscribe<BattleEndedEvent>(OnBattleEnded);
+        UnsubscribeFromBattleCheckpoint();
     }
 
     private void Start()
@@ -46,6 +49,8 @@ public class RunManager : MonoBehaviour, IDataPersistence
 
     public void StartRun(int seed)
     {
+        UnsubscribeFromBattleCheckpoint();
+        battleController?.CleanupBattle();
         int runStartingMoney = startingMoney <= 0 ? 100 : startingMoney;
         RunState = new RunState(seed, runStartingMoney);
         Debug.Log("Run started with seed: " + seed);
@@ -55,9 +60,12 @@ public class RunManager : MonoBehaviour, IDataPersistence
 
     public void StartOrLoadRun(int seed)
     {
-        if (PersistenceManager.Instance != null && PersistenceManager.Instance.TryLoadRunState(out RunState loadedRunState))
+        if (persistenceEnabled
+            && PersistenceManager.Instance != null
+            && PersistenceManager.Instance.TryLoadRunState(out RunState loadedRunState))
         {
-            ApplyLoadedRunState(loadedRunState);
+            BattleStateData battleData = PersistenceManager.Instance.GetGameData()?.runState?.battleState;
+            ApplyLoadedRunState(loadedRunState, battleData);
             Debug.Log("Run loaded with seed: " + RunState.Seed);
             return;
         }
@@ -76,11 +84,17 @@ public class RunManager : MonoBehaviour, IDataPersistence
             return;
         }
 
+        UnsubscribeFromBattleCheckpoint();
         int opponentStartingMoney = defaultOpponentStartingMoney <= 0 ? 100 : defaultOpponentStartingMoney;
         BattleConfig battleConfig = config ?? new BattleConfig($"encounter_{RunState.EncounterIndex + 1}", opponentStartingMoney);
         battleController.InitializeBattle(RunState, battleConfig);
         SetPhase(RunPhase.Battle);
         BattleState battle = battleController.BattleState;
+        SubscribeToBattleCheckpoint(battle);
+
+        if (persistenceEnabled)
+            PersistenceManager.Instance?.SaveGame();
+
         EventBus.Publish(new BattleStartedEvent(
             battle.Config.EncounterId,
             battle.BattleSeed,
@@ -113,7 +127,10 @@ public class RunManager : MonoBehaviour, IDataPersistence
     public bool OpenShop()
     {
         BattleState battle = battleController != null ? battleController.BattleState : null;
-        if (RunState == null || battle == null || battle.IsBattleOver || battle.Phase != BattlePhase.Cleanup)
+        if (RunState == null
+            || battle == null
+            || battle.IsBattleOver
+            || (battle.Phase != BattlePhase.Cleanup && battle.Phase != BattlePhase.PostRound))
             return false;
 
         SetPhase(RunPhase.Shop);
@@ -128,6 +145,9 @@ public class RunManager : MonoBehaviour, IDataPersistence
             return false;
         int roundNumber = battleController.BattleState != null ? battleController.BattleState.RoundNumber : 0;
         battleController.CompletePendingVisualTransition();
+        if (battleController.BattleState == null)
+            return true;
+
         SetPhase(RunPhase.Battle);
         EventBus.Publish(new ShopClosedEvent(roundNumber));     // We publish event here for compatibility with existing code that expects a ShopClosedEvent after a round ends, even if no shop was opened.
         return true;
@@ -140,6 +160,9 @@ public class RunManager : MonoBehaviour, IDataPersistence
 
         int roundNumber = battleController.BattleState != null ? battleController.BattleState.RoundNumber : 0;
         battleController.CompletePendingVisualTransition();
+        if (battleController.BattleState == null)
+            return true;
+
         SetPhase(RunPhase.Battle);
         EventBus.Publish(new ShopClosedEvent(roundNumber));
         return true;
@@ -150,6 +173,7 @@ public class RunManager : MonoBehaviour, IDataPersistence
         if (RunState == null)
             return;
 
+        UnsubscribeFromBattleCheckpoint();
         RunState.ApplyBattleResult(eventData.Result);
         battleController?.CleanupBattle();
         AdvanceAfterEncounter();
@@ -163,26 +187,83 @@ public class RunManager : MonoBehaviour, IDataPersistence
 
     public void LoadData(GameData data)
     {
+        if (!persistenceEnabled)
+            return;
+
         RunState loadedRunState = data != null ? RunState.FromData(data.runState, startingMoney) : null;
         if (loadedRunState != null)
-            ApplyLoadedRunState(loadedRunState);
+            ApplyLoadedRunState(loadedRunState, data.runState?.battleState);
     }
 
     public void SaveData(GameData data)
     {
-        if (data == null || RunState == null)
+        if (!persistenceEnabled || data == null || RunState == null)
             return;
 
-        data.runState = RunState.ToData();
+        BattleState activeBattle = battleController != null
+            ? battleController.BattleState
+            : null;
+        data.runState = RunState.ToDataWithBattleState(activeBattle);
     }
 
-    private void ApplyLoadedRunState(RunState loadedRunState)
+    private void ApplyLoadedRunState(RunState loadedRunState, BattleStateData battleData)
     {
+        UnsubscribeFromBattleCheckpoint();
         RunState = loadedRunState;
 
-        if (RunState.Phase == RunPhase.Inactive || RunState.Phase == RunPhase.Init || RunState.Phase == RunPhase.Battle)
+        if (persistenceEnabled
+            && battleData != null
+            && battleController != null
+            && battleController.RestoreBattle(RunState, battleData))
+        {
+            BattleState restoredBattle = battleController.BattleState;
+            SubscribeToBattleCheckpoint(restoredBattle);
+            SetPhase(RunPhase.Battle);
+            EventBus.Publish(new BattleStartedEvent(
+                restoredBattle.Config.EncounterId,
+                restoredBattle.BattleSeed,
+                restoredBattle.PlayerMoney,
+                restoredBattle.OpponentMoney));
+            SoundManager.Instance?.PlayBGM(EBgm.GAME);
+            Debug.Log($"Restored battle {restoredBattle.Config.EncounterId} at round {restoredBattle.RoundNumber} PostRound.");
+            return;
+        }
+
+        battleController?.CleanupBattle();
+        if (battleData != null)
+            Debug.LogWarning("Saved battle checkpoint was invalid and has been discarded; returning to the map.");
+
+        if (RunState.Phase == RunPhase.Inactive
+            || RunState.Phase == RunPhase.Init
+            || RunState.Phase == RunPhase.Battle
+            || RunState.Phase == RunPhase.Shop)
             SetPhase(RunPhase.Map);
         else
             EventBus.Publish(new RunPhaseChangedEvent(RunState.Phase));
+    }
+
+    private void SubscribeToBattleCheckpoint(BattleState battle)
+    {
+        if (!persistenceEnabled || battle == null || ReferenceEquals(checkpointBattle, battle))
+            return;
+
+        UnsubscribeFromBattleCheckpoint();
+        checkpointBattle = battle;
+        checkpointBattle.RoundCheckpointReady += OnRoundCheckpointReady;
+    }
+
+    private void UnsubscribeFromBattleCheckpoint()
+    {
+        if (checkpointBattle != null)
+            checkpointBattle.RoundCheckpointReady -= OnRoundCheckpointReady;
+        checkpointBattle = null;
+    }
+
+    private void OnRoundCheckpointReady(BattleState battle)
+    {
+        if (!persistenceEnabled || !ReferenceEquals(checkpointBattle, battle))
+            return;
+
+        PersistenceManager.Instance?.SaveGame();
     }
 }

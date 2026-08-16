@@ -96,6 +96,7 @@ public class PersistenceManager : MonoBehaviour
       dataPersistenceObj.SaveData(gameData); // Save data from each IDataPersistence object
     }
 
+    gameData.schemaVersion = GameData.CurrentSchemaVersion;
     gameData.timestamp = DateTime.Now.ToFileTime(); // Update timestamp
 
     // Save gameData to a file or PlayerPrefs
@@ -185,12 +186,51 @@ public class PersistenceManager : MonoBehaviour
     {
       var handler = new FileDataHandler(Application.persistentDataPath, profileId + "_" + fileName, useEncryption);
       GameData data = handler.Load(); // Load game data from file
-      if (data != null && data.timestamp > mostRecentTimestamp)
+      if (IsValidSave(data) && data.timestamp > mostRecentTimestamp)
       {
         mostRecentTimestamp = data.timestamp;
         mostRecentProfileId = profileId;
       }
     }
-    return mostRecentProfileId;   // Return the profile ID with the most recent timestamp
+    return mostRecentTimestamp > 0 ? mostRecentProfileId : null;
+  }
+
+  public bool HasAnyValidSave()
+  {
+    return GetMostRecentProfileId() != null;
+  }
+
+  public bool TryLoadMostRecentGame()
+  {
+    string profileId = GetMostRecentProfileId();
+    if (string.IsNullOrWhiteSpace(profileId))
+      return false;
+
+    var handler = new FileDataHandler(Application.persistentDataPath, profileId + "_" + fileName, useEncryption);
+    GameData loadedData = handler.Load();
+    if (!IsValidSave(loadedData))
+      return false;
+
+    selectedProfileId = profileId;
+    fileDataHandler = handler;
+    gameData = loadedData;
+    ApplyGameData();
+    return true;
+  }
+
+  private static bool IsValidSave(GameData data)
+  {
+    if (data?.runState == null || data.timestamp <= 0)
+      return false;
+
+    try
+    {
+      return RunState.FromData(data.runState) != null;
+    }
+    catch (Exception exception)
+    {
+      Debug.LogWarning($"Ignoring invalid save data: {exception.Message}");
+      return false;
+    }
   }
 }

@@ -67,10 +67,17 @@ public interface IDevilStrategy
     IEnumerable<Modifier> GetGlobalModifiers(RunState runState);
 }
 
+public interface IPersistableDevilStrategy
+{
+    string PersistenceId { get; }
+    DevilStrategyStateData CapturePersistenceState();
+    void RestorePersistenceState(DevilStrategyStateData data);
+}
+
 
 // Default strategy that always plays best card in hand and has a fixed draw value (default 3). Can be used for testing or as a simple baseline strategy.
 // Expand upon here to create complex AI strategies that consider the current battle and round state to make informed decisions on which card to play and how much to draw.
-public class BasicDevilStrategy : IDevilStrategy
+public class BasicDevilStrategy : IDevilStrategy, IPersistableDevilStrategy
 {
     public BasicDevilStrategy(int drawValue = 3)
     {
@@ -78,6 +85,16 @@ public class BasicDevilStrategy : IDevilStrategy
     }
 
     public int DrawValue { get; }
+    public virtual string PersistenceId => "basic";
+
+    public virtual DevilStrategyStateData CapturePersistenceState()
+    {
+        return new DevilStrategyStateData { strategyId = PersistenceId };
+    }
+
+    public virtual void RestorePersistenceState(DevilStrategyStateData data)
+    {
+    }
 
     public virtual void UpdateDevilState(DevilStateUpdateContext context)
     {
@@ -175,6 +192,36 @@ public class Devil1Strategy : BasicDevilStrategy, IDevilOpponentFieldModifier, I
     private int lastResolvedRoundNumber = -1;
     private bool[] winStreakDialogueShown = new bool[4]; // Track if win streak dialogue has been shown for 2, 3, and 4 wins
     private bool[] lossStreakDialogueShown = new bool[4]; // Track if loss streak dialogue has been shown for 2, 3, and 4 losses
+
+    public override string PersistenceId => "devil1";
+    public int StartingMoney => startingMoney;
+
+    public override DevilStrategyStateData CapturePersistenceState()
+    {
+        return new DevilStrategyStateData
+        {
+            strategyId = PersistenceId,
+            isYandereMode = isYandereMode,
+            winStreak = winStreak,
+            lossStreak = lossStreak,
+            lastResolvedRoundNumber = lastResolvedRoundNumber,
+            winStreakDialogueShown = new List<bool>(winStreakDialogueShown),
+            lossStreakDialogueShown = new List<bool>(lossStreakDialogueShown)
+        };
+    }
+
+    public override void RestorePersistenceState(DevilStrategyStateData data)
+    {
+        if (data == null)
+            return;
+
+        isYandereMode = data.isYandereMode;
+        winStreak = Math.Max(0, data.winStreak);
+        lossStreak = Math.Max(0, data.lossStreak);
+        lastResolvedRoundNumber = data.lastResolvedRoundNumber;
+        winStreakDialogueShown = RestoreDialogueFlags(data.winStreakDialogueShown);
+        lossStreakDialogueShown = RestoreDialogueFlags(data.lossStreakDialogueShown);
+    }
 
     public override void UpdateDevilState(DevilStateUpdateContext context)
     {
@@ -310,6 +357,17 @@ public class Devil1Strategy : BasicDevilStrategy, IDevilOpponentFieldModifier, I
         return null; // No dialogue to show
     }
 
+    private static bool[] RestoreDialogueFlags(List<bool> source)
+    {
+        var result = new bool[4];
+        if (source == null)
+            return result;
+
+        for (int i = 0; i < Math.Min(result.Length, source.Count); i++)
+            result[i] = source[i];
+        return result;
+    }
+
     // Additional devil-specific logic can be added here if needed
 }
 
@@ -320,6 +378,27 @@ public class Devil2Strategy : BasicDevilStrategy, IDevilRoundWagerModifier, IDev
 
     public Devil2Strategy(int drawValue = 3) : base(drawValue)
     {
+    }
+
+    public override string PersistenceId => "devil2";
+
+    public override DevilStrategyStateData CapturePersistenceState()
+    {
+        return new DevilStrategyStateData
+        {
+            strategyId = PersistenceId,
+            currentWager = currentWager,
+            lastResolvedRoundNumber = lastResolvedRoundNumber
+        };
+    }
+
+    public override void RestorePersistenceState(DevilStrategyStateData data)
+    {
+        if (data == null)
+            return;
+
+        currentWager = Math.Max(0, data.currentWager);
+        lastResolvedRoundNumber = data.lastResolvedRoundNumber;
     }
 
     public override void UpdateDevilState(DevilStateUpdateContext context)
@@ -381,6 +460,8 @@ public class Devil3Strategy : BasicDevilStrategy
     public Devil3Strategy(int drawValue = 3) : base(drawValue)
     {
     }
+
+    public override string PersistenceId => "devil3";
 }
 
 public class Devil4Strategy : BasicDevilStrategy
@@ -388,4 +469,6 @@ public class Devil4Strategy : BasicDevilStrategy
     public Devil4Strategy(int drawValue = 3) : base(drawValue)
     {
     }
+
+    public override string PersistenceId => "devil4";
 }

@@ -304,6 +304,11 @@ public sealed class RunState
 
     public RunStateData ToData()
     {
+        return ToDataWithBattleState(null);
+    }
+
+    public RunStateData ToDataWithBattleState(BattleState battleState)
+    {
         var data = new RunStateData
         {
             seed = Seed,
@@ -363,6 +368,8 @@ public sealed class RunState
                 paidPrice = modifier.Value.PaidPrice
             });
         }
+
+        data.battleState = battleState?.ToData();
 
         return data;
     }

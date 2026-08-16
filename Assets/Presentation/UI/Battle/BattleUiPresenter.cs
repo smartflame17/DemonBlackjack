@@ -254,7 +254,7 @@ public sealed class BattleUiPresenter : MonoBehaviour
         AnimateCardChanges(round, animationContext);
 
         bool suppressBlockingPanels = battleController != null && battleController.InputGate != null;
-        bool roundFinished = battle.Phase == BattlePhase.Cleanup;
+        bool roundFinished = battle.Phase == BattlePhase.Cleanup || battle.Phase == BattlePhase.PostRound;
         bool battleFinished = battle.Phase == BattlePhase.BattleEnd && !suppressBlockingPanels;
         SetPanels(shouldStartRound && !suppressBlockingPanels, roundFinished, battleFinished);
 

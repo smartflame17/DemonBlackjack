@@ -1,4 +1,5 @@
 using System.Collections.Generic;
+using System;
 using UnityEngine;
 
 public class BattleController : MonoBehaviour
@@ -16,6 +17,28 @@ public class BattleController : MonoBehaviour
 
         BattleState = new BattleState(runState, config);
         BattleState.Initialize();
+    }
+
+    public bool RestoreBattle(RunState runState, BattleStateData data)
+    {
+        CleanupBattle();
+
+        BattleState restoredBattle;
+        try
+        {
+            restoredBattle = BattleState.FromData(runState, data);
+        }
+        catch (Exception exception)
+        {
+            Debug.LogWarning($"Failed to restore battle checkpoint: {exception.Message}");
+            return false;
+        }
+        if (restoredBattle == null)
+            return false;
+
+        BattleState = restoredBattle;
+        IsWaitingForVisuals = true;
+        return true;
     }
 
     public bool StartNextRound(int wager)
@@ -155,7 +178,13 @@ public class BattleController : MonoBehaviour
         BattleState activeBattle = BattleState;
         IsWaitingForVisuals = false;
 
-        if (activeBattle.Phase == BattlePhase.BattleEnd)
+        if (activeBattle.Phase == BattlePhase.PostRound)
+        {
+            activeBattle.CleanupRound();
+            if (activeBattle.Phase == BattlePhase.BattleEnd)
+                EventBus.Publish(new BattleEndedEvent(activeBattle.GetBattleResult()));
+        }
+        else if (activeBattle.Phase == BattlePhase.BattleEnd)
         {
             EventBus.Publish(new BattleEndedEvent(activeBattle.GetBattleResult()));
         }

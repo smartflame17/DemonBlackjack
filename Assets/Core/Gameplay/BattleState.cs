@@ -4,10 +4,11 @@ using System.Collections.Generic;
 public sealed class BattleState
 {
     public event Action ActiveItemSelectionCancelled;
+    public event Action<BattleState> RoundCheckpointReady;
 
-    private readonly Deck _playerDeck;
-    private readonly Deck _opponentDeck;
-    private readonly Random _random;
+    private Deck _playerDeck;
+    private Deck _opponentDeck;
+    private ReplayableRandom _random;
     private readonly List<Modifier> _activeModifiers = new();
     private readonly List<RoundResolution> _combatHistory = new();
     private readonly List<Card> _playerHandCarryover = new();
@@ -38,7 +39,7 @@ public sealed class BattleState
         IEnumerable<Card> opponentDeck = config.HasOpponentDeckOverride ? config.OpponentDeckOverride : config.DevilStrategy.CreateStartingDeck(runState, config);
         _playerDeck = new Deck(playerDeck, BattleSeed, !config.HasPlayerDeckOverride, config.HasPlayerDeckOverride);
         _opponentDeck = new Deck(opponentDeck, BattleSeed + 17, !config.HasOpponentDeckOverride, config.HasOpponentDeckOverride);
-        _random = new Random(BattleSeed);
+        _random = new ReplayableRandom(BattleSeed);
         _activeModifiers.AddRange(config.InitialModifiers);
         _activeModifiers.AddRange(config.DevilStrategy.GetGlobalModifiers(runState));
         config.DevilStrategy.RegisterAffinityHooks(this);
@@ -226,6 +227,185 @@ public sealed class BattleState
     internal BattleResult GetBattleResult()
     {
         return new BattleResult(OpponentMoney <= 0 && PlayerMoney > 0, RoundNumber, PlayerMoney, OpponentMoney);
+    }
+
+    public BattleStateData ToData()
+    {
+        if (Phase != BattlePhase.PostRound || CurrentRound == null || _combatHistory.Count == 0)
+            return null;
+
+        BattleConfigData configData = Config.ToData();
+        if (configData == null || Config.DevilStrategy is not IPersistableDevilStrategy persistableStrategy)
+            return null;
+
+        var data = new BattleStateData
+        {
+            config = configData,
+            phase = BattlePhase.PostRound,
+            opponentMoney = OpponentMoney,
+            roundNumber = RoundNumber,
+            reshuffleCount = ReshuffleCount,
+            battleSeed = BattleSeed,
+            currentRound = CurrentRound.ToData(),
+            playerDeck = _playerDeck.ToData(),
+            opponentDeck = _opponentDeck.ToData(),
+            randomState = _random.ToData(),
+            devilStrategyState = persistableStrategy.CapturePersistenceState()
+        };
+
+        for (int i = 0; i < _activeModifiers.Count; i++)
+            data.activeModifiers.Add(ModifierData.FromModifier(_activeModifiers[i]));
+        for (int i = 0; i < _combatHistory.Count; i++)
+            data.combatHistory.Add(RoundResolutionData.FromRoundResolution(_combatHistory[i]));
+        AddCards(data.playerHandCarryover, _playerHandCarryover);
+        AddCards(data.opponentHandCarryover, _opponentHandCarryover);
+        for (int i = 0; i < _relicRuntimes.Count; i++)
+            data.relicRuntimeStates.Add(_relicRuntimes[i].CapturePersistenceState());
+        return data;
+    }
+
+    public static BattleState FromData(RunState runState, BattleStateData data)
+    {
+        if (runState == null
+            || data == null
+            || data.version != BattleStateData.CurrentVersion
+            || data.phase != BattlePhase.PostRound
+            || data.currentRound == null
+            || data.playerDeck == null
+            || data.opponentDeck == null
+            || data.randomState == null
+            || data.playerDeck.randomState == null
+            || data.opponentDeck.randomState == null
+            || data.combatHistory == null
+            || data.combatHistory.Count == 0)
+        {
+            return null;
+        }
+
+        BattleConfig config = BattleConfig.FromData(data.config);
+        if (config == null
+            || config.DevilStrategy is not IPersistableDevilStrategy persistableStrategy
+            || data.devilStrategyState == null
+            || !string.Equals(persistableStrategy.PersistenceId, data.devilStrategyState.strategyId, StringComparison.Ordinal))
+            return null;
+
+        int expectedBattleSeed = runState.CreateBattleSeed();
+        if (data.battleSeed != expectedBattleSeed
+            || data.randomState.seed != expectedBattleSeed
+            || data.playerDeck.randomState.seed != expectedBattleSeed
+            || data.opponentDeck.randomState.seed != expectedBattleSeed + 17)
+            return null;
+
+        RoundState round;
+        Deck playerDeck;
+        Deck opponentDeck;
+        ReplayableRandom random;
+        try
+        {
+            round = RoundState.FromData(data.currentRound);
+            playerDeck = Deck.FromData(data.playerDeck, expectedBattleSeed);
+            opponentDeck = Deck.FromData(data.opponentDeck, expectedBattleSeed + 17);
+            random = ReplayableRandom.FromData(data.randomState, expectedBattleSeed);
+        }
+        catch (Exception)
+        {
+            return null;
+        }
+
+        if (round == null || playerDeck == null || opponentDeck == null || round.RoundNumber != data.roundNumber)
+            return null;
+
+        BattleState battle = null;
+        try
+        {
+            battle = new BattleState(runState, config);
+            if (battle.BattleSeed != expectedBattleSeed)
+            {
+                battle.Dispose();
+                return null;
+            }
+
+            battle._playerDeck = playerDeck;
+            battle._opponentDeck = opponentDeck;
+            battle._random = random;
+            battle.OpponentMoney = Math.Max(0, data.opponentMoney);
+            battle.RoundNumber = Math.Max(1, data.roundNumber);
+            battle.ReshuffleCount = Math.Max(0, data.reshuffleCount);
+            battle.CurrentRound = round;
+            battle.Phase = BattlePhase.PostRound;
+
+            battle._activeModifiers.Clear();
+            if (data.activeModifiers != null)
+            {
+                for (int i = 0; i < data.activeModifiers.Count; i++)
+                {
+                    if (data.activeModifiers[i] != null)
+                        battle._activeModifiers.Add(data.activeModifiers[i].ToModifier());
+                }
+            }
+
+            battle._combatHistory.Clear();
+            for (int i = 0; i < data.combatHistory.Count; i++)
+            {
+                if (data.combatHistory[i] != null)
+                    battle._combatHistory.Add(data.combatHistory[i].ToRoundResolution());
+            }
+            if (battle._combatHistory.Count == 0)
+            {
+                battle.Dispose();
+                return null;
+            }
+
+            RestoreCards(battle._playerHandCarryover, data.playerHandCarryover);
+            RestoreCards(battle._opponentHandCarryover, data.opponentHandCarryover);
+
+            persistableStrategy.RestorePersistenceState(data.devilStrategyState);
+            battle.RestoreRelicRuntimeStates(data.relicRuntimeStates);
+            return battle;
+        }
+        catch (Exception)
+        {
+            battle?.Dispose();
+            return null;
+        }
+    }
+
+    private void RestoreRelicRuntimeStates(List<RelicRuntimeStateData> states)
+    {
+        if (states == null)
+            return;
+
+        for (int i = 0; i < _relicRuntimes.Count; i++)
+        {
+            for (int j = 0; j < states.Count; j++)
+            {
+                RelicRuntimeStateData state = states[j];
+                if (state != null && string.Equals(state.relicId, _relicRuntimes[i].RelicId, StringComparison.OrdinalIgnoreCase))
+                {
+                    _relicRuntimes[i].RestorePersistenceState(state);
+                    break;
+                }
+            }
+        }
+    }
+
+    private static void AddCards(List<CardData> target, IReadOnlyList<Card> source)
+    {
+        for (int i = 0; i < source.Count; i++)
+            target.Add(CardData.FromCard(source[i]));
+    }
+
+    private static void RestoreCards(List<Card> target, List<CardData> source)
+    {
+        target.Clear();
+        if (source == null)
+            return;
+
+        for (int i = 0; i < source.Count; i++)
+        {
+            if (source[i] != null)
+                target.Add(source[i].ToCard());
+        }
     }
 
     public void Dispose()
@@ -1291,6 +1471,7 @@ public sealed class BattleState
         RefreshDevilOpponentField();
         SetPhase(BattlePhase.PostRound);
         EventBus.Publish(new RoundEndedEvent(RoundNumber));
+        RoundCheckpointReady?.Invoke(this);
 
         CommandQueue.Enqueue(new VisualCommand(VisualCommandType.RoundEnded, RoundNumber.ToString()));
 
