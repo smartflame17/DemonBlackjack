@@ -145,7 +145,7 @@ public class MoneyTransferLogger : MonoBehaviour
         switch (eventData.Reason)
         {
             case MoneyTransferReason.InitialWager:
-                entryFeeText.text = $"{eventData.Delta}";
+                entryFeeText.text = NumberFormatter.Abbreviate(eventData.Delta);
                 QueueTextEffect(0, eventData.Delta);
                 break;
             case MoneyTransferReason.BlackjackPayout:
@@ -159,10 +159,18 @@ public class MoneyTransferLogger : MonoBehaviour
                 RefreshRoundResultText();
                 break;
             case MoneyTransferReason.BurstPenalty:
-                burstPenalty += eventData.Delta;
-                QueueTextEffect(3, -eventData.Delta);
-                burstPenaltyText.text = $"-{burstPenalty}";
-                if (burstPenalty > 0)
+                if (eventData.Receiver == Combatant.Opponent)
+                {
+                    burstPenalty -= eventData.Delta;
+                    QueueTextEffect(3, -eventData.Delta);
+                }
+                else if (eventData.Receiver == Combatant.Player)
+                {
+                    burstPenalty += eventData.Delta;
+                    QueueTextEffect(3, eventData.Delta);
+                }
+                burstPenaltyText.text = NumberFormatter.Abbreviate(burstPenalty);
+                if (burstPenalty < 0)
                     burstPenaltyText.color = Color.red;
                 else
                     burstPenaltyText.color = Color.green;
@@ -170,7 +178,7 @@ public class MoneyTransferLogger : MonoBehaviour
             case MoneyTransferReason.PokerPayout:
                 pokerResult += eventData.Delta;
                 QueueTextEffect(4, eventData.Delta);
-                pokerResultText.text = $"{pokerResult}";
+                pokerResultText.text = NumberFormatter.Abbreviate(pokerResult);
                 if (pokerResult < 0)
                     pokerResultText.color = Color.red;
                 else
@@ -225,7 +233,7 @@ public class MoneyTransferLogger : MonoBehaviour
 
     private void RefreshRoundResultText()
     {
-        blackjackResultText.text = $"{roundResult}";
+        blackjackResultText.text = NumberFormatter.Abbreviate(roundResult);
         blackjackResultText.color = roundResult < 0 ? Color.red : Color.green;
         if (roundResult == 0) blackjackResultText.color = Color.white; // Reset to default color if zero
     }

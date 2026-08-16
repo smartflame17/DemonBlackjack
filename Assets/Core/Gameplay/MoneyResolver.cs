@@ -30,7 +30,7 @@ public static class MoneyResolver
             if (lost > 0)
             {
                 round.RecordMoneyLost(Combatant.Player, lost);
-                EventBus.Publish(new MoneyTransferReasonEvent(MoneyTransferReason.DevilAbilityPayout, lost));
+                EventBus.Publish(new MoneyTransferReasonEvent(Combatant.Opponent,MoneyTransferReason.DevilAbilityPayout, lost));
             }
         }
 
@@ -66,32 +66,22 @@ public static class MoneyResolver
         RoundState round,
         int wager)
     {
-        int playerBurstOffset = Math.Max(0, round.PlayerScore.BlackjackScore - round.PlayerBurstThreshold);
-        if (playerBurstOffset > 0)// && !round.PlayerBurstPenaltyResolved)
+        int playerBurstAmount = CalculateBurstTransferAmount(round.PlayerScore, round.PlayerBurstThreshold);
+        if (playerBurstAmount > 0)// && !round.PlayerBurstPenaltyResolved)
         {
-            // Version 1: Transfer based on wager
-            //int amount = playerBurstOffset * wager;
-
-            // Version 2: Fixed amount
-            int amount = playerBurstOffset * BurstTransferValue.burstPenaltyAmount;
-            int lost = TransferPlayerToOpponent(battle, amount);
+            int lost = TransferPlayerToOpponent(battle, playerBurstAmount);
             round.RecordMoneyLost(Combatant.Player, lost);
             round.MarkBurstPenaltyResolved(Combatant.Player);
-            EventBus.Publish(new MoneyTransferReasonEvent(MoneyTransferReason.BurstPenalty, amount));
+            EventBus.Publish(new MoneyTransferReasonEvent(Combatant.Opponent, MoneyTransferReason.BurstPenalty, playerBurstAmount));
         }
 
-        int opponentBurstOffset = Math.Max(0, round.OpponentScore.BlackjackScore - round.OpponentBurstThreshold);
-        if (opponentBurstOffset > 0)// && !round.OpponentBurstPenaltyResolved)
+        int opponentBurstAmount = CalculateBurstTransferAmount(round.OpponentScore, round.OpponentBurstThreshold);
+        if (opponentBurstAmount > 0)// && !round.OpponentBurstPenaltyResolved)
         {
-            // Version 1: Transfer based on wager
-            //int amount = opponentBurstOffset * wager;
-
-            // Version 2: Fixed amount
-            int amount = opponentBurstOffset * BurstTransferValue.burstPenaltyAmount;
-            int lost = TransferOpponentToPlayer(battle, amount);
+            int lost = TransferOpponentToPlayer(battle, opponentBurstAmount);
             round.RecordMoneyLost(Combatant.Opponent, lost);
             round.MarkBurstPenaltyResolved(Combatant.Opponent);
-            EventBus.Publish(new MoneyTransferReasonEvent(MoneyTransferReason.BurstPenalty, -amount));
+            EventBus.Publish(new MoneyTransferReasonEvent(Combatant.Player, MoneyTransferReason.BurstPenalty, opponentBurstAmount));
         }
     }
 
@@ -103,19 +93,18 @@ public static class MoneyResolver
         if (winner == Combatant.Player)
         {
             battle.AddPlayerMoney(round.Pot);
-            EventBus.Publish(new MoneyTransferReasonEvent(MoneyTransferReason.BlackjackPayout, round.Pot));
+            EventBus.Publish(new MoneyTransferReasonEvent(Combatant.Player, MoneyTransferReason.BlackjackPayout, round.Pot));
         }
             
         else if (winner == Combatant.Opponent)
         {
             battle.AddOpponentMoney(round.Pot);
-            EventBus.Publish(new MoneyTransferReasonEvent(MoneyTransferReason.BlackjackPayout, -round.Pot));
+            EventBus.Publish(new MoneyTransferReasonEvent(Combatant.Opponent, MoneyTransferReason.BlackjackPayout, -round.Pot));
         }
         else
         {
             battle.AddPlayerMoney(round.PlayerStake);
             battle.AddOpponentMoney(round.OpponentStake);
-            EventBus.Publish(new MoneyTransferReasonEvent(MoneyTransferReason.BlackjackPayout, 0));
         }
     }
 
@@ -127,9 +116,14 @@ public static class MoneyResolver
         if (payout <= 0)
             return;
 
+        if (!round.TryRecordAchievedPlayerPokerHandRank(poker.Rank))
+            return;
+
+        payout = battle.GetModifiedPlayerPokerPayout(round, payout);
         int lost = TransferOpponentToPlayer(battle, payout);
         round.RecordMoneyLost(Combatant.Opponent, lost);
-        EventBus.Publish(new MoneyTransferReasonEvent(MoneyTransferReason.PokerPayout, lost));
+        round.RecordPlayerPokerEarnings(lost);
+        EventBus.Publish(new MoneyTransferReasonEvent(Combatant.Player, MoneyTransferReason.PokerPayout, lost));
     }
 
     public static int CalculatePokerPayout(IReadOnlyList<Card> cards, PokerResult poker, int wager)
@@ -171,8 +165,87 @@ public static class MoneyResolver
         */
         // Version 2: Fixed Payout
         long payout = (long)(poker.Multiplier * rankSum * PokerTransferValue.pokerPayoutAmount) / poker.CardIndices.Count;
-        UnityEngine.Debug.Log("<color=yellow>[Money]</color> Poker Payout Calculation: " + payout);
         return payout >= int.MaxValue ? int.MaxValue : (int)payout;
+    }
+
+    public static MoneyDeltaPreview CalculatePlayerRealtimeMoneyPreview(
+        BattleState battle,
+        RoundState round,
+        IReadOnlyList<Card> pokerCards,
+        ScoreResult playerScore)
+    {
+        if (battle == null)
+            throw new ArgumentNullException(nameof(battle));
+
+        if (round == null)
+            throw new ArgumentNullException(nameof(round));
+
+        return CalculatePlayerRealtimeMoneyPreview(
+            pokerCards,
+            playerScore,
+            round.PlayerBurstThreshold,
+            round.EffectiveWager,
+            battle.PlayerMoney,
+            battle.OpponentMoney,
+            payout => battle.GetModifiedPlayerPokerPayout(round, payout),
+            round.HasAchievedPlayerPokerHandRank);
+    }
+
+    public static MoneyDeltaPreview CalculatePlayerRealtimeMoneyPreview(
+        IReadOnlyList<Card> pokerCards,
+        ScoreResult playerScore,
+        int playerBurstThreshold,
+        int wager,
+        int playerMoney,
+        int opponentMoney)
+    {
+        return CalculatePlayerRealtimeMoneyPreview(
+            pokerCards,
+            playerScore,
+            playerBurstThreshold,
+            wager,
+            playerMoney,
+            opponentMoney,
+            null,
+            null);
+    }
+
+    private static MoneyDeltaPreview CalculatePlayerRealtimeMoneyPreview(
+        IReadOnlyList<Card> pokerCards,
+        ScoreResult playerScore,
+        int playerBurstThreshold,
+        int wager,
+        int playerMoney,
+        int opponentMoney,
+        Func<int, int> modifyPokerPayout,
+        Func<PokerHandRank, bool> hasAchievedPokerHandRank)
+    {
+        if (wager <= 0)
+            return default;
+
+        PokerResult poker = ScoreResolver.ResolvePoker(pokerCards);
+        int pokerPayout = hasAchievedPokerHandRank?.Invoke(poker.Rank) == true
+            ? 0
+            : CalculatePokerPayout(pokerCards, poker, wager);
+        if (modifyPokerPayout != null)
+            pokerPayout = Math.Clamp(modifyPokerPayout(pokerPayout), 0, pokerPayout);
+        int pokerDelta = Math.Min(Math.Max(0, opponentMoney), pokerPayout);
+
+        long playerMoneyAfterPoker = (long)Math.Max(0, playerMoney) + pokerDelta;
+        int availablePlayerMoney = playerMoneyAfterPoker >= int.MaxValue
+            ? int.MaxValue
+            : (int)playerMoneyAfterPoker;
+        int burstPenalty = CalculateBurstTransferAmount(playerScore, playerBurstThreshold);
+        int burstDelta = -Math.Min(availablePlayerMoney, burstPenalty);
+
+        return new MoneyDeltaPreview(pokerDelta, burstDelta);
+    }
+
+    private static int CalculateBurstTransferAmount(ScoreResult score, int burstThreshold)
+    {
+        int burstOffset = Math.Max(0, score.BlackjackScore - burstThreshold);
+        long amount = (long)burstOffset * BurstTransferValue.burstPenaltyAmount;
+        return amount >= int.MaxValue ? int.MaxValue : (int)amount;
     }
 
     private static int TransferPlayerToOpponent(BattleState battle, int amount)
@@ -213,6 +286,19 @@ public static class MoneyResolver
             _ => throw new ArgumentOutOfRangeException(nameof(rank), $"Invalid rank: {rank}")
         };
     }
+}
+
+public readonly struct MoneyDeltaPreview
+{
+    public MoneyDeltaPreview(int pokerDelta, int burstDelta)
+    {
+        PokerDelta = Math.Max(0, pokerDelta);
+        BurstDelta = Math.Min(0, burstDelta);
+    }
+
+    public int PokerDelta { get; }
+    public int BurstDelta { get; }
+    public int FinalDelta => PokerDelta + BurstDelta;
 }
 
 public readonly struct RoundResolution

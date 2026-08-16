@@ -5,7 +5,7 @@ using Coffee.UIEffects;
 
 public sealed class BattleUiCardView : MonoBehaviour
 {
-    private static readonly Vector2 SelectedOffset = new(0f, 18f);
+    private static readonly int EffectEnabledId = Shader.PropertyToID("_EffectEnabled");
 
     [SerializeField] private Image image;
     [SerializeField] private TMP_Text label;
@@ -14,8 +14,9 @@ public sealed class BattleUiCardView : MonoBehaviour
     [SerializeField] private Image upgradeImage;
     [SerializeField] private TooltipTrigger tooltipTrigger;
     [SerializeField] private UIEffect uiEffect;
+    [SerializeField] private Material upgradeMaterial;
 
-    private Vector2 _baseAnchoredPosition;
+    private Material _runtimeMaterial;
     private bool _hasBasePosition;
 
     public Button Button => button;
@@ -23,6 +24,7 @@ public sealed class BattleUiCardView : MonoBehaviour
 
     private void Awake()
     {
+        EnsureRuntimeMaterial();
         SetPokerHighlight(false);
     }
 
@@ -32,11 +34,11 @@ public sealed class BattleUiCardView : MonoBehaviour
         label = cardLabel;
         button = cardButton;
         visualRoot = cardImage != null ? cardImage.rectTransform : transform as RectTransform;
+        EnsureRuntimeMaterial();
         if (button != null && button.targetGraphic == null)
             button.targetGraphic = image;
 
         SetPokerHighlight(false);
-        CacheBasePosition();
     }
 
     public Button EnsureButton()
@@ -59,8 +61,7 @@ public sealed class BattleUiCardView : MonoBehaviour
 
     public void Bind(Card card, Sprite sprite, bool faceUp, bool interactable, GameplayAssetRegistry assetRegistry)
     {
-        EnsureReferences();
-        SetSelected(false);
+        EnsureRuntimeMaterial();
 
         if (image != null)
             image.sprite = sprite;
@@ -81,8 +82,7 @@ public sealed class BattleUiCardView : MonoBehaviour
 
     public void BindBack(Sprite sprite)
     {
-        EnsureReferences();
-        SetSelected(false);
+        EnsureRuntimeMaterial();
 
         if (image != null)
             image.sprite = sprite;
@@ -111,6 +111,14 @@ public sealed class BattleUiCardView : MonoBehaviour
             upgradeImage.color = color;
     }
 
+    public void SetVisualScale(float scale)
+    {
+        EnsureReferences();
+
+        if (visualRoot != null)
+            visualRoot.localScale = Vector3.one * Mathf.Max(0f, scale);
+    }
+
     public void SetPokerHighlight(bool highlighted)
     {
         EnsureReferences();
@@ -119,17 +127,21 @@ public sealed class BattleUiCardView : MonoBehaviour
             uiEffect.edgeMode = highlighted ? EdgeMode.Shiny : EdgeMode.None;
     }
 
-    public void SetSelected(bool selected)
+    public void EnsureRuntimeMaterial()
     {
         EnsureReferences();
 
-        if (visualRoot == null)
-            return;
+        if (_runtimeMaterial == null)
+        {
+            Material sourceMaterial = upgradeMaterial != null
+                ? upgradeMaterial
+                : image != null ? image.material : null;
+            if (sourceMaterial != null)
+                _runtimeMaterial = Instantiate(sourceMaterial);
+        }
 
-        if (!_hasBasePosition)
-            CacheBasePosition();
-
-        visualRoot.anchoredPosition = _baseAnchoredPosition + (selected ? SelectedOffset : Vector2.zero);
+        if (image != null && _runtimeMaterial != null)
+            image.material = _runtimeMaterial;
     }
 
     private void EnsureReferences()
@@ -153,9 +165,6 @@ public sealed class BattleUiCardView : MonoBehaviour
         uiEffect ??= gameObject.AddComponent<UIEffect>();
 
         tooltipTrigger ??= GetComponent<TooltipTrigger>() ?? gameObject.AddComponent<TooltipTrigger>();
-
-        if (!_hasBasePosition)
-            CacheBasePosition();
     }
 
     private void BindUpgrade(Card card, bool faceUp, GameplayAssetRegistry assetRegistry)
@@ -171,6 +180,7 @@ public sealed class BattleUiCardView : MonoBehaviour
 
         upgradeImage.sprite = assetRegistry.GetCardUpgradeSprite(card.ModifierId);
         upgradeImage.gameObject.SetActive(upgradeImage.sprite != null);
+        SetShaderEffectEnabled(true);
     }
 
     private void ClearUpgrade()
@@ -180,6 +190,12 @@ public sealed class BattleUiCardView : MonoBehaviour
 
         upgradeImage.sprite = null;
         upgradeImage.gameObject.SetActive(false);
+        SetShaderEffectEnabled(false);
+    }
+
+    private void SetShaderEffectEnabled(bool enabled)
+    {
+        _runtimeMaterial?.SetFloat(EffectEnabledId, enabled ? 1f : 0f);
     }
 
     private Image FindChildImage(string childName)
@@ -192,15 +208,6 @@ public sealed class BattleUiCardView : MonoBehaviour
         }
 
         return null;
-    }
-
-    private void CacheBasePosition()
-    {
-        if (visualRoot == null)
-            return;
-
-        _baseAnchoredPosition = visualRoot.anchoredPosition;
-        _hasBasePosition = true;
     }
 
     private static string FormatCard(Card card)

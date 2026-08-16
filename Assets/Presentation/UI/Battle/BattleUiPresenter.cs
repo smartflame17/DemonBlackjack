@@ -7,6 +7,7 @@ using UnityEngine.EventSystems;
 using UnityEngine.UI;
 using UnityEngine.Serialization;
 using System;
+using System.Globalization;
 
 // This component is responsible for battle UI presentation - Runtime monobehaviour binding.
 public sealed class BattleUiPresenter : MonoBehaviour
@@ -30,9 +31,7 @@ public sealed class BattleUiPresenter : MonoBehaviour
     [SerializeField] private RectTransform sharedPlayPileRoot;
     [SerializeField] private RectTransform playerPlayPileRoot;
     [SerializeField] private RectTransform playPileRoot;
-    [SerializeField] private Button playButton;
     [SerializeField] private Button standButton;
-    [SerializeField] private Button hitButton;
 
     [Header("Round Start")]
     [FormerlySerializedAs("wagerPanel")]
@@ -51,6 +50,8 @@ public sealed class BattleUiPresenter : MonoBehaviour
     [Header("Drag Interactions")]
     [SerializeField] private RectTransform playerHandImage;
     [SerializeField] private DevilStandIndicator devilStandIndicator;
+    [SerializeField] private TMP_Text playerChoiceMoneyPreviewText;
+    [SerializeField, Range(0f, 1f)] private float playerChoiceMoneyPreviewActiveAlpha = 0.3f;
 
     [Header("Results")]
     [SerializeField] private GameObject roundResultPanel;
@@ -79,7 +80,6 @@ public sealed class BattleUiPresenter : MonoBehaviour
     private readonly List<BattleUiCardView> _devilPlayPileCards = new();
     private readonly List<BattleUiCardView> _sharedPlayPileCards = new();
     private readonly List<BattleUiCardView> _playerPlayPileCards = new();
-    private readonly HashSet<int> _selectedHandIndices = new();
     private readonly List<CardLayoutSnapshot> _previousPlayerHand = new();
     private readonly List<CardLayoutSnapshot> _previousOpponentHand = new();
     private readonly List<Card> _lastPlayerHandCards = new();
@@ -156,6 +156,7 @@ public sealed class BattleUiPresenter : MonoBehaviour
         ConfigureCardLayout(sharedPlayPileRoot);
         ConfigureCardLayout(playerPlayPileRoot);
         ConfigureDragInteractionComponents();
+        HidePlayerChoiceMoneyPreview();
     }
 
     private void OnEnable()
@@ -163,7 +164,7 @@ public sealed class BattleUiPresenter : MonoBehaviour
         EventBus.Subscribe<RunPhaseChangedEvent>(OnRunPhaseChanged);
         EventBus.Subscribe<BattleStartedEvent>(OnBattleStarted);
         EventBus.Subscribe<BattleEndedEvent>(OnBattleEnded);
-        EventBus.Subscribe<BurstThresholdChangedEvent>(OnBurstThresholdChanged);
+        EventBus.Subscribe<ItemUsedEvent>(OnItemUsed);
 
         AddListeners();
         Refresh();
@@ -173,12 +174,13 @@ public sealed class BattleUiPresenter : MonoBehaviour
     {
         CancelPendingRoundStart();
         CancelPendingTurnHandoff();
+        HidePlayerChoiceMoneyPreview();
         SetActive(roundStartPanel, false);
         ClearGeneratedBattleCards();
         EventBus.Unsubscribe<RunPhaseChangedEvent>(OnRunPhaseChanged);
         EventBus.Unsubscribe<BattleStartedEvent>(OnBattleStarted);
         EventBus.Unsubscribe<BattleEndedEvent>(OnBattleEnded);
-        EventBus.Unsubscribe<BurstThresholdChangedEvent>(OnBurstThresholdChanged);
+        EventBus.Unsubscribe<ItemUsedEvent>(OnItemUsed);
 
         RemoveListeners();
     }
@@ -232,7 +234,7 @@ public sealed class BattleUiPresenter : MonoBehaviour
             SetText(devilScoreText, " ");
             SetBurstThresholdText(null);
             SetPanels(false, false, false);
-            SetTurnButtons(false, false);
+            SetTurnButtons(false);
             RememberRenderedCards(null);
             return;
         }
@@ -265,8 +267,7 @@ public sealed class BattleUiPresenter : MonoBehaviour
         SetTurnButtons(
             battle.Phase == BattlePhase.PlayerPhase
             && !battleController.IsWaitingForVisuals
-            && !_turnHandoffPending,
-            _selectedHandIndices.Count > 0);
+            && !_turnHandoffPending);
         RememberRenderedCards(round);
     }
 
@@ -280,7 +281,6 @@ public sealed class BattleUiPresenter : MonoBehaviour
         if (!CanPlayerAct)
             return false;
 
-        _selectedHandIndices.Clear();
         if (!battleController.TryPlayCard(handIndex))
         {
             Refresh();
@@ -297,7 +297,6 @@ public sealed class BattleUiPresenter : MonoBehaviour
         if (!CanPlayerAct)
             return false;
 
-        _selectedHandIndices.Clear();
         if (!battleController.TryHitWithoutEndingTurn())
         {
             Refresh();
@@ -307,6 +306,62 @@ public sealed class BattleUiPresenter : MonoBehaviour
         bool hit = ScheduleTurnHandoff(TurnHandoffAction.EndPlayerPhase);
         Refresh();
         return hit;
+    }
+
+    public bool TryCalculateCardPlayPreview(
+        int handIndex,
+        out ScoreResult scoreResult,
+        out MoneyDeltaPreview moneyPreview)
+    {
+        scoreResult = default;
+        moneyPreview = default;
+
+        if (!CanPlayerAct)
+            return false;
+
+        BattleState battle = battleController.BattleState;
+        RoundState round = battle?.CurrentRound;
+        if (round == null
+            || !round.CanPlacePlayedCard(Combatant.Player)
+            || handIndex < 0
+            || handIndex >= round.PlayerHand.Count
+            || battleController.InputGate != null && !battleController.InputGate.CanPlayCard(battle, handIndex))
+        {
+            return false;
+        }
+
+        var previewPlayedCards = new List<Card>(round.PlayerPlayedCards.Count + 1);
+        previewPlayedCards.AddRange(round.PlayerPlayedCards);
+        previewPlayedCards.Add(battle.PreviewPlayerCardForPlay(round.PlayerHand[handIndex]));
+
+        scoreResult = ScoreResolver.Resolve(
+            previewPlayedCards,
+            round.ScoringModifiers,
+            round.PlayerBurstThreshold);
+
+        var previewPokerCards = new List<Card>(previewPlayedCards.Count + round.SharedVisibleCards.Count);
+        previewPokerCards.AddRange(previewPlayedCards);
+        previewPokerCards.AddRange(round.SharedVisibleCards);
+        moneyPreview = MoneyResolver.CalculatePlayerRealtimeMoneyPreview(
+            battle,
+            round,
+            previewPokerCards,
+            scoreResult);
+        return true;
+    }
+
+    public void ShowPlayerChoiceMoneyPreview(ScoreResult scoreResult, MoneyDeltaPreview moneyPreview)
+    {
+        if (playerChoiceMoneyPreviewText == null)
+            return;
+
+        playerChoiceMoneyPreviewText.text = NumberFormatter.Abbreviate(moneyPreview.FinalDelta) + "$";
+        SetPlayerChoiceMoneyPreviewAlpha(playerChoiceMoneyPreviewActiveAlpha);
+    }
+
+    public void HidePlayerChoiceMoneyPreview()
+    {
+        SetPlayerChoiceMoneyPreviewAlpha(0f);
     }
 
     public bool IsPointerOverPlayerPlayPile(PointerEventData eventData)
@@ -332,9 +387,7 @@ public sealed class BattleUiPresenter : MonoBehaviour
 
     private void RemoveListeners()
     {
-        Remove(playButton, PlaySelectedCards);
         Remove(standButton, Stand);
-        Remove(hitButton, Hit);
         Remove(toShopButton, OpenShop);
         Remove(nextRoundButton, ContinueToNextRound);
         Remove(backToMapButton, ReturnToMap);
@@ -346,48 +399,8 @@ public sealed class BattleUiPresenter : MonoBehaviour
             button.onClick.RemoveListener(action);
     }
 
-    private void ToggleCardSelection(int handIndex)
-    {
-        if (!_selectedHandIndices.Add(handIndex))
-        {
-            _selectedHandIndices.Remove(handIndex);
-        }
-        else
-        {
-            _selectedHandIndices.Clear();
-            _selectedHandIndices.Add(handIndex);
-        }
-
-        Refresh();
-    }
-
-    private void PlaySelectedCards()
-    {
-        if (!CanPlayerAct || battleController == null || _selectedHandIndices.Count == 0)
-            return;
-
-        int selectedIndex = -1;
-        foreach (int handIndex in _selectedHandIndices)
-        {
-            selectedIndex = handIndex;
-            break;
-        }
-
-        if (selectedIndex < 0 || !battleController.TryPlayCard(selectedIndex))
-        {
-            _selectedHandIndices.Clear();
-            Refresh();
-            return;
-        }
-
-        _selectedHandIndices.Clear();
-        ScheduleTurnHandoff(TurnHandoffAction.EndPlayerPhase);
-        Refresh();
-    }
-
     private void Stand()
     {
-        _selectedHandIndices.Clear();
         ScheduleTurnHandoff(TurnHandoffAction.Stand);
         Refresh();
     }
@@ -494,6 +507,9 @@ public sealed class BattleUiPresenter : MonoBehaviour
             else
                 yield return null;
 
+            while (ShouldPauseTurnHandoffForActiveItemSelection(battle, round))
+                yield return null;
+
             if (!CanExecuteTurnHandoff(battle, round))
                 break;
 
@@ -505,6 +521,16 @@ public sealed class BattleUiPresenter : MonoBehaviour
         while (true);
 
         CompleteTurnHandoff(battle, round);
+    }
+
+    private bool ShouldPauseTurnHandoffForActiveItemSelection(BattleState battle, RoundState round)
+    {
+        return isActiveAndEnabled
+            && battleController != null
+            && ReferenceEquals(battleController.BattleState, battle)
+            && battle != null
+            && ReferenceEquals(battle.CurrentRound, round)
+            && battle.HasPendingActiveItemSelection;
     }
 
     private bool ExecuteTurnHandoff(TurnHandoffAction action)
@@ -578,7 +604,7 @@ public sealed class BattleUiPresenter : MonoBehaviour
         _turnHandoffPending = false;
     }
 
-    private void OnBurstThresholdChanged(BurstThresholdChangedEvent eventData)
+    private void OnItemUsed(ItemUsedEvent eventData)
     {
         Refresh();
     }
@@ -624,7 +650,6 @@ public sealed class BattleUiPresenter : MonoBehaviour
         }
 
         _pendingWager = battle.GetDefaultWager();
-        _selectedHandIndices.Clear();
         _suppressRoundPilesUntilNextRound = false;
 
         _roundStartRoutine = null;
@@ -667,7 +692,7 @@ public sealed class BattleUiPresenter : MonoBehaviour
         SetActive(battleResultPanel, showBattleResult);
     }
 
-    private void SetTurnButtons(bool playerTurn, bool hasSelectedCard)
+    private void SetTurnButtons(bool playerTurn)
     {
         if (standButton != null)
             standButton.interactable = playerTurn;
@@ -902,14 +927,10 @@ public sealed class BattleUiPresenter : MonoBehaviour
             else if (cards != null && i < cards.Count)
                 BindCard(views[i], cards[i], faceUp, interactable, i);
 
-            views[i].SetSelected(interactable && _selectedHandIndices.Contains(i));
         }
 
         if (root != null)
             LayoutRebuilder.ForceRebuildLayoutImmediate(root);
-
-        for (int i = 0; i < views.Count && i < count; i++)
-            views[i].SetSelected(interactable && _selectedHandIndices.Contains(i));
     }
 
     private void BindCard(BattleUiCardView view, Card card, bool faceUp, bool interactable, int handIndex)
@@ -989,6 +1010,7 @@ public sealed class BattleUiPresenter : MonoBehaviour
         GetNormalizedOpponentTurnDelayRange(out float minimum, out float maximum);
         opponentTurnDelayMinSeconds = minimum;
         opponentTurnDelayMaxSeconds = maximum;
+        playerChoiceMoneyPreviewActiveAlpha = Mathf.Clamp01(playerChoiceMoneyPreviewActiveAlpha);
     }
 
     private void SetScoreText(RoundState round)
@@ -1019,14 +1041,13 @@ public sealed class BattleUiPresenter : MonoBehaviour
         devilPlayPileRoot ??= playPileRoot;
         sharedPlayPileRoot ??= playPileRoot;
         playerPlayPileRoot ??= playPileRoot;
-        playButton ??= FindDescendantComponent<Button>("PlayButton");
         standButton ??= FindDescendantComponent<Button>("StandButton");
-        hitButton ??= FindDescendantComponent<Button>("HitButton");
         roundStartPanel ??= FindDescendant("RoundStartPanel");
         deckViewPanel ??= FindFirstObjectByType<DeckViewPanel>(FindObjectsInactive.Include);
         viewPileButton ??= FindDescendantComponent<Button>("ViewPileButton");
         viewPileButton ??= FindDescendantComponent<Button>("ViewDrawPileButton");
         playerHandImage ??= FindDescendantRect("PlayerHandImage");
+        playerChoiceMoneyPreviewText ??= FindDescendantComponent<TMP_Text>("PlayerChoiceMoneyPreview");
         devilStandIndicator ??= FindOrAddDescendantComponent<DevilStandIndicator>("DevilStandIndicator");
         ConfigureDragInteractionComponents();
         roundResultPanel ??= FindDescendant("RoundResultPanel");
@@ -1040,12 +1061,6 @@ public sealed class BattleUiPresenter : MonoBehaviour
 
     private void ConfigureDragInteractionComponents()
     {
-        if (playButton != null)
-            playButton.gameObject.SetActive(false);
-
-        if (hitButton != null)
-            hitButton.gameObject.SetActive(false);
-
         if (playerHandImage != null)
         {
             _playerHandHitDragHandler ??= playerHandImage.GetComponent<PlayerHandHitDragHandler>();
@@ -1217,6 +1232,16 @@ public sealed class BattleUiPresenter : MonoBehaviour
             text.text = value;
     }
 
+    private void SetPlayerChoiceMoneyPreviewAlpha(float alpha)
+    {
+        if (playerChoiceMoneyPreviewText == null)
+            return;
+
+        Color color = playerChoiceMoneyPreviewText.color;
+        color.a = Mathf.Clamp01(alpha);
+        playerChoiceMoneyPreviewText.color = color;
+    }
+
     private static void SetActive(GameObject target, bool active)
     {
         if (target != null && target.activeSelf != active)
@@ -1245,7 +1270,6 @@ public sealed class BattleUiPresenter : MonoBehaviour
         ClearChildren(devilPlayPileRoot);
         ClearChildren(sharedPlayPileRoot);
         ClearChildren(playerPlayPileRoot);
-        _selectedHandIndices.Clear();
         _suppressRoundPilesUntilNextRound = false;
         RememberRenderedCards(null);
     }

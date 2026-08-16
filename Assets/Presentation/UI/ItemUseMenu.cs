@@ -6,6 +6,7 @@ public sealed class ItemUseMenu : MonoBehaviour
 {
     [SerializeField] private RunManager runManager;
     [SerializeField] private BattleController battleController;
+    [SerializeField] private ActiveItemUseProxy activeItemUseProxy;
     [SerializeField] private RectTransform popup;
     [SerializeField] private Button useButton;
     [SerializeField] private Button discardButton;
@@ -54,6 +55,7 @@ public sealed class ItemUseMenu : MonoBehaviour
     {
         runManager ??= manager;
         battleController ??= controller;
+        activeItemUseProxy?.Initialize(battleController);
         EnsureReferences();
     }
 
@@ -107,7 +109,10 @@ public sealed class ItemUseMenu : MonoBehaviour
 
     private void UseSelectedItem()
     {
-        if (battleController != null && battleController.TryUseActiveItem(_selectedItemId))
+        bool used = activeItemUseProxy != null
+            ? activeItemUseProxy.TryUseActiveItem(_selectedItemId)
+            : battleController != null && battleController.TryUseActiveItem(_selectedItemId);
+        if (used)
             Close();
         else
             RefreshAvailability();
@@ -150,6 +155,8 @@ public sealed class ItemUseMenu : MonoBehaviour
         popup ??= transform as RectTransform;
         runManager ??= FindFirstObjectByType<RunManager>();
         battleController ??= FindFirstObjectByType<BattleController>();
+        activeItemUseProxy ??= GetComponentInParent<ActiveItemUseProxy>(true);
+        activeItemUseProxy?.Initialize(battleController);
         useButton ??= FindButton("UseItemButton");
         discardButton ??= FindButton("DiscardItemButton");
     }

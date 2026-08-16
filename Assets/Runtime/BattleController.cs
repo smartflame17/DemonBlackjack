@@ -1,3 +1,4 @@
+using System.Collections.Generic;
 using UnityEngine;
 
 public class BattleController : MonoBehaviour
@@ -5,17 +6,15 @@ public class BattleController : MonoBehaviour
     public BattleState BattleState { get; private set; }
     public CommandQueue CommandQueue => BattleState?.CommandQueue;
     public bool HasActiveBattle => BattleState != null && !BattleState.IsBattleOver;
+    public bool HasPendingActiveItemSelection => BattleState != null && BattleState.HasPendingActiveItemSelection;
     public bool IsWaitingForVisuals { get; private set; }
     public IBattleInputGate InputGate { get; set; }
-
-    private BattleEndedEvent? _pendingBattleEndedEvent;
 
     public void InitializeBattle(RunState runState, BattleConfig config)
     {
         CleanupBattle();
 
         BattleState = new BattleState(runState, config);
-        BattleState.EventBus.Subscribe<BattleEndedEvent>(OnBattleEnded);
         BattleState.Initialize();
     }
 
@@ -87,6 +86,31 @@ public class BattleController : MonoBehaviour
             && BattleState.TryUseActiveItem(itemId);
     }
 
+    public ActiveItemUseStartResult TryBeginActiveItemUse(
+        string itemId,
+        out ActiveItemSelectionRequest selectionRequest)
+    {
+        selectionRequest = default;
+        if (IsWaitingForVisuals
+            || BattleState == null
+            || InputGate != null && !InputGate.CanUseActiveItem(BattleState, itemId))
+        {
+            return ActiveItemUseStartResult.Rejected;
+        }
+
+        return BattleState.TryBeginActiveItemUse(itemId, out selectionRequest);
+    }
+
+    public bool TryCompletePendingActiveItemUse(IReadOnlyList<int> selectedIndices)
+    {
+        return BattleState != null && BattleState.TryCompletePendingActiveItemUse(selectedIndices);
+    }
+
+    public bool CancelPendingActiveItemUse()
+    {
+        return BattleState != null && BattleState.CancelPendingActiveItemUse();
+    }
+
     public bool CanUseActiveItem(string itemId)
     {
         return !IsWaitingForVisuals
@@ -102,9 +126,7 @@ public class BattleController : MonoBehaviour
 
         BattleState activeBattle = BattleState;
         RoundResolution resolution = activeBattle.EndPlayerPhase();
-
-        if (BattleState == activeBattle && (activeBattle.Phase == BattlePhase.Cleanup || activeBattle.Phase == BattlePhase.BattleEnd))
-            IsWaitingForVisuals = true;
+        MarkWaitingForCompletedRound(activeBattle);
 
         return resolution;
     }
@@ -135,7 +157,7 @@ public class BattleController : MonoBehaviour
 
         if (activeBattle.Phase == BattlePhase.BattleEnd)
         {
-            PublishPendingBattleEndedEvent();
+            EventBus.Publish(new BattleEndedEvent(activeBattle.GetBattleResult()));
         }
         else if (activeBattle.Phase == BattlePhase.Cleanup)
         {
@@ -147,12 +169,10 @@ public class BattleController : MonoBehaviour
     {
         if (BattleState != null)
         {
-            BattleState.EventBus.Unsubscribe<BattleEndedEvent>(OnBattleEnded);
             BattleState.Dispose();
         }
 
         IsWaitingForVisuals = false;
-        _pendingBattleEndedEvent = null;
         BattleState = null;
         InputGate = null;
     }
@@ -162,25 +182,9 @@ public class BattleController : MonoBehaviour
         CleanupBattle();
     }
 
-    private void OnBattleEnded(BattleEndedEvent eventData)
-    {
-        _pendingBattleEndedEvent = eventData;
-        IsWaitingForVisuals = true;
-    }
-
     private void MarkWaitingForCompletedRound(BattleState activeBattle)
     {
         if (BattleState == activeBattle && (activeBattle.Phase == BattlePhase.Cleanup || activeBattle.Phase == BattlePhase.BattleEnd))
             IsWaitingForVisuals = true;
-    }
-
-    private void PublishPendingBattleEndedEvent()
-    {
-        if (!_pendingBattleEndedEvent.HasValue)
-            return;
-
-        BattleEndedEvent eventData = _pendingBattleEndedEvent.Value;
-        _pendingBattleEndedEvent = null;
-        EventBus.Publish(eventData);
     }
 }

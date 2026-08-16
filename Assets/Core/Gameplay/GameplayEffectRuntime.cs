@@ -16,7 +16,6 @@ public sealed class BattleEffectRuntime : IDisposable
     {
         _battle = battle ?? throw new ArgumentNullException(nameof(battle));
         _battle.EventBus.Subscribe<CardPlayedEvent>(OnCardPlayed);
-        _battle.EventBus.Subscribe<ItemUsedEvent>(OnItemUsed);
     }
 
     public void Dispose()
@@ -25,7 +24,6 @@ public sealed class BattleEffectRuntime : IDisposable
             return;
 
         _battle.EventBus.Unsubscribe<CardPlayedEvent>(OnCardPlayed);
-        _battle.EventBus.Unsubscribe<ItemUsedEvent>(OnItemUsed);
         _disposed = true;
     }
 
@@ -106,9 +104,5 @@ public sealed class BattleEffectRuntime : IDisposable
             default:
                 return false;
         }
-    }
-
-    private void OnItemUsed(ItemUsedEvent eventData)
-    {
     }
 }

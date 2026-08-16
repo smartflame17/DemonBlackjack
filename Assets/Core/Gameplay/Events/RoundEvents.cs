@@ -1,3 +1,4 @@
+// All events here should be published to the battle-scoped local event bus
 public readonly struct RoundStartedEvent
 {
     public RoundStartedEvent(int roundNumber)

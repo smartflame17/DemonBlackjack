@@ -44,7 +44,7 @@ public sealed class ShopCatalog : ScriptableObject
     {
         ShopCatalog catalog = CreateInstance<ShopCatalog>();
         catalog.hideFlags = HideFlags.DontSave;
-        catalog.activeItems.Add(Create<ActiveItemDefinition>(ActiveItemResolver.RejectLastHit, "결재 반려", "이번 턴 마지막 Hit 카드를 무덤으로 보내 점수와 족보 계산에서 제외합니다.", 10));
+        catalog.activeItems.Add(Create<ActiveItemDefinition>(ActiveItemResolver.RejectLastHit, "결재 반려", "내 필드 카드 1장을 선택해 무덤으로 보냅니다.", 10));
         catalog.activeItems.Add(Create<ActiveItemDefinition>(ActiveItemResolver.DrawThree, "초과 근무 명령", "덱에서 카드 3장을 즉시 드로우합니다. 손패가 3장을 넘어갈 수 있습니다.", 10));
         catalog.activeItems.Add(Create<ActiveItemDefinition>(ActiveItemResolver.LeverageTriple, "레버리지", "이번 라운드의 판돈을 3배로 계산합니다. 획득과 손실 모두 적용됩니다.", 10));
         catalog.activeItems.Add(Create<ActiveItemDefinition>(ActiveItemResolver.BurstThresholdPlusThree, "분식 회계", "이번 라운드의 버스트 기준을 3 올립니다.", 10));

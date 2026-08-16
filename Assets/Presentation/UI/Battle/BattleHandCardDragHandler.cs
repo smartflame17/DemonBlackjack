@@ -12,9 +12,14 @@ public sealed class BattleHandCardDragHandler : MonoBehaviour, IBeginDragHandler
     private int _handIndex = -1;
     private bool _dragging;
     private bool _originalBlocksRaycasts = true;
+    private bool _hasCachedPreview;
+    private bool _previewVisible;
+    private ScoreResult _cachedScoreResult;
+    private MoneyDeltaPreview _cachedMoneyPreview;
 
     public void Configure(BattleUiPresenter presenter, int handIndex)
     {
+        ClearCachedPreview();
         _presenter = presenter;
         _handIndex = handIndex;
         enabled = presenter != null && handIndex >= 0;
@@ -22,6 +27,7 @@ public sealed class BattleHandCardDragHandler : MonoBehaviour, IBeginDragHandler
 
     public void OnBeginDrag(PointerEventData eventData)
     {
+        ClearCachedPreview();
         if (!enabled || _presenter == null || !_presenter.CanPlayerAct)
             return;
 
@@ -34,11 +40,19 @@ public sealed class BattleHandCardDragHandler : MonoBehaviour, IBeginDragHandler
         _dragWorldOffset = TryGetPointerWorldPosition(eventData, out Vector3 pointerWorldPosition)
             ? _rectTransform.position - pointerWorldPosition
             : Vector3.zero;
-        _canvasGroup ??= GetComponent<CanvasGroup>() ?? gameObject.AddComponent<CanvasGroup>();
+        if (_canvasGroup == null)
+            _canvasGroup = GetComponent<CanvasGroup>();
+        if (_canvasGroup == null)
+            _canvasGroup = gameObject.AddComponent<CanvasGroup>();
         _originalBlocksRaycasts = _canvasGroup.blocksRaycasts;
         _canvasGroup.blocksRaycasts = false;
         _dragging = true;
+        _hasCachedPreview = _presenter.TryCalculateCardPlayPreview(
+            _handIndex,
+            out _cachedScoreResult,
+            out _cachedMoneyPreview);
         MoveToPointer(eventData);
+        UpdatePreviewVisibility(eventData);
     }
 
     public void OnDrag(PointerEventData eventData)
@@ -47,6 +61,7 @@ public sealed class BattleHandCardDragHandler : MonoBehaviour, IBeginDragHandler
             return;
 
         MoveToPointer(eventData);
+        UpdatePreviewVisibility(eventData);
     }
 
     public void OnEndDrag(PointerEventData eventData)
@@ -55,6 +70,7 @@ public sealed class BattleHandCardDragHandler : MonoBehaviour, IBeginDragHandler
             return;
 
         _dragging = false;
+        ClearCachedPreview();
         if (_canvasGroup != null)
             _canvasGroup.blocksRaycasts = _originalBlocksRaycasts;
 
@@ -66,6 +82,15 @@ public sealed class BattleHandCardDragHandler : MonoBehaviour, IBeginDragHandler
             _rectTransform.anchoredPosition = _startAnchoredPosition;
 
         _presenter?.Refresh();
+    }
+
+    private void OnDisable()
+    {
+        if (_dragging && _canvasGroup != null)
+            _canvasGroup.blocksRaycasts = _originalBlocksRaycasts;
+
+        _dragging = false;
+        ClearCachedPreview();
     }
 
     private void MoveToPointer(PointerEventData eventData)
@@ -81,5 +106,30 @@ public sealed class BattleHandCardDragHandler : MonoBehaviour, IBeginDragHandler
     {
         Camera camera = eventData.pressEventCamera != null ? eventData.pressEventCamera : eventData.enterEventCamera;
         return RectTransformUtility.ScreenPointToWorldPointInRectangle(_parent, eventData.position, camera, out worldPosition);
+    }
+
+    private void UpdatePreviewVisibility(PointerEventData eventData)
+    {
+        bool shouldShow = _hasCachedPreview
+            && _presenter != null
+            && _presenter.IsPointerOverPlayerPlayPile(eventData);
+        if (shouldShow == _previewVisible)
+            return;
+
+        _previewVisible = shouldShow;
+        if (_previewVisible)
+            _presenter.ShowPlayerChoiceMoneyPreview(_cachedScoreResult, _cachedMoneyPreview);
+        else
+            _presenter?.HidePlayerChoiceMoneyPreview();
+    }
+
+    private void ClearCachedPreview()
+    {
+        _presenter?.HidePlayerChoiceMoneyPreview();
+
+        _hasCachedPreview = false;
+        _previewVisible = false;
+        _cachedScoreResult = default;
+        _cachedMoneyPreview = default;
     }
 }

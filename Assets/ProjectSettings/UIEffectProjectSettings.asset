@@ -15,6 +15,11 @@ ShaderVariantCollection:
         passType: 0
       - keywords: EDGE_SHINY
         passType: 0
+  - first: {fileID: -6465566751694194690, guid: d5329657e286e0241b84d47aebd73416, type: 3}
+    second:
+      variants:
+      - keywords: EDGE_SHINY
+        passType: 0
 --- !u!114 &11400000
 MonoBehaviour:
   m_ObjectHideFlags: 0
@@ -36,8 +41,11 @@ MonoBehaviour:
     m_OptionalShaders:
     - key: Hidden/UI/Default (SoftMaskable)
       value: Hidden/UI/Default (UIEffect)
+    - key: Shader Graphs/GlossyCardUIShader
+      value: Shader Graphs/GlossyCardUIShader
     m_Asset: {fileID: -2861642591252789780}
     m_RegisteredShaders:
     - {fileID: 4800000, guid: 96246b1ead49a4c5a996fd477bc5a117, type: 3}
+    - {fileID: -6465566751694194690, guid: d5329657e286e0241b84d47aebd73416, type: 3}
     m_ErrorOnUnregisteredVariant: 0
     m_UnregisteredVariants: []

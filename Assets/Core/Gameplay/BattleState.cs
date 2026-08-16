@@ -3,6 +3,8 @@ using System.Collections.Generic;
 
 public sealed class BattleState
 {
+    public event Action ActiveItemSelectionCancelled;
+
     private readonly Deck _playerDeck;
     private readonly Deck _opponentDeck;
     private readonly Random _random;
@@ -12,6 +14,9 @@ public sealed class BattleState
     private readonly List<Card> _opponentHandCarryover = new();
     private readonly List<BattleRelicRuntime> _relicRuntimes;
     private readonly BattleEffectRuntime _effectRuntime;
+    private string _pendingActiveItemId;
+    private RoundState _pendingActiveItemRound;
+    private Card[] _pendingActiveItemCards;
     private bool _disposed;
 
     public BattleState(RunState runState, BattleConfig config)
@@ -60,11 +65,11 @@ public sealed class BattleState
     public IReadOnlyList<Card> PlayerDiscardPile => _playerDeck.DiscardPile;
     public IReadOnlyList<Card> OpponentDrawPile => _opponentDeck.DrawPile;
     public IReadOnlyList<Card> OpponentDiscardPile => _opponentDeck.DiscardPile;
+    public bool HasPendingActiveItemSelection => _pendingActiveItemRound != null;
 
     public void Initialize()
     {
         SetPhase(BattlePhase.Init);
-        EventBus.Publish(new BattleStartedEvent(Config.EncounterId, BattleSeed, PlayerMoney, OpponentMoney));
         CommandQueue.Enqueue(new VisualCommand(VisualCommandType.BattleStarted, Config.EncounterId));
         SetPhase(BattlePhase.PreRound);
     }
@@ -106,7 +111,7 @@ public sealed class BattleState
         AddOpponentMoney(-opponentStake);
 
         EventBus.Publish(new WagerCommittedEvent(proposedWager, CurrentRound.PlayerActsFirst, WagerResponse.Accept));
-        global::EventBus.Publish(new MoneyTransferReasonEvent(MoneyTransferReason.InitialWager, playerStake));
+        global::EventBus.Publish(new MoneyTransferReasonEvent(Combatant.System, MoneyTransferReason.InitialWager, playerStake));
 
         BeginPlayerTurn();
 
@@ -187,6 +192,8 @@ public sealed class BattleState
 
     public void CleanupRound()
     {
+        CancelPendingActiveItemUse();
+
         if (CurrentRound == null)
             return;
 
@@ -207,14 +214,18 @@ public sealed class BattleState
     public BattleResult EndBattle()
     {
         if (Phase == BattlePhase.BattleEnd)
-            return new BattleResult(OpponentMoney <= 0 && PlayerMoney > 0, RoundNumber, PlayerMoney, OpponentMoney);
+            return GetBattleResult();
 
         SetPhase(BattlePhase.BattleEnd);
-        var result = new BattleResult(OpponentMoney <= 0 && PlayerMoney > 0, RoundNumber, PlayerMoney, OpponentMoney);
-        EventBus.Publish(new BattleEndedEvent(result));
+        BattleResult result = GetBattleResult();
         CommandQueue.Enqueue(new VisualCommand(VisualCommandType.BattleEnded, result.PlayerWon.ToString()));
         Dispose();
         return result;
+    }
+
+    internal BattleResult GetBattleResult()
+    {
+        return new BattleResult(OpponentMoney <= 0 && PlayerMoney > 0, RoundNumber, PlayerMoney, OpponentMoney);
     }
 
     public void Dispose()
@@ -222,6 +233,7 @@ public sealed class BattleState
         if (_disposed)
             return;
 
+        CancelPendingActiveItemUse();
         Config.DevilStrategy.UnregisterAffinityHooks(this);
         _effectRuntime.Dispose();
         for (int i = 0; i < _relicRuntimes.Count; i++)
@@ -549,6 +561,15 @@ public sealed class BattleState
         return transformed;
     }
 
+    public Card PreviewPlayerCardForPlay(Card card)
+    {
+        Card transformed = ApplyPlayerCardUpgrade(card);
+        for (int i = 0; i < _relicRuntimes.Count; i++)
+            transformed = _relicRuntimes[i].PreviewPlayerPlayedCard(transformed);
+
+        return transformed;
+    }
+
     public void ApplyRankUpgradeToPlayerBattleCards(Rank rank, string upgradeId)
     {
         if (!Enum.IsDefined(typeof(Rank), rank) || string.IsNullOrWhiteSpace(upgradeId))
@@ -571,7 +592,6 @@ public sealed class BattleState
             return 0;
 
         RunState.AddMoney(finalAmount);
-        EventBus.Publish(new MoneyChangedEvent(Combatant.Player, PlayerMoney, finalAmount));
         CommandQueue.Enqueue(new VisualCommand(VisualCommandType.MoneyChanged, $"{Combatant.Player}:{PlayerMoney}"));
         return finalAmount;
     }
@@ -583,7 +603,6 @@ public sealed class BattleState
             return 0;
 
         RunState.AddMoney(-finalAmount);
-        EventBus.Publish(new MoneyChangedEvent(Combatant.Player, PlayerMoney, -finalAmount));
         CommandQueue.Enqueue(new VisualCommand(VisualCommandType.MoneyChanged, $"{Combatant.Player}:{PlayerMoney}"));
 
         if (PlayerMoney <= 0)
@@ -612,45 +631,106 @@ public sealed class BattleState
         int actualDelta = OpponentMoney - previous;
         if (actualDelta != 0)
             RefreshDevilOpponentField();
-        EventBus.Publish(new MoneyChangedEvent(Combatant.Opponent, OpponentMoney, actualDelta));
+        global::EventBus.Publish(new MoneyChangedEvent(Combatant.Opponent, OpponentMoney, actualDelta));
         CommandQueue.Enqueue(new VisualCommand(VisualCommandType.MoneyChanged, $"{Combatant.Opponent}:{OpponentMoney}"));
         return actualDelta;
     }
 
     public bool TryUseActiveItem(string itemId)
     {
+        ActiveItemUseStartResult result = TryBeginActiveItemUse(itemId, out _);
+        if (result == ActiveItemUseStartResult.SelectionRequired)
+            CancelPendingActiveItemUse();
+
+        return result == ActiveItemUseStartResult.Applied;
+    }
+
+    public ActiveItemUseStartResult TryBeginActiveItemUse(
+        string itemId,
+        out ActiveItemSelectionRequest selectionRequest)
+    {
+        selectionRequest = default;
         if (!CanUseActiveItem(itemId))
-            return false;
+            return ActiveItemUseStartResult.Rejected;
 
-        if (!ActiveItemResolver.TryApply(itemId, this))
-            return false;
+        if (ActiveItemResolver.RequiresCardSelection(itemId))
+        {
+            Card[] snapshot = CopyPlayerPlayedCards(CurrentRound);
+            _pendingActiveItemId = itemId;
+            _pendingActiveItemRound = CurrentRound;
+            _pendingActiveItemCards = snapshot;
+            selectionRequest = new ActiveItemSelectionRequest(itemId, snapshot, 1);
+            return ActiveItemUseStartResult.SelectionRequired;
+        }
 
-        RunState.RemoveActiveItem(itemId);
-        EventBus.Publish(new ItemUsedEvent(itemId));
-        return true;
+        if (!ActiveItemResolver.TryApply(itemId, this) || !ConsumeActiveItem(itemId))
+            return ActiveItemUseStartResult.Rejected;
+
+        return ActiveItemUseStartResult.Applied;
+    }
+
+    public bool TryCompletePendingActiveItemUse(IReadOnlyList<int> selectedIndices)
+    {
+        string itemId = _pendingActiveItemId;
+        RoundState originatingRound = _pendingActiveItemRound;
+        Card[] cardSnapshot = _pendingActiveItemCards;
+        bool hadPendingSelection = originatingRound != null;
+        ClearPendingActiveItemUse();
+
+        if (string.IsNullOrWhiteSpace(itemId)
+            || originatingRound == null
+            || cardSnapshot == null
+            || selectedIndices == null
+            || selectedIndices.Count != 1
+            || !ReferenceEquals(CurrentRound, originatingRound)
+            || !RunState.HasActiveItem(itemId)
+            || !MatchesPlayerPlayedCards(originatingRound, cardSnapshot))
+        {
+            return RejectPendingActiveItemCompletion(hadPendingSelection);
+        }
+
+        int selectedIndex = selectedIndices[0];
+        if (selectedIndex < 0 || selectedIndex >= cardSnapshot.Length)
+            return RejectPendingActiveItemCompletion(hadPendingSelection);
+
+        bool completed = ActiveItemResolver.TryApplySelection(itemId, this, selectedIndices)
+            && ConsumeActiveItem(itemId);
+        return completed || RejectPendingActiveItemCompletion(hadPendingSelection);
+    }
+
+    public bool CancelPendingActiveItemUse()
+    {
+        bool hadPendingSelection = HasPendingActiveItemSelection;
+        ClearPendingActiveItemUse();
+        if (hadPendingSelection)
+            ActiveItemSelectionCancelled?.Invoke();
+        return hadPendingSelection;
     }
 
     public bool CanUseActiveItem(string itemId)
     {
-        return !IsBattleOver
+        return !_disposed
+            && !IsBattleOver
             && CurrentRound != null
+            && !HasPendingActiveItemSelection
             && RunState.HasActiveItem(itemId)
             && ActiveItemResolver.CanApply(itemId, this);
     }
 
-    public bool CanDiscardLastPlayerHitCard()
+    public bool CanTargetPlayerPlayedCard()
     {
-        return CurrentRound != null && CurrentRound.CanRemoveLastPlayerHitCard;
+        return CurrentRound != null && CurrentRound.PlayerPlayedCards.Count > 0;
     }
 
-    public bool DiscardLastPlayerHitCard()
+    public bool DiscardPlayerPlayedCard(int index)
     {
-        if (CurrentRound == null || !CurrentRound.TryRemoveLastPlayerHitCard(out Card card))
+        if (CurrentRound == null || !CurrentRound.TryRemovePlayerPlayedCard(index, out Card card))
             return false;
 
         _playerDeck.Discard(card);
         EventBus.Publish(new CardDiscardedEvent(Combatant.Player, card));
         CommandQueue.Enqueue(new VisualCommand(VisualCommandType.CardsPlayed, card.ToString()));
+        ResolveScoresOnly();
         return true;
     }
 
@@ -749,19 +829,61 @@ public sealed class BattleState
         return true;
     }
 
-    public bool CanReturnPlayerFieldCardToHand()
+    public bool ReturnPlayerPlayedCardToHand(int index)
     {
-        return CurrentRound != null && CurrentRound.PlayerPlayedCards.Count > 0;
-    }
-
-    public bool ReturnPlayerFieldCardToHand()
-    {
-        if (CurrentRound == null || !CurrentRound.TryReturnLastPlayerFieldCardToHand(out Card card))
+        if (CurrentRound == null || !CurrentRound.TryReturnPlayerPlayedCardToHand(index, out Card card))
             return false;
 
         EventBus.Publish(new HandRefilledEvent(CurrentRound.PlayerHand.Count));
         CommandQueue.Enqueue(new VisualCommand(VisualCommandType.CardsDrawn, CurrentRound.PlayerHand.Count.ToString()));
-        ResolveScores();
+        ResolveScoresOnly();
+        return true;
+    }
+
+    private bool ConsumeActiveItem(string itemId)
+    {
+        if (!RunState.RemoveActiveItem(itemId))
+            return false;
+
+        global::EventBus.Publish(new ItemUsedEvent(itemId));
+        return true;
+    }
+
+    private void ClearPendingActiveItemUse()
+    {
+        _pendingActiveItemId = null;
+        _pendingActiveItemRound = null;
+        _pendingActiveItemCards = null;
+    }
+
+    private bool RejectPendingActiveItemCompletion(bool notifyCancellation)
+    {
+        if (notifyCancellation)
+            ActiveItemSelectionCancelled?.Invoke();
+        return false;
+    }
+
+    private static Card[] CopyPlayerPlayedCards(RoundState round)
+    {
+        IReadOnlyList<Card> cards = round.PlayerPlayedCards;
+        var snapshot = new Card[cards.Count];
+        for (int i = 0; i < cards.Count; i++)
+            snapshot[i] = cards[i];
+        return snapshot;
+    }
+
+    private static bool MatchesPlayerPlayedCards(RoundState round, IReadOnlyList<Card> snapshot)
+    {
+        IReadOnlyList<Card> currentCards = round.PlayerPlayedCards;
+        if (currentCards.Count != snapshot.Count)
+            return false;
+
+        for (int i = 0; i < currentCards.Count; i++)
+        {
+            if (!currentCards[i].Equals(snapshot[i]))
+                return false;
+        }
+
         return true;
     }
 
@@ -891,7 +1013,22 @@ public sealed class BattleState
         if (PlayerMoney <= 0 || OpponentMoney <= 0)
             return 0;
 
-        return Config.BaseWager;
+        int wager = Config.DevilStrategy is IDevilRoundWagerModifier wagerModifier
+            ? wagerModifier.GetRoundWager(this, Config.BaseWager)
+            : Config.BaseWager;
+        return Math.Max(1, wager);
+    }
+
+    internal int GetModifiedPlayerPokerPayout(RoundState round, int proposedPayout)
+    {
+        int payout = Math.Max(0, proposedPayout);
+        if (Config.DevilStrategy is not IDevilPokerPayoutModifier payoutModifier)
+            return payout;
+
+        return Math.Clamp(
+            payoutModifier.ModifyPlayerPokerPayout(this, round, payout),
+            0,
+            payout);
     }
 
     private void RestoreCarryoverHands()
@@ -1083,7 +1220,9 @@ public sealed class BattleState
         return false;
     }
 
-    private void ResolveScores()
+    // For altering battle state without triggering any money transfers or round resolution. This is useful for effects that need to know the current score but don't want to end the round.
+    // Specifically used for active items
+    private void ResolveScoresOnly()
     {
         ScoreResult playerScore = ScoreResolver.Resolve(CurrentRound.PlayerPlayedCards, CurrentRound.ScoringModifiers, CurrentRound.PlayerBurstThreshold);
         ScoreResult opponentScore = ScoreResolver.Resolve(CurrentRound.OpponentVisibleCards, CurrentRound.ScoringModifiers,CurrentRound.OpponentBurstThreshold, GetOpponentBlackjackBonus());
@@ -1093,8 +1232,14 @@ public sealed class BattleState
 
         PublishScoreEvents(Combatant.Player, playerScore, playerPoker);
         PublishScoreEvents(Combatant.Opponent, opponentScore, opponentPoker);
+    }
+
+    private void ResolveScores()
+    {
+        ResolveScoresOnly();
+
         ResolveRealtimeMoney();
-        CommandQueue.Enqueue(new VisualCommand(VisualCommandType.ScoresResolved, $"{playerScore.FinalScore}:{opponentScore.FinalScore}"));
+        CommandQueue.Enqueue(new VisualCommand(VisualCommandType.ScoresResolved, $"{CurrentRound.PlayerScore.FinalScore}:{CurrentRound.OpponentScore.FinalScore}"));
         //TODO: we require game over check every resolve
     }
 
@@ -1142,6 +1287,7 @@ public sealed class BattleState
             CurrentRound,
             DevilStateUpdatePoint.RoundResolved,
             resolution));
+        RunState.AdvanceShopPriceInflation();
         RefreshDevilOpponentField();
         SetPhase(BattlePhase.PostRound);
         EventBus.Publish(new RoundEndedEvent(RoundNumber));

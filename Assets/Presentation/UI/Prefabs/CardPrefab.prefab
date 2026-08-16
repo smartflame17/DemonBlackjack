@@ -62,7 +62,7 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: fe87c0e1cc204ed48ad3b37840f39efc, type: 3}
   m_Name: 
   m_EditorClassIdentifier: UnityEngine.UI::UnityEngine.UI.Image
-  m_Material: {fileID: 0}
+  m_Material: {fileID: 2100000, guid: b5ddffa4ed239cd44b52ff32653948e3, type: 2}
   m_Color: {r: 1, g: 1, b: 1, a: 1}
   m_RaycastTarget: 1
   m_RaycastPadding: {x: 0, y: 0, z: 0, w: 0}
@@ -583,6 +583,7 @@ MonoBehaviour:
   upgradeImage: {fileID: 7681761931235664890}
   tooltipTrigger: {fileID: 1909042555248093567}
   uiEffect: {fileID: 1720704025678895129}
+  upgradeMaterial: {fileID: 2100000, guid: b5ddffa4ed239cd44b52ff32653948e3, type: 2}
 --- !u!114 &1909042555248093567
 MonoBehaviour:
   m_ObjectHideFlags: 0
@@ -596,6 +597,7 @@ MonoBehaviour:
   m_Name: 
   m_EditorClassIdentifier: Assembly-CSharp::TooltipTrigger
   contentId: 
+  fallbackContentId: 
   tooltipPanel: {fileID: 0}
 --- !u!114 &1221368587968764743
 MonoBehaviour:

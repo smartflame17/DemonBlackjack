@@ -33,7 +33,7 @@ During construction, `RunState` creates a standard 52-card deck through `Deck.Cr
 - default `BasicDevilStrategy`
 - default hand size, target score, burst threshold, and wager bounds
 
-`BattleController.InitializeBattle` creates a `BattleState`, subscribes to that battle state's `BattleEndedEvent`, and calls `BattleState.Initialize`.
+`BattleController.InitializeBattle` creates and initializes a `BattleState`. `RunManager` then enters the `Battle` run phase and publishes one global `BattleStartedEvent` using the created battle's actual seed and balances.
 
 `BattleState` owns per-battle state:
 
@@ -140,11 +140,10 @@ After round cleanup, the battle moves back to `PreRound`. The battle UI displays
 
 1. Sets the battle phase to `BattleEnd`.
 2. Creates a `BattleResult`.
-3. Publishes battle-scoped `BattleEndedEvent`.
-4. Enqueues a `BattleEnded` visual command.
-5. Clears the battle-scoped event bus.
+3. Enqueues a `BattleEnded` visual command.
+4. Clears the battle-scoped event bus.
 
-`BattleController` republishes the battle-scoped `BattleEndedEvent` through the global `EventBus`.
+`BattleController` retains the completed state until the pending visual transition finishes, then publishes one global `BattleEndedEvent` from the final battle result.
 
 `RunManager` receives the global `BattleEndedEvent`, calls `RunState.ApplyBattleResult`, stores history, increments encounter progress, increments devil progression if the player won, cleans up the battle reference, and moves the run phase to `Rewards`.
 

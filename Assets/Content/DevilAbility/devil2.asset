@@ -13,5 +13,8 @@ MonoBehaviour:
   m_Name: devil2
   m_EditorClassIdentifier: Assembly-CSharp::DevilAbilityDefinition
   id: devil2
-  displayName: todo
-  description: todo
+  displayName: "\uBAA8\uB974\uBCA8\uB77C"
+  description: "\uB77C\uC6B4\uB4DC \uC885\uB8CC \uC2DC <color=#F53838>\uD328\uBC30</color>\uD558\uC600\uB2E4\uBA74,
+    \uB2E4\uC74C \uB77C\uC6B4\uB4DC\uC758 \uCC38\uC5EC\uAE08\uC744 <color=#78E4F0>2</color>\uBC30\uB85C
+    \uC62C\uB9BD\uB2C8\uB2E4.\n\uAD81\uC9C0\uC5D0 \uBAB0\uB9B0\uB2E4\uBA74 \uD3EC\uCEE4
+    \uB2A5\uB825\uC744 \uC81C\uD55C\uD560 \uC218\uB3C4..?\n"

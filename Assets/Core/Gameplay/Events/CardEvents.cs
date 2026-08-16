@@ -1,3 +1,4 @@
+// All events here should be published to the battle-scoped local event bus
 public readonly struct CardDrawnEvent
 {
     public CardDrawnEvent(Combatant owner, Card card, int remainingDeckCount)

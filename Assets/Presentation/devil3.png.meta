@@ -66,7 +66,7 @@ TextureImporter:
   spriteMeshType: 1
   alignment: 0
   spritePivot: {x: 0.5, y: 0.5}
-  spritePixelsToUnits: 100
+  spritePixelsToUnits: 115
   spriteBorder: {x: 0, y: 0, z: 0, w: 0}
   spriteGenerateFallbackPhysicsShape: 1
   alphaUsage: 1
@@ -123,7 +123,7 @@ TextureImporter:
         width: 2201
         height: 2116
       alignment: 9
-      pivot: {x: 0.51714486, y: 0.103699535}
+      pivot: {x: 0.51640666, y: 0.11752037}
       border: {x: 0, y: 0, z: 0, w: 0}
       customData: 
       outline: []
@@ -145,7 +145,7 @@ TextureImporter:
         width: 2193
         height: 2109
       alignment: 9
-      pivot: {x: 0.52173287, y: 0.100668825}
+      pivot: {x: 0.51754916, y: 0.1161938}
       border: {x: 0, y: 0, z: 0, w: 0}
       customData: 
       outline: []
@@ -167,7 +167,7 @@ TextureImporter:
         width: 1455
         height: 1829
       alignment: 9
-      pivot: {x: 0.5874693, y: 0.17079045}
+      pivot: {x: 0.57984793, y: 0.19504116}
       border: {x: 0, y: 0, z: 0, w: 0}
       customData: 
       outline: []
@@ -189,7 +189,7 @@ TextureImporter:
         width: 1211
         height: 1759
       alignment: 9
-      pivot: {x: 0.5063698, y: 0.19746965}
+      pivot: {x: 0.5063698, y: 0.21877065}
       border: {x: 0, y: 0, z: 0, w: 0}
       customData: 
       outline: []
@@ -203,37 +203,15 @@ TextureImporter:
       edges: []
       weights: []
     - serializedVersion: 2
-      name: devil3 1_4
-      rect:
-        serializedVersion: 2
-        x: 4775
-        y: 1406
-        width: 206
-        height: 224
-      alignment: 0
-      pivot: {x: 0.5, y: 0.5}
-      border: {x: 0, y: 0, z: 0, w: 0}
-      customData: 
-      outline: []
-      physicsShape: []
-      tessellationDetail: -1
-      bones: []
-      spriteID: 29e23c3604bb85eb0800000000000000
-      internalID: -4730825523326669166
-      vertices: []
-      indices: 
-      edges: []
-      weights: []
-    - serializedVersion: 2
       name: devil3_sad
       rect:
         serializedVersion: 2
         x: 4786
-        y: 392
+        y: 395
         width: 1179
         height: 1260
       alignment: 9
-      pivot: {x: 0.50163466, y: 0.3031507}
+      pivot: {x: 0.49783194, y: 0.32627845}
       border: {x: 0, y: 0, z: 0, w: 0}
       customData: 
       outline: []

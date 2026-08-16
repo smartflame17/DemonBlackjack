@@ -3,6 +3,8 @@ using System.Collections.Generic;
 
 public static class ShopOfferGenerator
 {
+    public const float DefaultPriceInflationRate = 1f;
+
     public static int CreateSeed(RunState runState, int roundNumber)
     {
         int shopCycle = GetShopCycle(roundNumber);
@@ -22,6 +24,43 @@ public static class ShopOfferGenerator
     {
         int normalizedRound = Math.Max(1, roundNumber);
         return ((normalizedRound - 1) / 3) + 1;
+    }
+
+    public static float GetNextPriceInflationRate(float currentInflationRate)
+    {
+        float currentRate = NormalizePriceInflationRate(currentInflationRate);
+        float perRoundMultiplier = GameplayConstants.GameSettingConfig.ShopItemPriceInflationRate;
+        if (float.IsNaN(perRoundMultiplier) || float.IsInfinity(perRoundMultiplier) || perRoundMultiplier <= 0f)
+            return currentRate;
+
+        double nextRate = currentRate * (double)perRoundMultiplier;
+        return double.IsInfinity(nextRate) || nextRate >= float.MaxValue
+            ? float.MaxValue
+            : (float)nextRate;
+    }
+
+    public static float NormalizePriceInflationRate(float inflationRate)
+    {
+        return float.IsNaN(inflationRate) || float.IsInfinity(inflationRate) || inflationRate <= 0f
+            ? DefaultPriceInflationRate
+            : inflationRate;
+    }
+
+    public static int CalculatePrice(int basePrice, float currentInflationRate)
+    {
+        int normalizedBasePrice = Math.Max(0, basePrice);
+        if (normalizedBasePrice == 0)
+            return 0;
+
+        // All offers currently share one run-wide multiplier. Keep the policy here so
+        // offer-specific, category-specific, or non-linear inflation can replace it later.
+        double inflatedPrice = normalizedBasePrice * (double)NormalizePriceInflationRate(currentInflationRate);
+        int roundingUnit = Math.Max(1, GameplayConstants.GameSettingConfig.ShopItemPriceRoundingUnit);
+        double roundedPrice = Math.Round(inflatedPrice / roundingUnit, MidpointRounding.AwayFromZero) * roundingUnit;
+        if (double.IsInfinity(roundedPrice) || roundedPrice >= int.MaxValue)
+            return int.MaxValue;
+
+        return Math.Max(roundingUnit, (int)roundedPrice);
     }
 
     public static List<T> TakeRandom<T>(IReadOnlyList<T> source, int count, Random random)

@@ -80,7 +80,12 @@ public class RunManager : MonoBehaviour, IDataPersistence
         BattleConfig battleConfig = config ?? new BattleConfig($"encounter_{RunState.EncounterIndex + 1}", opponentStartingMoney);
         battleController.InitializeBattle(RunState, battleConfig);
         SetPhase(RunPhase.Battle);
-        EventBus.Publish(new BattleStartedEvent(battleConfig.EncounterId, RunState.CreateBattleSeed(), RunState.Money, battleConfig.OpponentStartingMoney));
+        BattleState battle = battleController.BattleState;
+        EventBus.Publish(new BattleStartedEvent(
+            battle.Config.EncounterId,
+            battle.BattleSeed,
+            battle.PlayerMoney,
+            battle.OpponentMoney));
         Debug.Log("Battle started against " + battleConfig.EncounterId + ", event published");
 
         SoundManager.Instance?.PlayBGM(EBgm.GAME);

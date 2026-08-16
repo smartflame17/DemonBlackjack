@@ -15,7 +15,6 @@ public sealed class MoneyDisplay : MonoBehaviour
     [SerializeField] private DamageNumber damageNumber;
     [SerializeField, Min(0f)] private float textEffectDelaySeconds = 0.2f;
 
-    private ScopedEventBus _subscribedBattleBus;
     private readonly Queue<TextEffectRequest> _pendingTextEffects = new();
     private Coroutine _textEffectRoutine;
 
@@ -44,11 +43,7 @@ public sealed class MoneyDisplay : MonoBehaviour
         EventBus.Subscribe<BattleStartedEvent>(OnBattleStarted);
         EventBus.Subscribe<BattleEndedEvent>(OnBattleEnded);
         EventBus.Subscribe<RunPhaseChangedEvent>(OnRunPhaseChanged);
-
-        if (combatant == Combatant.Player)
-            EventBus.Subscribe<MoneyChangedEvent>(OnMoneyChanged);
-        else
-            BindBattleBus();
+        EventBus.Subscribe<MoneyChangedEvent>(OnMoneyChanged);
 
         Refresh();
     }
@@ -58,11 +53,7 @@ public sealed class MoneyDisplay : MonoBehaviour
         EventBus.Unsubscribe<BattleStartedEvent>(OnBattleStarted);
         EventBus.Unsubscribe<BattleEndedEvent>(OnBattleEnded);
         EventBus.Unsubscribe<RunPhaseChangedEvent>(OnRunPhaseChanged);
-
-        if (combatant == Combatant.Player)
-            EventBus.Unsubscribe<MoneyChangedEvent>(OnMoneyChanged);
-
-        UnbindBattleBus();
+        EventBus.Unsubscribe<MoneyChangedEvent>(OnMoneyChanged);
         ClearPendingTextEffects();
     }
 
@@ -70,37 +61,11 @@ public sealed class MoneyDisplay : MonoBehaviour
     {
         ResolveReferences();
 
-        if (combatant == Combatant.Opponent)
-            BindBattleBus();
-
         int amount = combatant == Combatant.Player
             ? runManager != null && runManager.RunState != null ? runManager.RunState.Money : 0
             : battleController != null && battleController.BattleState != null ? battleController.BattleState.OpponentMoney : 0;
 
         SetMoney(amount);
-    }
-
-    private void BindBattleBus()
-    {
-        ScopedEventBus battleBus = battleController != null ? battleController.BattleState?.EventBus : null;
-        if (ReferenceEquals(_subscribedBattleBus, battleBus))
-            return;
-
-        UnbindBattleBus();
-        if (battleBus == null)
-            return;
-
-        _subscribedBattleBus = battleBus;
-        _subscribedBattleBus.Subscribe<MoneyChangedEvent>(OnMoneyChanged);
-    }
-
-    private void UnbindBattleBus()
-    {
-        if (_subscribedBattleBus == null)
-            return;
-
-        _subscribedBattleBus.Unsubscribe<MoneyChangedEvent>(OnMoneyChanged);
-        _subscribedBattleBus = null;
     }
 
     private void OnMoneyChanged(MoneyChangedEvent eventData)
@@ -115,9 +80,6 @@ public sealed class MoneyDisplay : MonoBehaviour
     private void OnBattleStarted(BattleStartedEvent eventData)
     {
         ResolveReferences();
-        if (combatant == Combatant.Opponent)
-            BindBattleBus();
-
         SetMoney(combatant == Combatant.Player ? eventData.PlayerMoney : eventData.OpponentMoney);
     }
 
@@ -125,7 +87,6 @@ public sealed class MoneyDisplay : MonoBehaviour
     {
         if (combatant == Combatant.Opponent)
         {
-            UnbindBattleBus();
             SetMoney(0);
             return;
         }
@@ -188,6 +149,7 @@ public sealed class MoneyDisplay : MonoBehaviour
             return;
 
         int clampedAmount = Mathf.Max(0, amount);
-        moneyText.text = combatant == Combatant.Opponent ? $"상대 ${clampedAmount}" : $"${clampedAmount}";
+        string displayText = NumberFormatter.Abbreviate(amount);
+        moneyText.text = combatant == Combatant.Opponent ? $"상대 $"+ displayText : "$"+ displayText;
     }
 }

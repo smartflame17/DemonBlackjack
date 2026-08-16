@@ -87,7 +87,6 @@ public sealed class GameplayCanvasCoordinator : MonoBehaviour
         StartBattle("devil1", new BattleConfig("devil1", Devil1Config.Devil1StartingMoney, new Devil1Strategy(), devilId:"devil1", baseWager: Devil1Config.Devil1Wager));
     }
 
-    // TODO: Change the 
     private void StartDevil2Battle()
     {
         Debug.Log("Starting devil2 battle");

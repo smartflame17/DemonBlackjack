@@ -3,17 +3,11 @@ using UnityEngine;
 
 public class SoundOnMoneyTransfer : MonoBehaviour
 {
-    [SerializeField] private BattleController battleController;
     [SerializeField] private int midSoundThreshold = 5000; // Minimum amount of money change to trigger mid sound
     [SerializeField] private int highSoundThreshold = 10000; // Minimum amount of money change to trigger high sound
-    private BattleState _subscribedBattle;
 
     private void OnEnable()
     {
-        if (battleController == null)
-            battleController = FindFirstObjectByType<BattleController>();
-
-        SubscribeToCurrentBattle();
         EventBus.Subscribe<MoneyChangedEvent>(OnMoneyChanged);
     }
 
@@ -37,25 +31,6 @@ public class SoundOnMoneyTransfer : MonoBehaviour
 
     private void OnDisable()
     {
-        Unsubscribe();
-    }
-
-    private void SubscribeToCurrentBattle()
-    {
-        BattleState currentBattle = battleController != null ? battleController.BattleState : null;
-        if (_subscribedBattle == currentBattle)
-            return;
-
-        Unsubscribe();
-        _subscribedBattle = currentBattle;
-    }
-
-    private void Unsubscribe()
-    {
-        if (_subscribedBattle == null)
-            return;
-
-        _subscribedBattle = null;
         EventBus.Unsubscribe<MoneyChangedEvent>(OnMoneyChanged);
     }
 }

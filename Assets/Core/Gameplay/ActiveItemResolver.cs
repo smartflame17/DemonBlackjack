@@ -1,3 +1,5 @@
+using System.Collections.Generic;
+
 public static class ActiveItemResolver
 {
     public const string RejectLastHit = "hit_to_played";
@@ -18,12 +20,12 @@ public static class ActiveItemResolver
 
         return itemId switch
         {
-            RejectLastHit => battle.CanDiscardLastPlayerHitCard(),
+            RejectLastHit => battle.CanTargetPlayerPlayedCard(),
             DrawThree => battle.CanDrawPlayerCards(),
             DoubleWager => battle.CanDoubleCurrentRoundWager(),
             LeverageTriple => battle.CanTripleCurrentRoundWager(),
             BurstThresholdPlusThree => battle.CanIncreasePlayerBurstThreshold(GameplayConstants.ActiveItemValue.BurstThresholdPlusThreeItemIncrease),
-            ReturnPlayerFieldCardToHand => battle.CanReturnPlayerFieldCardToHand(),
+            ReturnPlayerFieldCardToHand => battle.CanTargetPlayerPlayedCard(),
             _ => false
         } || TryGetSuitDraw(itemId, out Suit suit) && battle.CanDrawPlayerCards(suit);
     }
@@ -35,14 +37,38 @@ public static class ActiveItemResolver
 
         return itemId switch
         {
-            RejectLastHit => battle.DiscardLastPlayerHitCard(),
+            RejectLastHit => false,
             DrawThree => battle.DrawCardsToPlayerHand(GameplayConstants.ActiveItemValue.DrawThreeItemDrawCount) > 0,
             DoubleWager => battle.DoubleCurrentRoundWager(),
             LeverageTriple => battle.TripleCurrentRoundWager(),
             BurstThresholdPlusThree => battle.IncreasePlayerBurstThreshold(GameplayConstants.ActiveItemValue.BurstThresholdPlusThreeItemIncrease),
-            ReturnPlayerFieldCardToHand => battle.ReturnPlayerFieldCardToHand(),
+            ReturnPlayerFieldCardToHand => false,
             _ => false
         } || TryGetSuitDraw(itemId, out Suit suit) && battle.DrawCardsToPlayerHand(suit, GameplayConstants.ActiveItemValue.DrawTwoItemDrawCount) > 0;
+    }
+
+    public static bool RequiresCardSelection(string itemId)
+    {
+        return itemId == RejectLastHit || itemId == ReturnPlayerFieldCardToHand;
+    }
+
+    public static bool TryApplySelection(string itemId, BattleState battle, IReadOnlyList<int> selectedIndices)
+    {
+        if (!RequiresCardSelection(itemId)
+            || battle == null
+            || selectedIndices == null
+            || selectedIndices.Count != 1)
+        {
+            return false;
+        }
+
+        int selectedIndex = selectedIndices[0];
+        return itemId switch
+        {
+            RejectLastHit => battle.DiscardPlayerPlayedCard(selectedIndex),
+            ReturnPlayerFieldCardToHand => battle.ReturnPlayerPlayedCardToHand(selectedIndex),
+            _ => false
+        };
     }
 
     private static bool TryGetSuitDraw(string itemId, out Suit suit)

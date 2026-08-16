@@ -21,8 +21,8 @@ public sealed class RoundState
     private readonly List<Card> _revealedFutureCards = new();
     private readonly List<string> _pendingEffectIds = new();
     private readonly List<Modifier> _scoringModifiers = new();
+    private readonly HashSet<PokerHandRank> _achievedPlayerPokerHandRanks = new();
     private readonly int _maxPlayedPileCardCount;
-    private int _lastPlayerHitCardIndex = -1;
 
     public RoundState(int roundNumber, int playerBurstThreshold, int opponentBurstThreshold, int baseWager, bool playerActsFirst)
         : this(
@@ -68,6 +68,7 @@ public sealed class RoundState
     public bool OpponentBurstPenaltyResolved { get; private set; }
     public int OpponentMoneyLost { get; private set; }
     public int PlayerMoneyLost { get; private set; }
+    public int PlayerPokerEarnings { get; private set; }
     public bool PlayerHasPlayed => _playerPlayedCards.Count > 0;
     public bool OpponentHasPlayed => _opponentVisibleCards.Count > 0;
     public bool PlayerStood { get; private set; }
@@ -85,6 +86,7 @@ public sealed class RoundState
     public IReadOnlyList<Card> RevealedFutureCards => _revealedFutureCards;
     public IReadOnlyList<string> PendingEffectIds => _pendingEffectIds;
     public IReadOnlyList<Modifier> ScoringModifiers => _scoringModifiers;
+    public IReadOnlyCollection<PokerHandRank> AchievedPlayerPokerHandRanks => _achievedPlayerPokerHandRanks;
     public int MaxPlayedPileCardCount => _maxPlayedPileCardCount;
 
     public void SetPlayerBurstThreshold(int threshold)
@@ -206,7 +208,6 @@ public sealed class RoundState
         if (transform != null)
             card = transform(card);
         _playerPlayedCards.Add(card);
-        _lastPlayerHitCardIndex = _playerPlayedCards.Count - 1;
         PlayerPlayedThisTurn = true;
         PlayerStood = false;
         return true;
@@ -236,25 +237,21 @@ public sealed class RoundState
             return false;
 
         _playerPlayedCards.Add(card);
-        _lastPlayerHitCardIndex = _playerPlayedCards.Count - 1;
         PlayerPlayedThisTurn = true;
         PlayerStood = false;
         return true;
     }
 
-    public bool CanRemoveLastPlayerHitCard => _lastPlayerHitCardIndex >= 0 && _lastPlayerHitCardIndex < _playerPlayedCards.Count;
-
-    public bool TryRemoveLastPlayerHitCard(out Card card)
+    public bool TryRemovePlayerPlayedCard(int index, out Card card)
     {
-        if (!CanRemoveLastPlayerHitCard)
+        if (index < 0 || index >= _playerPlayedCards.Count)
         {
             card = default;
             return false;
         }
 
-        card = _playerPlayedCards[_lastPlayerHitCardIndex];
-        _playerPlayedCards.RemoveAt(_lastPlayerHitCardIndex);
-        _lastPlayerHitCardIndex = -1;
+        card = _playerPlayedCards[index];
+        _playerPlayedCards.RemoveAt(index);
         return true;
     }
 
@@ -309,7 +306,6 @@ public sealed class RoundState
         if (combatant == Combatant.Player)
         {
             _playerPlayedCards.Add(card);
-            _lastPlayerHitCardIndex = _playerPlayedCards.Count - 1;
             PlayerPlayedThisTurn = true;
             PlayerStood = false;
         }
@@ -376,10 +372,6 @@ public sealed class RoundState
 
         card = _playerPlayedCards[previousIndex];
         _playerPlayedCards.RemoveAt(previousIndex);
-        if (_lastPlayerHitCardIndex > previousIndex)
-            _lastPlayerHitCardIndex--;
-        else if (_lastPlayerHitCardIndex == previousIndex)
-            _lastPlayerHitCardIndex = -1;
 
         if (!CanPlacePlayedCard(Combatant.Opponent))
             return PlayedPilePlacementResult.Overflowed;
@@ -428,10 +420,6 @@ public sealed class RoundState
 
         card = _playerPlayedCards[previousIndex];
         _playerPlayedCards.RemoveAt(previousIndex);
-        if (_lastPlayerHitCardIndex > previousIndex)
-            _lastPlayerHitCardIndex--;
-        else if (_lastPlayerHitCardIndex == previousIndex)
-            _lastPlayerHitCardIndex = -1;
 
         return true;
     }
@@ -462,18 +450,13 @@ public sealed class RoundState
 
         card = _playerPlayedCards[selectedIndex];
         _playerPlayedCards.RemoveAt(selectedIndex);
-        if (_lastPlayerHitCardIndex > selectedIndex)
-            _lastPlayerHitCardIndex--;
-        else if (_lastPlayerHitCardIndex == selectedIndex)
-            _lastPlayerHitCardIndex = -1;
 
         return true;
     }
 
-    public bool TryReturnLastPlayerFieldCardToHand(out Card card)
+    public bool TryReturnPlayerPlayedCardToHand(int index, out Card card)
     {
-        int index = _playerPlayedCards.Count - 1;
-        if (index < 0)
+        if (index < 0 || index >= _playerPlayedCards.Count)
         {
             card = default;
             return false;
@@ -482,8 +465,6 @@ public sealed class RoundState
         card = _playerPlayedCards[index];
         _playerPlayedCards.RemoveAt(index);
         _playerHand.Add(card);
-        if (_lastPlayerHitCardIndex >= _playerPlayedCards.Count)
-            _lastPlayerHitCardIndex = _playerPlayedCards.Count - 1;
 
         return true;
     }
@@ -542,7 +523,6 @@ public sealed class RoundState
             cards.AddRange(_sharedVisibleCards);
             _playerPlayedCards.Clear();
             _sharedVisibleCards.Clear();
-            _lastPlayerHitCardIndex = -1;
         }
         else
         {
@@ -579,6 +559,26 @@ public sealed class RoundState
             PlayerMoneyLost += finalAmount;
         else
             OpponentMoneyLost += finalAmount;
+    }
+
+    public void RecordPlayerPokerEarnings(int amount)
+    {
+        int finalAmount = Math.Max(0, amount);
+        if (finalAmount <= 0)
+            return;
+
+        long total = (long)PlayerPokerEarnings + finalAmount;
+        PlayerPokerEarnings = total >= int.MaxValue ? int.MaxValue : (int)total;
+    }
+
+    public bool HasAchievedPlayerPokerHandRank(PokerHandRank rank)
+    {
+        return _achievedPlayerPokerHandRanks.Contains(rank);
+    }
+
+    public bool TryRecordAchievedPlayerPokerHandRank(PokerHandRank rank)
+    {
+        return _achievedPlayerPokerHandRanks.Add(rank);
     }
 
     public IReadOnlyList<Card> GetPokerCardsForPlayerPayout()
@@ -619,7 +619,6 @@ public sealed class RoundState
         _opponentOriginalVisibleCards.Clear();
         _opponentVisibleCardOwners.Clear();
         _sharedVisibleCards.Clear();
-        _lastPlayerHitCardIndex = -1;
         _lockedCards.Clear();
         _revealedFutureCards.Clear();
         _pendingEffectIds.Clear();
@@ -635,7 +634,6 @@ public sealed class RoundState
         cards.AddRange(_sharedVisibleCards);
         _playerPlayedCards.Clear();
         _sharedVisibleCards.Clear();
-        _lastPlayerHitCardIndex = -1;
         return cards;
     }
 
@@ -669,7 +667,6 @@ public sealed class RoundState
         _revealedFutureCards.Clear();
         _pendingEffectIds.Clear();
         _scoringModifiers.Clear();
-        _lastPlayerHitCardIndex = -1;
     }
 
     private void AddOpponentVisibleCard(Card card, Combatant owner)

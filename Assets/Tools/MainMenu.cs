@@ -20,9 +20,12 @@ public class MainMenu : MonoBehaviour
     [SerializeField] private Button startGameButton;
     [SerializeField] private Button returnButton;
     
-    [Header("Animation Speed Settings")]
+    [Header("Animation Settings")]
+    [SerializeField] private float backgroundStartAnchorPositionX = 110f;
+    [SerializeField] private float backgroundEndAnchorPositionX = 1700f;
     [SerializeField] private float fadeAnimationSpeed = 0.5f;
     [SerializeField] private float slideAnimationSpeed = 0.7f;
+    [SerializeField] private float newGameMenuScrollDistanceX = 200f;
 
     private void Awake()
     {
@@ -40,18 +43,18 @@ public class MainMenu : MonoBehaviour
         {
             mainMenuCanvasGroup.interactable = false;
             mainMenuCanvasGroup.blocksRaycasts = false;
-            mainMenuBackground.transform.As<RectTransform>().DOAnchorPosX(1700f, slideAnimationSpeed).SetEase(Ease.InOutSine).OnComplete(() =>
+            mainMenuBackground.transform.As<RectTransform>().DOAnchorPosX(backgroundEndAnchorPositionX, slideAnimationSpeed).SetEase(Ease.InOutSine).OnComplete(() =>
             {
-                newGameMenuPanel.transform.As<RectTransform>().DOAnchorPosX(-200f, slideAnimationSpeed).SetEase(Ease.InOutSine);
+                newGameMenuPanel.transform.As<RectTransform>().DOAnchorPosX(-newGameMenuScrollDistanceX, slideAnimationSpeed).SetEase(Ease.InOutSine);
             });
         });
     }
 
     private void ReturnToMainMenu()
     {
-        newGameMenuPanel.transform.As<RectTransform>().DOAnchorPosX(200f, slideAnimationSpeed).SetEase(Ease.InOutSine).OnComplete(() =>
+        newGameMenuPanel.transform.As<RectTransform>().DOAnchorPosX(newGameMenuScrollDistanceX, slideAnimationSpeed).SetEase(Ease.InOutSine).OnComplete(() =>
         {
-            mainMenuBackground.transform.As<RectTransform>().DOAnchorPosX(110f, slideAnimationSpeed).SetEase(Ease.InOutSine).OnComplete(() =>
+            mainMenuBackground.transform.As<RectTransform>().DOAnchorPosX(backgroundStartAnchorPositionX, slideAnimationSpeed).SetEase(Ease.InOutSine).OnComplete(() =>
             {
                 mainMenuCanvasGroup.DOFade(1f, fadeAnimationSpeed);
                 mainMenuCanvasGroup.interactable = true;

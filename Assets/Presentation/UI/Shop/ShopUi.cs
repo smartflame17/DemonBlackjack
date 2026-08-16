@@ -2,7 +2,6 @@ using System.Collections.Generic;
 using TMPro;
 using UnityEngine;
 using UnityEngine.UI;
-using DG.Tweening;
 
 public sealed class ShopUi : MonoBehaviour
 {
@@ -15,8 +14,6 @@ public sealed class ShopUi : MonoBehaviour
     [SerializeField] private GameObject shopPanel;
     [SerializeField] private GameObject upgradePreviewRoot;
     [SerializeField] private GameObject itemPreviewRoot;
-    [SerializeField] private float shopPanelAnimationDuration = 2.0f;
-    [SerializeField] private Ease shopPanelAnimationEase = Ease.OutBounce;
     [SerializeField] private int activeItemOfferCount = 3;
     [SerializeField] private int relicOfferCount = 3;
     [SerializeField] private int upgradeOfferCount = 5;
@@ -29,7 +26,6 @@ public sealed class ShopUi : MonoBehaviour
     private readonly List<CardUpgradeOffer> _currentUpgradeOffers = new();
     private readonly HashSet<string> _soldOfferKeys = new();
     private int _generatedShopCycle = -1;
-    private RectTransform shopPanelRectTransform => shopPanel != null ? shopPanel.transform as RectTransform : null;
 
     private void Awake()
     {
@@ -48,7 +44,6 @@ public sealed class ShopUi : MonoBehaviour
     private void OnEnable()
     {
         shopPanel.SetActive(true);
-        shopPanelRectTransform.DOAnchorPos(new Vector2(0, 0), shopPanelAnimationDuration).SetEase(shopPanelAnimationEase);
         if (continueButton != null)
             continueButton.onClick.AddListener(Continue);
         GenerateOffers();
@@ -57,7 +52,6 @@ public sealed class ShopUi : MonoBehaviour
     private void OnDisable()
     {
         shopPanel.SetActive(false);
-        shopPanelRectTransform.DOAnchorPos(new Vector2(0, 1000), shopPanelAnimationDuration).SetEase(shopPanelAnimationEase);
         if (continueButton != null)
             continueButton.onClick.RemoveListener(Continue);
     }
@@ -157,7 +151,8 @@ public sealed class ShopUi : MonoBehaviour
             ShopSlotView slot = _itemSlots[i];
             string offerKey = CreateOfferKey(ShopOfferType.ActiveItem, offer.Id, null);
             if (_soldOfferKeys.Contains(offerKey)) { slot.SetUnavailable(); continue; }
-            slot.Bind(assetRegistry != null ? assetRegistry.GetActiveItemSprite(offer.Id) : null, offer.Price, offer.DisplayName, offer.Id, () => PurchaseItem(slot, offer, run, offerKey));
+            int price = run.CalculateShopPrice(offer.Price);
+            slot.Bind(assetRegistry != null ? assetRegistry.GetActiveItemSprite(offer.Id) : null, price, offer.DisplayName, offer.Id, () => PurchaseItem(slot, offer, run, offerKey, price));
         }
     }
 
@@ -170,7 +165,8 @@ public sealed class ShopUi : MonoBehaviour
             ShopSlotView slot = _relicSlots[i];
             string offerKey = CreateOfferKey(ShopOfferType.Relic, offer.Id, null);
             if (_soldOfferKeys.Contains(offerKey)) { slot.SetUnavailable(); continue; }
-            slot.Bind(assetRegistry != null ? assetRegistry.GetRelicSprite(offer.Id) : null, offer.Price, offer.DisplayName, offer.Id, () => PurchaseRelic(slot, offer, run, offerKey));
+            int price = run.CalculateShopPrice(offer.Price);
+            slot.Bind(assetRegistry != null ? assetRegistry.GetRelicSprite(offer.Id) : null, price, offer.DisplayName, offer.Id, () => PurchaseRelic(slot, offer, run, offerKey, price));
         }
     }
 
@@ -185,7 +181,8 @@ public sealed class ShopUi : MonoBehaviour
             Sprite sprite = assetRegistry != null ? assetRegistry.GetCardFront(card) : null;
             string offerKey = CreateOfferKey(ShopOfferType.CardUpgrade, offer.Definition.Id, offer.Rank);
             if (_soldOfferKeys.Contains(offerKey)) { slot.SetUnavailable(); continue; }
-            slot.BindCard(card, sprite, assetRegistry, offer.Definition.Price, offer.Definition.Id, () => PurchaseUpgrade(slot, offer, run, battleController, offerKey));
+            int price = run.CalculateShopPrice(offer.Definition.Price);
+            slot.BindCard(card, sprite, assetRegistry, price, offer.Definition.Id, () => PurchaseUpgrade(slot, offer, run, battleController, offerKey, price));
         }
     }
 
@@ -197,9 +194,9 @@ public sealed class ShopUi : MonoBehaviour
             EventBus.Publish(new ShopPurchaseFailedEvent(type, id, rank, result.Failure));
     }
 
-    private void PurchaseItem(ShopSlotView slot, ActiveItemDefinition offer, RunState run, string offerKey)
+    private void PurchaseItem(ShopSlotView slot, ActiveItemDefinition offer, RunState run, string offerKey, int price)
     {
-        ShopPurchaseResult result = run.TryPurchaseActiveItem(offer.Id, offer.Price);
+        ShopPurchaseResult result = run.TryPurchaseActiveItem(offer.Id, price);
         PublishResult(ShopOfferType.ActiveItem, offer.Id, null, result);
         if (!result.Succeeded)
             return;
@@ -209,9 +206,9 @@ public sealed class ShopUi : MonoBehaviour
         PlayPurchaseSFX(ESfx.SHOP_PURCHASE);
     }
 
-    private void PurchaseRelic(ShopSlotView slot, RelicDefinition offer, RunState run, string offerKey)
+    private void PurchaseRelic(ShopSlotView slot, RelicDefinition offer, RunState run, string offerKey, int price)
     {
-        ShopPurchaseResult result = run.TryPurchaseRelic(offer.Id, offer.Price);
+        ShopPurchaseResult result = run.TryPurchaseRelic(offer.Id, price);
         PublishResult(ShopOfferType.Relic, offer.Id, null, result);
         if (!result.Succeeded)
             return;
@@ -221,9 +218,9 @@ public sealed class ShopUi : MonoBehaviour
         PlayPurchaseSFX(ESfx.SHOP_PURCHASE);
     }
 
-    private void PurchaseUpgrade(ShopSlotView slot, CardUpgradeOffer offer, RunState run, BattleController battleController, string offerKey)
+    private void PurchaseUpgrade(ShopSlotView slot, CardUpgradeOffer offer, RunState run, BattleController battleController, string offerKey, int price)
     {
-        ShopPurchaseResult result = run.TryPurchaseRankUpgrade(offer.Rank, offer.Definition.Id, offer.Definition.Price);
+        ShopPurchaseResult result = run.TryPurchaseRankUpgrade(offer.Rank, offer.Definition.Id, price);
         PublishResult(ShopOfferType.CardUpgrade, offer.Definition.Id, offer.Rank, result);
         if (!result.Succeeded)
             return;
@@ -284,6 +281,7 @@ public sealed class ShopUi : MonoBehaviour
             if (prefab != null)
             {
                 cardView = Instantiate(prefab, root.transform, false);
+                cardView.EnsureRuntimeMaterial();
                 cardView.name = "UpgradeCard";
                 cardView.transform.SetSiblingIndex(0);
                 RectTransform rect = cardView.RectTransform;
