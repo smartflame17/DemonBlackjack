@@ -12,11 +12,8 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: 0120147e47e8f6644943f45da9786627, type: 3}
   m_Name: stock_sell
   m_EditorClassIdentifier: Assembly-CSharp::ActiveItemDefinition
-  id: stock_purchase
-  displayName: "\uC8FC\uC2DD \uB9E4\uC218"
-  description: "\uC0AC\uC6A9 \uC2DC \uC785\uB825\uD55C \uAE08\uC561\uB9CC\uD07C \uC8FC\uC2DD\uC744
-    \uB9E4\uC218\uD569\uB2C8\uB2E4. \uB9E4\uC218\uD55C \uC8FC\uC2DD\uC740 \uB9E4
-    \uB77C\uC6B4\uB4DC \uC784\uC758\uB85C \uBCC0\uB3D9\uD558\uBA70,\n\uCD5C\uC18C
-    <color=#FA343C>10%</color>, \uCD5C\uB300 <color=#78E4F0>200%</color>\uAE4C\uC9C0
-    \uAC00\uACA9\uC774 \uBCC0\uB3D9\uD569\uB2C8\uB2E4. "
+  id: stock_sell
+  displayName: "\uC8FC\uC2DD \uB9E4\uB3C4"
+  description: "\uB9E4\uC218\uD55C \uC8FC\uC2DD\uC744 \uB9E4\uB3C4\uD569\uB2C8\uB2E4.\n\uB9E4\uC218
+    \uAC00\uACA9: <buy_price>100</buy_price>\n\uD604\uC7AC \uAC00\uACA9: <sell_price>100</sell_price>"
   price: 10
