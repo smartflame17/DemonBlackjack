@@ -66,6 +66,7 @@ public sealed class RoundState
     public int Pot => PlayerStake + OpponentStake;
     public bool PlayerBurstPenaltyResolved { get; private set; }
     public bool OpponentBurstPenaltyResolved { get; private set; }
+    public bool PlayerBurstPenaltySuppressed { get; private set; }
     public int OpponentMoneyLost { get; private set; }
     public int PlayerMoneyLost { get; private set; }
     public int PlayerPokerEarnings { get; private set; }
@@ -549,6 +550,15 @@ public sealed class RoundState
             OpponentBurstPenaltyResolved = true;
     }
 
+    public bool SuppressPlayerBurstPenalty()
+    {
+        if (PlayerBurstPenaltySuppressed)
+            return false;
+
+        PlayerBurstPenaltySuppressed = true;
+        return true;
+    }
+
     public void RecordMoneyLost(Combatant combatant, int amount)
     {
         int finalAmount = Math.Max(0, amount);
@@ -684,6 +694,7 @@ public sealed class RoundState
             wagerCommitted = WagerCommitted,
             playerBurstPenaltyResolved = PlayerBurstPenaltyResolved,
             opponentBurstPenaltyResolved = OpponentBurstPenaltyResolved,
+            playerBurstPenaltySuppressed = PlayerBurstPenaltySuppressed,
             opponentMoneyLost = OpponentMoneyLost,
             playerMoneyLost = PlayerMoneyLost,
             playerPokerEarnings = PlayerPokerEarnings,
@@ -741,6 +752,7 @@ public sealed class RoundState
         state.WagerCommitted = data.wagerCommitted;
         state.PlayerBurstPenaltyResolved = data.playerBurstPenaltyResolved;
         state.OpponentBurstPenaltyResolved = data.opponentBurstPenaltyResolved;
+        state.PlayerBurstPenaltySuppressed = data.playerBurstPenaltySuppressed;
         state.OpponentMoneyLost = Math.Max(0, data.opponentMoneyLost);
         state.PlayerMoneyLost = Math.Max(0, data.playerMoneyLost);
         state.PlayerPokerEarnings = Math.Max(0, data.playerPokerEarnings);

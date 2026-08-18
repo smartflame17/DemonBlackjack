@@ -1,3 +1,4 @@
+using System;
 using UnityEngine;
 using UnityEngine.EventSystems;
 
@@ -6,6 +7,7 @@ public sealed class TooltipTrigger : MonoBehaviour, IPointerEnterHandler, IPoint
     [SerializeField] private string contentId;
     [SerializeField] private string fallbackContentId;
     [SerializeField] private TooltipPanel tooltipPanel;
+    private Func<string, string> _descriptionFormatter;
 
     public string ContentId => contentId;
     public string FallbackContentId => fallbackContentId;
@@ -17,6 +19,11 @@ public sealed class TooltipTrigger : MonoBehaviour, IPointerEnterHandler, IPoint
 
     public void Bind(string id, string fallbackId)
     {
+        Bind(id, fallbackId, null);
+    }
+
+    public void Bind(string id, string fallbackId, Func<string, string> descriptionFormatter)
+    {
         if (string.IsNullOrWhiteSpace(id) && string.IsNullOrWhiteSpace(fallbackId))
         {
             Clear();
@@ -25,7 +32,9 @@ public sealed class TooltipTrigger : MonoBehaviour, IPointerEnterHandler, IPoint
 
         contentId = string.IsNullOrWhiteSpace(id) ? null : id;
         fallbackContentId = string.IsNullOrWhiteSpace(fallbackId) ? null : fallbackId;
+        _descriptionFormatter = descriptionFormatter;
         ResolvePanel();
+        tooltipPanel?.Refresh(this);
     }
 
     public void Clear()
@@ -33,6 +42,7 @@ public sealed class TooltipTrigger : MonoBehaviour, IPointerEnterHandler, IPoint
         tooltipPanel?.Hide(this);
         contentId = null;
         fallbackContentId = null;
+        _descriptionFormatter = null;
     }
 
     public void OnPointerEnter(PointerEventData eventData)
@@ -42,6 +52,11 @@ public sealed class TooltipTrigger : MonoBehaviour, IPointerEnterHandler, IPoint
 
         ResolvePanel();
         tooltipPanel?.Show(contentId, fallbackContentId, this, eventData.position);
+    }
+
+    public string FormatDescription(string description)
+    {
+        return _descriptionFormatter != null ? _descriptionFormatter(description) : description;
     }
 
     public void OnPointerExit(PointerEventData eventData)

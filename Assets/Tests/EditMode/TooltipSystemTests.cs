@@ -146,7 +146,10 @@ public sealed class TooltipSystemTests
         TooltipContentCatalog catalog = AssetDatabase.LoadAssetAtPath<TooltipContentCatalog>(
             "Assets/Content/TooltipContentCatalog.asset");
         Assert.That(catalog, Is.Not.Null);
-        Assert.That(catalog.Definitions.Count, Is.EqualTo(36));
+        Assert.That(catalog.Definitions.Count, Is.GreaterThanOrEqualTo(39));
+        Assert.That(catalog.TryGetDefinition(ActiveItemResolver.BurstDeny, out _), Is.True);
+        Assert.That(catalog.TryGetDefinition(ActiveItemResolver.StockBuy, out _), Is.True);
+        Assert.That(catalog.TryGetDefinition(ActiveItemResolver.StockSell, out _), Is.True);
         for (int i = 1; i <= 4; i++)
         {
             Assert.That(catalog.TryGetDefinition($"devil{i}", out TooltipContentDefinition definition), Is.True);

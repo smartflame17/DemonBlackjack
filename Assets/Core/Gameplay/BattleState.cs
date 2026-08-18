@@ -4,6 +4,7 @@ using System.Collections.Generic;
 public sealed class BattleState
 {
     public event Action ActiveItemSelectionCancelled;
+    public event Action ActiveItemUseCancelled;
     public event Action<BattleState> RoundCheckpointReady;
 
     private Deck _playerDeck;
@@ -16,6 +17,8 @@ public sealed class BattleState
     private readonly List<BattleRelicRuntime> _relicRuntimes;
     private readonly BattleEffectRuntime _effectRuntime;
     private string _pendingActiveItemId;
+    private int _pendingActiveItemSlotIndex = -1;
+    private ActiveItemUseInputKind _pendingActiveItemInputKind;
     private RoundState _pendingActiveItemRound;
     private Card[] _pendingActiveItemCards;
     private bool _disposed;
@@ -66,7 +69,9 @@ public sealed class BattleState
     public IReadOnlyList<Card> PlayerDiscardPile => _playerDeck.DiscardPile;
     public IReadOnlyList<Card> OpponentDrawPile => _opponentDeck.DrawPile;
     public IReadOnlyList<Card> OpponentDiscardPile => _opponentDeck.DiscardPile;
-    public bool HasPendingActiveItemSelection => _pendingActiveItemRound != null;
+    public bool HasPendingActiveItemUse => _pendingActiveItemRound != null;
+    public bool HasPendingActiveItemSelection => HasPendingActiveItemUse
+        && _pendingActiveItemInputKind == ActiveItemUseInputKind.CardSelection;
 
     public void Initialize()
     {
@@ -819,7 +824,8 @@ public sealed class BattleState
     public bool TryUseActiveItem(string itemId)
     {
         ActiveItemUseStartResult result = TryBeginActiveItemUse(itemId, out _);
-        if (result == ActiveItemUseStartResult.SelectionRequired)
+        if (result == ActiveItemUseStartResult.SelectionRequired
+            || result == ActiveItemUseStartResult.MoneyInputRequired)
             CancelPendingActiveItemUse();
 
         return result == ActiveItemUseStartResult.Applied;
@@ -830,20 +836,52 @@ public sealed class BattleState
         out ActiveItemSelectionRequest selectionRequest)
     {
         selectionRequest = default;
-        if (!CanUseActiveItem(itemId))
+        int slotIndex = RunState.FindActiveItemSlotIndex(itemId);
+        ActiveItemUseStartResult result = TryBeginActiveItemUseAtSlot(slotIndex, out ActiveItemUseRequest request);
+        if (result == ActiveItemUseStartResult.SelectionRequired)
+            selectionRequest = request.CardSelection;
+        return result;
+    }
+
+    public bool TryUseActiveItemAtSlot(int slotIndex)
+    {
+        ActiveItemUseStartResult result = TryBeginActiveItemUseAtSlot(slotIndex, out _);
+        if (result == ActiveItemUseStartResult.SelectionRequired
+            || result == ActiveItemUseStartResult.MoneyInputRequired)
+        {
+            CancelPendingActiveItemUse();
+        }
+
+        return result == ActiveItemUseStartResult.Applied;
+    }
+
+    public ActiveItemUseStartResult TryBeginActiveItemUseAtSlot(
+        int slotIndex,
+        out ActiveItemUseRequest request)
+    {
+        request = default;
+        if (!CanUseActiveItemAtSlot(slotIndex)
+            || !RunState.TryGetActiveItemAt(slotIndex, out ActiveItemRuntimeState item))
             return ActiveItemUseStartResult.Rejected;
 
+        string itemId = item.ItemId;
         if (ActiveItemResolver.RequiresCardSelection(itemId))
         {
             Card[] snapshot = CopyPlayerPlayedCards(CurrentRound);
-            _pendingActiveItemId = itemId;
-            _pendingActiveItemRound = CurrentRound;
-            _pendingActiveItemCards = snapshot;
-            selectionRequest = new ActiveItemSelectionRequest(itemId, snapshot, 1);
+            SetPendingActiveItemUse(slotIndex, itemId, ActiveItemUseInputKind.CardSelection, snapshot);
+            var selection = new ActiveItemSelectionRequest(itemId, snapshot, 1);
+            request = ActiveItemUseRequest.ForCardSelection(slotIndex, selection);
             return ActiveItemUseStartResult.SelectionRequired;
         }
 
-        if (!ActiveItemResolver.TryApply(itemId, this) || !ConsumeActiveItem(itemId))
+        if (ActiveItemResolver.RequiresMoneyInput(itemId))
+        {
+            SetPendingActiveItemUse(slotIndex, itemId, ActiveItemUseInputKind.MoneyInput, null);
+            request = ActiveItemUseRequest.ForMoneyInput(slotIndex, itemId, 1, PlayerMoney);
+            return ActiveItemUseStartResult.MoneyInputRequired;
+        }
+
+        if (!TryApplyActiveItemAtSlot(slotIndex, item))
             return ActiveItemUseStartResult.Rejected;
 
         return ActiveItemUseStartResult.Applied;
@@ -852,49 +890,97 @@ public sealed class BattleState
     public bool TryCompletePendingActiveItemUse(IReadOnlyList<int> selectedIndices)
     {
         string itemId = _pendingActiveItemId;
+        int slotIndex = _pendingActiveItemSlotIndex;
+        ActiveItemUseInputKind inputKind = _pendingActiveItemInputKind;
         RoundState originatingRound = _pendingActiveItemRound;
         Card[] cardSnapshot = _pendingActiveItemCards;
-        bool hadPendingSelection = originatingRound != null;
+        bool hadPendingUse = originatingRound != null;
         ClearPendingActiveItemUse();
 
         if (string.IsNullOrWhiteSpace(itemId)
+            || inputKind != ActiveItemUseInputKind.CardSelection
             || originatingRound == null
             || cardSnapshot == null
             || selectedIndices == null
             || selectedIndices.Count != 1
             || !ReferenceEquals(CurrentRound, originatingRound)
-            || !RunState.HasActiveItem(itemId)
+            || !ActiveItemAtSlotMatches(slotIndex, itemId)
             || !MatchesPlayerPlayedCards(originatingRound, cardSnapshot))
         {
-            return RejectPendingActiveItemCompletion(hadPendingSelection);
+            return RejectPendingActiveItemCompletion(hadPendingUse, inputKind);
         }
 
         int selectedIndex = selectedIndices[0];
         if (selectedIndex < 0 || selectedIndex >= cardSnapshot.Length)
-            return RejectPendingActiveItemCompletion(hadPendingSelection);
+            return RejectPendingActiveItemCompletion(hadPendingUse, inputKind);
 
         bool completed = ActiveItemResolver.TryApplySelection(itemId, this, selectedIndices)
-            && ConsumeActiveItem(itemId);
-        return completed || RejectPendingActiveItemCompletion(hadPendingSelection);
+            && ConsumeActiveItemAtSlot(slotIndex, itemId);
+        return completed || RejectPendingActiveItemCompletion(hadPendingUse, inputKind);
+    }
+
+    public bool TryCompletePendingActiveItemMoneyUse(int requestedAmount)
+    {
+        string itemId = _pendingActiveItemId;
+        int slotIndex = _pendingActiveItemSlotIndex;
+        ActiveItemUseInputKind inputKind = _pendingActiveItemInputKind;
+        RoundState originatingRound = _pendingActiveItemRound;
+        bool hadPendingUse = originatingRound != null;
+        ClearPendingActiveItemUse();
+
+        if (inputKind != ActiveItemUseInputKind.MoneyInput
+            || !string.Equals(itemId, ActiveItemResolver.StockBuy, StringComparison.OrdinalIgnoreCase)
+            || originatingRound == null
+            || !ReferenceEquals(CurrentRound, originatingRound)
+            || !ActiveItemAtSlotMatches(slotIndex, itemId)
+            || requestedAmount <= 0
+            || PlayerMoney <= 0)
+        {
+            return RejectPendingActiveItemCompletion(hadPendingUse, inputKind);
+        }
+
+        int investedAmount = Math.Min(requestedAmount, PlayerMoney);
+        ActiveItemRuntimeState holding = ActiveItemRuntimeState.CreateStockHolding(investedAmount);
+        if (holding == null || !RunState.TryReplaceActiveItemAt(slotIndex, itemId, holding))
+            return RejectPendingActiveItemCompletion(hadPendingUse, inputKind);
+
+        RunState.AddMoney(-investedAmount);
+        CommandQueue.Enqueue(new VisualCommand(VisualCommandType.MoneyChanged, $"{Combatant.Player}:{PlayerMoney}"));
+        global::EventBus.Publish(new MoneyTransferReasonEvent(
+            Combatant.System,
+            MoneyTransferReason.StockPurchase,
+            investedAmount));
+        global::EventBus.Publish(new ItemUsedEvent(itemId));
+        return true;
     }
 
     public bool CancelPendingActiveItemUse()
     {
-        bool hadPendingSelection = HasPendingActiveItemSelection;
+        bool hadPendingUse = HasPendingActiveItemUse;
+        ActiveItemUseInputKind inputKind = _pendingActiveItemInputKind;
         ClearPendingActiveItemUse();
-        if (hadPendingSelection)
-            ActiveItemSelectionCancelled?.Invoke();
-        return hadPendingSelection;
+        if (hadPendingUse)
+        {
+            ActiveItemUseCancelled?.Invoke();
+            if (inputKind == ActiveItemUseInputKind.CardSelection)
+                ActiveItemSelectionCancelled?.Invoke();
+        }
+        return hadPendingUse;
     }
 
     public bool CanUseActiveItem(string itemId)
     {
+        return CanUseActiveItemAtSlot(RunState.FindActiveItemSlotIndex(itemId));
+    }
+
+    public bool CanUseActiveItemAtSlot(int slotIndex)
+    {
         return !_disposed
             && !IsBattleOver
             && CurrentRound != null
-            && !HasPendingActiveItemSelection
-            && RunState.HasActiveItem(itemId)
-            && ActiveItemResolver.CanApply(itemId, this);
+            && !HasPendingActiveItemUse
+            && RunState.TryGetActiveItemAt(slotIndex, out ActiveItemRuntimeState item)
+            && ActiveItemResolver.CanApply(item, this);
     }
 
     public bool CanTargetPlayerPlayedCard()
@@ -1009,6 +1095,16 @@ public sealed class BattleState
         return true;
     }
 
+    public bool CanSuppressPlayerBurstPenalty()
+    {
+        return CurrentRound != null && !CurrentRound.PlayerBurstPenaltySuppressed;
+    }
+
+    public bool SuppressPlayerBurstPenalty()
+    {
+        return CanSuppressPlayerBurstPenalty() && CurrentRound.SuppressPlayerBurstPenalty();
+    }
+
     public bool ReturnPlayerPlayedCardToHand(int index)
     {
         if (CurrentRound == null || !CurrentRound.TryReturnPlayerPlayedCardToHand(index, out Card card))
@@ -1022,7 +1118,12 @@ public sealed class BattleState
 
     private bool ConsumeActiveItem(string itemId)
     {
-        if (!RunState.RemoveActiveItem(itemId))
+        return ConsumeActiveItemAtSlot(RunState.FindActiveItemSlotIndex(itemId), itemId);
+    }
+
+    private bool ConsumeActiveItemAtSlot(int slotIndex, string itemId)
+    {
+        if (!ActiveItemAtSlotMatches(slotIndex, itemId) || !RunState.RemoveActiveItemAt(slotIndex))
             return false;
 
         global::EventBus.Publish(new ItemUsedEvent(itemId));
@@ -1032,15 +1133,61 @@ public sealed class BattleState
     private void ClearPendingActiveItemUse()
     {
         _pendingActiveItemId = null;
+        _pendingActiveItemSlotIndex = -1;
+        _pendingActiveItemInputKind = ActiveItemUseInputKind.None;
         _pendingActiveItemRound = null;
         _pendingActiveItemCards = null;
     }
 
-    private bool RejectPendingActiveItemCompletion(bool notifyCancellation)
+    private bool RejectPendingActiveItemCompletion(bool notifyCancellation, ActiveItemUseInputKind inputKind)
     {
         if (notifyCancellation)
-            ActiveItemSelectionCancelled?.Invoke();
+        {
+            ActiveItemUseCancelled?.Invoke();
+            if (inputKind == ActiveItemUseInputKind.CardSelection)
+                ActiveItemSelectionCancelled?.Invoke();
+        }
         return false;
+    }
+
+    private void SetPendingActiveItemUse(
+        int slotIndex,
+        string itemId,
+        ActiveItemUseInputKind inputKind,
+        Card[] cardSnapshot)
+    {
+        _pendingActiveItemSlotIndex = slotIndex;
+        _pendingActiveItemId = itemId;
+        _pendingActiveItemInputKind = inputKind;
+        _pendingActiveItemRound = CurrentRound;
+        _pendingActiveItemCards = cardSnapshot;
+    }
+
+    private bool ActiveItemAtSlotMatches(int slotIndex, string itemId)
+    {
+        return RunState.TryGetActiveItemAt(slotIndex, out ActiveItemRuntimeState item)
+            && string.Equals(item.ItemId, itemId, StringComparison.OrdinalIgnoreCase);
+    }
+
+    private bool TryApplyActiveItemAtSlot(int slotIndex, ActiveItemRuntimeState item)
+    {
+        if (item.IsStockHolding)
+        {
+            int payout = item.StockCurrentAmount;
+            if (!RunState.RemoveActiveItemAt(slotIndex))
+                return false;
+
+            AddPlayerMoney(payout);
+            global::EventBus.Publish(new MoneyTransferReasonEvent(
+                Combatant.Player,
+                MoneyTransferReason.StockSale,
+                payout));
+            global::EventBus.Publish(new ItemUsedEvent(item.ItemId));
+            return true;
+        }
+
+        return ActiveItemResolver.TryApply(item.ItemId, this)
+            && ConsumeActiveItemAtSlot(slotIndex, item.ItemId);
     }
 
     private static Card[] CopyPlayerPlayedCards(RoundState round)

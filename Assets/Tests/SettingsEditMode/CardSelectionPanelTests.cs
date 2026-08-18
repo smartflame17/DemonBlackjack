@@ -17,6 +17,7 @@ public sealed class CardSelectionPanelTests
     private Type rankType;
     private Type activeItemUseProxyType;
     private Type itemUseMenuType;
+    private Type moneyInputPanelType;
     private MethodInfo showMethod;
 
     [SetUp]
@@ -33,6 +34,7 @@ public sealed class CardSelectionPanelTests
         rankType = RequireRuntimeType("Rank");
         activeItemUseProxyType = RequireRuntimeType("ActiveItemUseProxy");
         itemUseMenuType = RequireRuntimeType("ItemUseMenu");
+        moneyInputPanelType = RequireRuntimeType("MoneyInputPanel");
         showMethod = panelType.GetMethod("Show", BindingFlags.Instance | BindingFlags.Public);
         Assert.That(showMethod, Is.Not.Null);
     }
@@ -224,6 +226,14 @@ public sealed class CardSelectionPanelTests
         Component proxy = prefab.GetComponent(activeItemUseProxyType);
         Assert.That(proxy, Is.Not.Null);
         Assert.That(GetPrivateField<Component>(proxy, "cardSelectionPanel"), Is.SameAs(panel));
+
+        Transform moneyPanelTransform = FindChildRecursive(prefab.transform, "MoneyInputPanel");
+        Assert.That(moneyPanelTransform, Is.Not.Null);
+        Assert.That(moneyPanelTransform.parent, Is.EqualTo(prefab.transform));
+        Assert.That(moneyPanelTransform.gameObject.activeSelf, Is.False);
+        Component moneyPanel = moneyPanelTransform.GetComponent(moneyInputPanelType);
+        Assert.That(moneyPanel, Is.Not.Null);
+        Assert.That(GetPrivateField<Component>(proxy, "moneyInputPanel"), Is.SameAs(moneyPanel));
 
         Component itemUseMenu = prefab.GetComponentInChildren(itemUseMenuType, true);
         Assert.That(itemUseMenu, Is.Not.Null);

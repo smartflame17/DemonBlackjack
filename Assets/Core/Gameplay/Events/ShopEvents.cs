@@ -115,6 +115,18 @@ public readonly struct ActiveItemCapacityChangedEvent
     public int Capacity { get; }
 }
 
+public readonly struct ActiveItemSlotChangedEvent
+{
+    public ActiveItemSlotChangedEvent(int slotIndex, string itemId)
+    {
+        SlotIndex = slotIndex;
+        ItemId = itemId;
+    }
+
+    public int SlotIndex { get; }
+    public string ItemId { get; }
+}
+
 // Card upgrade related events
 
 public readonly struct RankUpgradeChangedEvent

@@ -12,6 +12,7 @@ public sealed class ItemUseMenu : MonoBehaviour
     [SerializeField] private Button discardButton;
 
     private string _selectedItemId;
+    private int _selectedSlotIndex = -1;
     private RectTransform _selectedSlot;
     private bool _listenersBound;
 
@@ -61,21 +62,37 @@ public sealed class ItemUseMenu : MonoBehaviour
 
     public void Toggle(string itemId, RectTransform slot)
     {
-        if (IsOpen && string.Equals(_selectedItemId, itemId, System.StringComparison.OrdinalIgnoreCase) && _selectedSlot == slot)
+        RunState run = runManager != null ? runManager.RunState : null;
+        Toggle(run != null ? run.FindActiveItemSlotIndex(itemId) : -1, itemId, slot);
+    }
+
+    public void Toggle(int slotIndex, string itemId, RectTransform slot)
+    {
+        if (IsOpen
+            && _selectedSlotIndex == slotIndex
+            && string.Equals(_selectedItemId, itemId, System.StringComparison.OrdinalIgnoreCase)
+            && _selectedSlot == slot)
         {
             Close();
             return;
         }
 
-        Open(itemId, slot);
+        Open(slotIndex, itemId, slot);
     }
 
     public void Open(string itemId, RectTransform slot)
     {
-        if (string.IsNullOrWhiteSpace(itemId) || slot == null)
+        RunState run = runManager != null ? runManager.RunState : null;
+        Open(run != null ? run.FindActiveItemSlotIndex(itemId) : -1, itemId, slot);
+    }
+
+    public void Open(int slotIndex, string itemId, RectTransform slot)
+    {
+        if (slotIndex < 0 || string.IsNullOrWhiteSpace(itemId) || slot == null)
             return;
 
         EnsureReferences();
+        _selectedSlotIndex = slotIndex;
         _selectedItemId = itemId;
         _selectedSlot = slot;
         gameObject.SetActive(true);
@@ -85,6 +102,7 @@ public sealed class ItemUseMenu : MonoBehaviour
 
     public void Close()
     {
+        _selectedSlotIndex = -1;
         _selectedItemId = null;
         _selectedSlot = null;
         gameObject.SetActive(false);
@@ -94,7 +112,9 @@ public sealed class ItemUseMenu : MonoBehaviour
     {
         EnsureReferences();
         RunState run = runManager != null ? runManager.RunState : null;
-        bool stillOwned = run != null && run.HasActiveItem(_selectedItemId);
+        bool stillOwned = run != null
+            && run.TryGetActiveItemAt(_selectedSlotIndex, out ActiveItemRuntimeState selectedItem)
+            && string.Equals(selectedItem.ItemId, _selectedItemId, System.StringComparison.OrdinalIgnoreCase);
         if (IsOpen && !stillOwned)
         {
             Close();
@@ -102,7 +122,9 @@ public sealed class ItemUseMenu : MonoBehaviour
         }
 
         if (useButton != null)
-            useButton.interactable = stillOwned && battleController != null && battleController.CanUseActiveItem(_selectedItemId);
+            useButton.interactable = stillOwned
+                && battleController != null
+                && battleController.CanUseActiveItemAtSlot(_selectedSlotIndex);
         if (discardButton != null)
             discardButton.interactable = stillOwned;
     }
@@ -110,8 +132,8 @@ public sealed class ItemUseMenu : MonoBehaviour
     private void UseSelectedItem()
     {
         bool used = activeItemUseProxy != null
-            ? activeItemUseProxy.TryUseActiveItem(_selectedItemId)
-            : battleController != null && battleController.TryUseActiveItem(_selectedItemId);
+            ? activeItemUseProxy.TryUseActiveItemAtSlot(_selectedSlotIndex)
+            : battleController != null && battleController.TryUseActiveItemAtSlot(_selectedSlotIndex);
         if (used)
             Close();
         else
@@ -121,7 +143,7 @@ public sealed class ItemUseMenu : MonoBehaviour
     private void DiscardSelectedItem()
     {
         RunState run = runManager != null ? runManager.RunState : null;
-        if (run != null && run.RemoveActiveItem(_selectedItemId))
+        if (run != null && run.RemoveActiveItemAt(_selectedSlotIndex))
             Close();
         else
             RefreshAvailability();

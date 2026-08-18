@@ -116,5 +116,7 @@ public enum MoneyTransferReason
     PokerPayout,
     BurstPenalty,
     BlackjackPayout,
-    DevilAbilityPayout
+    DevilAbilityPayout,
+    StockPurchase,
+    StockSale
 }

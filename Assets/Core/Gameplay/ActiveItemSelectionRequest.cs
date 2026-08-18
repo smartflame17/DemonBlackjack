@@ -5,7 +5,65 @@ public enum ActiveItemUseStartResult
 {
     Rejected,
     Applied,
-    SelectionRequired
+    SelectionRequired,
+    MoneyInputRequired
+}
+
+public enum ActiveItemUseInputKind
+{
+    None,
+    CardSelection,
+    MoneyInput
+}
+
+public readonly struct ActiveItemUseRequest
+{
+    private ActiveItemUseRequest(
+        int slotIndex,
+        string itemId,
+        ActiveItemUseInputKind inputKind,
+        ActiveItemSelectionRequest cardSelection,
+        int minimumAmount,
+        int maximumAmount)
+    {
+        SlotIndex = slotIndex;
+        ItemId = itemId;
+        InputKind = inputKind;
+        CardSelection = cardSelection;
+        MinimumAmount = minimumAmount;
+        MaximumAmount = maximumAmount;
+    }
+
+    public int SlotIndex { get; }
+    public string ItemId { get; }
+    public ActiveItemUseInputKind InputKind { get; }
+    public ActiveItemSelectionRequest CardSelection { get; }
+    public int MinimumAmount { get; }
+    public int MaximumAmount { get; }
+
+    public static ActiveItemUseRequest ForCardSelection(
+        int slotIndex,
+        ActiveItemSelectionRequest selection)
+    {
+        return new ActiveItemUseRequest(
+            slotIndex,
+            selection.ItemId,
+            ActiveItemUseInputKind.CardSelection,
+            selection,
+            0,
+            0);
+    }
+
+    public static ActiveItemUseRequest ForMoneyInput(int slotIndex, string itemId, int minimumAmount, int maximumAmount)
+    {
+        return new ActiveItemUseRequest(
+            slotIndex,
+            itemId,
+            ActiveItemUseInputKind.MoneyInput,
+            default,
+            minimumAmount,
+            maximumAmount);
+    }
 }
 
 public readonly struct ActiveItemSelectionRequest

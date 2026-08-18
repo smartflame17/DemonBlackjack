@@ -12,6 +12,7 @@ public sealed class RunState
     private readonly List<string> _relicIds = new();
     private readonly List<string> _globalModifierIds = new();
     private readonly List<string> _activeItemIds = new();
+    private readonly List<ActiveItemRuntimeState> _activeItemStates = new();
     private readonly List<BattleResult> _battleHistory = new();
     private readonly Dictionary<string, int> _devilAffinities = new();
     private readonly Dictionary<Rank, OwnedRankUpgrade> _rankUpgrades = new();
@@ -42,6 +43,7 @@ public sealed class RunState
     public IReadOnlyList<string> RelicIds => _relicIds;
     public IReadOnlyList<string> GlobalModifierIds => _globalModifierIds;
     public IReadOnlyList<string> ActiveItemIds => _activeItemIds;
+    public IReadOnlyList<ActiveItemRuntimeState> ActiveItemStates => _activeItemStates;
     public IReadOnlyList<BattleResult> BattleHistory => _battleHistory;
     public IReadOnlyDictionary<string, int> DevilAffinities => _devilAffinities;
     public IReadOnlyDictionary<Rank, OwnedRankUpgrade> RankUpgrades => _rankUpgrades;
@@ -148,8 +150,11 @@ public sealed class RunState
         if (string.IsNullOrWhiteSpace(itemId) || AreActiveItemSlotsFull)
             return false;
 
-        _activeItemIds[FindEmptyActiveItemSlot()] = itemId;
+        int slotIndex = FindEmptyActiveItemSlot();
+        _activeItemIds[slotIndex] = itemId;
+        _activeItemStates[slotIndex] = ActiveItemRuntimeState.Create(itemId);
         EventBus.Publish(new ActiveItemAddedEvent(itemId, GetActiveItemCount(itemId)));
+        EventBus.Publish(new ActiveItemSlotChangedEvent(slotIndex, itemId));
         return true;
     }
 
@@ -166,7 +171,10 @@ public sealed class RunState
 
         MaxActiveItemSlots = maxActiveItemSlots;
         if (_activeItemIds.Count > maxActiveItemSlots)
+        {
             _activeItemIds.RemoveRange(maxActiveItemSlots, _activeItemIds.Count - maxActiveItemSlots);
+            _activeItemStates.RemoveRange(maxActiveItemSlots, _activeItemStates.Count - maxActiveItemSlots);
+        }
         else
             AddEmptyActiveItemSlots(maxActiveItemSlots - _activeItemIds.Count);
         EventBus.Publish(new ActiveItemCapacityChangedEvent(MaxActiveItemSlots));
@@ -208,12 +216,70 @@ public sealed class RunState
             return false;
 
         int slotIndex = FindActiveItemSlot(itemId);
-        if (slotIndex < 0)
+        return RemoveActiveItemAt(slotIndex);
+    }
+
+    public bool RemoveActiveItemAt(int slotIndex)
+    {
+        if (!IsValidActiveItemSlot(slotIndex) || string.IsNullOrWhiteSpace(_activeItemIds[slotIndex]))
             return false;
 
+        string itemId = _activeItemIds[slotIndex];
         _activeItemIds[slotIndex] = null;
+        _activeItemStates[slotIndex] = null;
 
         EventBus.Publish(new ActiveItemRemovedEvent(itemId, GetActiveItemCount(itemId)));
+        EventBus.Publish(new ActiveItemSlotChangedEvent(slotIndex, null));
+        return true;
+    }
+
+    public bool TryGetActiveItemAt(int slotIndex, out ActiveItemRuntimeState item)
+    {
+        if (IsValidActiveItemSlot(slotIndex))
+        {
+            item = _activeItemStates[slotIndex];
+            return item != null && !string.IsNullOrWhiteSpace(item.ItemId);
+        }
+
+        item = null;
+        return false;
+    }
+
+    public int FindActiveItemSlotIndex(string itemId)
+    {
+        return FindActiveItemSlot(itemId);
+    }
+
+    public bool TryReplaceActiveItemAt(
+        int slotIndex,
+        string expectedItemId,
+        ActiveItemRuntimeState replacement)
+    {
+        if (!IsValidActiveItemSlot(slotIndex)
+            || replacement == null
+            || string.IsNullOrWhiteSpace(replacement.ItemId)
+            || !string.Equals(_activeItemIds[slotIndex], expectedItemId, StringComparison.OrdinalIgnoreCase))
+        {
+            return false;
+        }
+
+        string removedItemId = _activeItemIds[slotIndex];
+        _activeItemIds[slotIndex] = replacement.ItemId;
+        _activeItemStates[slotIndex] = replacement;
+
+        EventBus.Publish(new ActiveItemRemovedEvent(removedItemId, GetActiveItemCount(removedItemId)));
+        EventBus.Publish(new ActiveItemAddedEvent(replacement.ItemId, GetActiveItemCount(replacement.ItemId)));
+        EventBus.Publish(new ActiveItemSlotChangedEvent(slotIndex, replacement.ItemId));
+        return true;
+    }
+
+    public bool TrySetStockPricePercentAt(int slotIndex, int pricePercent)
+    {
+        if (!TryGetActiveItemAt(slotIndex, out ActiveItemRuntimeState item) || !item.IsStockHolding)
+            return false;
+
+        _activeItemStates[slotIndex] = item.WithStockPricePercent(pricePercent);
+        EventBus.Publish(new ActiveItemSlotChangedEvent(slotIndex, item.ItemId));
         return true;
     }
 
@@ -337,6 +403,18 @@ public sealed class RunState
         data.relicIds.AddRange(_relicIds);
         data.globalModifierIds.AddRange(_globalModifierIds);
         data.activeItemIds.AddRange(_activeItemIds);
+        for (int i = 0; i < _activeItemStates.Count; i++)
+        {
+            ActiveItemRuntimeState item = _activeItemStates[i];
+            data.activeItemStates.Add(item == null
+                ? null
+                : new ActiveItemStateData
+                {
+                    itemId = item.ItemId,
+                    stockOriginalAmount = item.StockOriginalAmount,
+                    stockPricePercent = item.StockPricePercent
+                });
+        }
 
         for (int i = 0; i < _battleHistory.Count; i++)
         {
@@ -380,7 +458,9 @@ public sealed class RunState
             return null;
 
         int startingMoney = data.money >= 0 ? data.money : fallbackStartingMoney;
-        int savedItemSlotCount = data.activeItemIds?.Count ?? 0;
+        int savedItemSlotCount = Math.Max(
+            data.activeItemIds?.Count ?? 0,
+            data.activeItemStates?.Count ?? 0);
         int maxActiveItemSlots = data.maxActiveItemSlots > 0
             ? Math.Max(data.maxActiveItemSlots, savedItemSlotCount)
             : Math.Max(DefaultMaxActiveItemSlots, savedItemSlotCount);
@@ -414,7 +494,31 @@ public sealed class RunState
         if (data.activeItemIds != null)
         {
             for (int i = 0; i < data.activeItemIds.Count; i++)
-                state._activeItemIds[i] = string.IsNullOrWhiteSpace(data.activeItemIds[i]) ? null : data.activeItemIds[i];
+            {
+                string itemId = string.IsNullOrWhiteSpace(data.activeItemIds[i]) ? null : data.activeItemIds[i];
+                state._activeItemIds[i] = itemId;
+                state._activeItemStates[i] = ActiveItemRuntimeState.Create(itemId);
+            }
+        }
+
+        if (data.activeItemStates != null)
+        {
+            int stateCount = Math.Min(data.activeItemStates.Count, state._activeItemStates.Count);
+            for (int i = 0; i < stateCount; i++)
+            {
+                ActiveItemStateData itemData = data.activeItemStates[i];
+                if (itemData == null || string.IsNullOrWhiteSpace(itemData.itemId))
+                    continue;
+
+                ActiveItemRuntimeState item = string.Equals(itemData.itemId, ActiveItemResolver.StockSell, StringComparison.OrdinalIgnoreCase)
+                    ? ActiveItemRuntimeState.CreateStockHolding(itemData.stockOriginalAmount, itemData.stockPricePercent)
+                    : ActiveItemRuntimeState.Create(itemData.itemId);
+                if (item == null)
+                    continue;
+
+                state._activeItemIds[i] = item.ItemId;
+                state._activeItemStates[i] = item;
+            }
         }
 
         if (data.battleHistory != null)
@@ -537,6 +641,13 @@ public sealed class RunState
         return -1;
     }
 
+    private bool IsValidActiveItemSlot(int slotIndex)
+    {
+        return slotIndex >= 0
+            && slotIndex < _activeItemIds.Count
+            && slotIndex < _activeItemStates.Count;
+    }
+
     private int FindActiveItemSlot(string itemId)
     {
         for (int i = 0; i < _activeItemIds.Count; i++)
@@ -550,7 +661,10 @@ public sealed class RunState
     private void AddEmptyActiveItemSlots(int count)
     {
         for (int i = 0; i < count; i++)
+        {
             _activeItemIds.Add(null);
+            _activeItemStates.Add(null);
+        }
     }
 
     private static List<RunCard> CreateStandardRunDeck()

@@ -49,9 +49,21 @@ public sealed class TooltipPanel : MonoBehaviour
 
         _owner = owner;
         displayNameText.text = definition.DisplayName;
-        descriptionText.text = definition.Description;
+        descriptionText.text = owner.FormatDescription(definition.Description);
         gameObject.SetActive(true);
         PositionAt(screenPosition);
+        return true;
+    }
+
+    public bool Refresh(TooltipTrigger owner)
+    {
+        if (owner == null || _owner != owner || catalog == null)
+            return false;
+        if (!TryGetDefinition(owner.ContentId, owner.FallbackContentId, out TooltipContentDefinition definition))
+            return false;
+
+        displayNameText.text = definition.DisplayName;
+        descriptionText.text = owner.FormatDescription(definition.Description);
         return true;
     }
 

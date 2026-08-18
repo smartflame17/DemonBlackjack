@@ -53,6 +53,8 @@ public sealed class ShopCatalog : ScriptableObject
         catalog.activeItems.Add(Create<ActiveItemDefinition>(ActiveItemResolver.DrawTwoDiamonds, "내정자 면접: 다이아", "덱에서 다이아 카드 2장을 손패로 드로우합니다.", 10));
         catalog.activeItems.Add(Create<ActiveItemDefinition>(ActiveItemResolver.DrawTwoClubs, "내정자 면접: 클로버", "덱에서 클로버 카드 2장을 손패로 드로우합니다.", 10));
         catalog.activeItems.Add(Create<ActiveItemDefinition>(ActiveItemResolver.DrawTwoSpades, "내정자 면접: 스페이드", "덱에서 스페이드 카드 2장을 손패로 드로우합니다.", 10));
+        catalog.activeItems.Add(Create<ActiveItemDefinition>(ActiveItemResolver.BurstDeny, "부가세 면제", "이번 라운드 동안 버스트 벌금을 내지 않습니다.", 10));
+        catalog.activeItems.Add(Create<ActiveItemDefinition>(ActiveItemResolver.StockBuy, "주식 매수", "사용 시 입력한 금액만큼 주식을 매수합니다. 보유 주식은 라운드 시작마다 변동합니다.", 10));
         catalog.relics.Add(Create<RelicDefinition>(RelicRuleResolver.BurstTwentyTwo, "Twenty-Two", "Raise your burst threshold to 22.", 50));
         catalog.cardUpgrades.Add(CreateCardUpgrade(CardModifierResolver.RankToHearts, "Heart Imprint", "Cards of the selected rank become Hearts when played.", 25, CardUpgradeAssignmentType.NumberedCards));
         catalog.cardUpgrades.Add(CreateCardUpgrade(CardModifierResolver.RankToDiamonds, "Diamond Imprint", "Cards of the selected rank become Diamonds when played.", 25, CardUpgradeAssignmentType.NumberedCards));

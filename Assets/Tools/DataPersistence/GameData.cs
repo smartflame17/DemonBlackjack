@@ -5,7 +5,7 @@ using System.Collections.Generic;
 
 public sealed class GameData
 {
-    public const int CurrentSchemaVersion = 2;
+    public const int CurrentSchemaVersion = 3;
 
     // Store game info (mostly RunState) here
     public int schemaVersion;
@@ -37,10 +37,19 @@ public sealed class RunStateData
     public List<string> relicIds = new();
     public List<string> globalModifierIds = new();
     public List<string> activeItemIds = new();
+    public List<ActiveItemStateData> activeItemStates = new();
     public List<BattleResultData> battleHistory = new();
     public List<DevilAffinityData> devilAffinities = new();
     public List<RankModifierData> rankModifierIds = new();
     public BattleStateData battleState;
+}
+
+[Serializable]
+public sealed class ActiveItemStateData
+{
+    public string itemId;
+    public int stockOriginalAmount;
+    public int stockPricePercent = StockValueResolver.InitialPricePercent;
 }
 
 [Serializable]
@@ -133,6 +142,7 @@ public sealed class RoundStateData
     public bool wagerCommitted;
     public bool playerBurstPenaltyResolved;
     public bool opponentBurstPenaltyResolved;
+    public bool playerBurstPenaltySuppressed;
     public int opponentMoneyLost;
     public int playerMoneyLost;
     public int playerPokerEarnings;

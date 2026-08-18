@@ -111,6 +111,7 @@ public sealed class BattleUiPresenter : MonoBehaviour
                 && battle != null
                 && battle.Phase == BattlePhase.PlayerPhase
                 && !battleController.IsWaitingForVisuals
+                && !battle.HasPendingActiveItemUse
                 && !_turnHandoffPending
                 && battle.CurrentRound != null;
         }
@@ -553,7 +554,7 @@ public sealed class BattleUiPresenter : MonoBehaviour
             && ReferenceEquals(battleController.BattleState, battle)
             && battle != null
             && ReferenceEquals(battle.CurrentRound, round)
-            && battle.HasPendingActiveItemSelection;
+            && battle.HasPendingActiveItemUse;
     }
 
     private bool ExecuteTurnHandoff(TurnHandoffAction action)
