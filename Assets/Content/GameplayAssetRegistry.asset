@@ -186,12 +186,12 @@ MonoBehaviour:
   - devilId: devil1_widearms
     sprite: {fileID: -8419792903860666056, guid: fdc014e9913d8dd49a8afc3407a833f6, type: 3}
   - devilId: devil2_default
-    sprite: {fileID: 580316479411144667, guid: 014c6a38faff078439163a0e74bdf334, type: 3}
+    sprite: {fileID: -589338163919037845, guid: 014c6a38faff078439163a0e74bdf334, type: 3}
   - devilId: devil2_eyeclosed
     sprite: {fileID: -904090978863980773, guid: 014c6a38faff078439163a0e74bdf334, type: 3}
-  - devilId: devil2_handonhip
-    sprite: {fileID: -589338163919037845, guid: 014c6a38faff078439163a0e74bdf334, type: 3}
-  - devilId: devil2_sideeye
+  - devilId: devil2_handonear
+    sprite: {fileID: 580316479411144667, guid: 014c6a38faff078439163a0e74bdf334, type: 3}
+  - devilId: devil2_sweat
     sprite: {fileID: -1104434482324947157, guid: 014c6a38faff078439163a0e74bdf334, type: 3}
   - devilId: devil2_smug
     sprite: {fileID: 5376934044355377436, guid: 014c6a38faff078439163a0e74bdf334, type: 3}

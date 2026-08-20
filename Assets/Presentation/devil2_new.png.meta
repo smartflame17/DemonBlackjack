@@ -112,7 +112,7 @@ TextureImporter:
     serializedVersion: 2
     sprites:
     - serializedVersion: 2
-      name: devil2_new_handonhip
+      name: devil2_new_defaul
       rect:
         serializedVersion: 2
         x: 1530
@@ -134,7 +134,7 @@ TextureImporter:
       edges: []
       weights: []
     - serializedVersion: 2
-      name: devil2_new_default
+      name: devil2_new_handonear
       rect:
         serializedVersion: 2
         x: 3274
@@ -237,8 +237,8 @@ TextureImporter:
     nameFileIdTable:
       devil2_new_blus: -1104434482324947157
       devil2_new_blush: -904090978863980773
-      devil2_new_default: 580316479411144667
-      devil2_new_handonhip: -589338163919037845
+      devil2_new_defaul: -589338163919037845
+      devil2_new_handonear: 580316479411144667
       devil2_new_smug: 5376934044355377436
   mipmapLimitGroupName: 
   pSDRemoveMatte: 0
