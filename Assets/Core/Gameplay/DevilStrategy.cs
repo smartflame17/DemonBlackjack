@@ -176,6 +176,16 @@ public class BasicDevilStrategy : IDevilStrategy, IPersistableDevilStrategy
         return currentScore < 17;
     }
 
+    protected static bool[] RestoreDialogueFlags(List<bool> source)
+    {
+        var result = new bool[4];
+        if (source == null)
+            return result;
+
+        for (int i = 0; i < Math.Min(result.Length, source.Count); i++)
+            result[i] = source[i];
+        return result;
+    }
 }
 
 public class Devil1Strategy : BasicDevilStrategy, IDevilOpponentFieldModifier, IDevilRoundPayoutModifier
@@ -357,24 +367,18 @@ public class Devil1Strategy : BasicDevilStrategy, IDevilOpponentFieldModifier, I
         return null; // No dialogue to show
     }
 
-    private static bool[] RestoreDialogueFlags(List<bool> source)
-    {
-        var result = new bool[4];
-        if (source == null)
-            return result;
-
-        for (int i = 0; i < Math.Min(result.Length, source.Count); i++)
-            result[i] = source[i];
-        return result;
-    }
-
     // Additional devil-specific logic can be added here if needed
 }
 
 public class Devil2Strategy : BasicDevilStrategy, IDevilRoundWagerModifier, IDevilPokerPayoutModifier
 {
+    private readonly int startingMoney;
     private int currentWager;
     private int lastResolvedRoundNumber = -1;
+    private int winStreak = 0;
+    private int lossStreak = 0;
+    private bool[] winStreakDialogueShown = new bool[4]; // Track if win streak dialogue has been shown for 2, 3, and 4 wins
+    private bool[] lossStreakDialogueShown = new bool[4]; // Track if loss streak dialogue has been shown for 2, 3, and 4 losses
 
     public Devil2Strategy(int drawValue = 3) : base(drawValue)
     {
@@ -388,7 +392,11 @@ public class Devil2Strategy : BasicDevilStrategy, IDevilRoundWagerModifier, IDev
         {
             strategyId = PersistenceId,
             currentWager = currentWager,
-            lastResolvedRoundNumber = lastResolvedRoundNumber
+            winStreak = winStreak,
+            lossStreak = lossStreak,
+            lastResolvedRoundNumber = lastResolvedRoundNumber,
+            winStreakDialogueShown = new List<bool>(winStreakDialogueShown),
+            lossStreakDialogueShown = new List<bool>(lossStreakDialogueShown)
         };
     }
 
@@ -398,7 +406,11 @@ public class Devil2Strategy : BasicDevilStrategy, IDevilRoundWagerModifier, IDev
             return;
 
         currentWager = Math.Max(0, data.currentWager);
+        winStreak = Math.Max(0, data.winStreak);
+        lossStreak = Math.Max(0, data.lossStreak);
         lastResolvedRoundNumber = data.lastResolvedRoundNumber;
+        winStreakDialogueShown = RestoreDialogueFlags(data.winStreakDialogueShown);
+        lossStreakDialogueShown = RestoreDialogueFlags(data.lossStreakDialogueShown);
     }
 
     public override void UpdateDevilState(DevilStateUpdateContext context)
@@ -410,8 +422,55 @@ public class Devil2Strategy : BasicDevilStrategy, IDevilRoundWagerModifier, IDev
         }
 
         lastResolvedRoundNumber = context.Round.RoundNumber;
+        UpdateStreaks(context.Resolution.Value);
+        RefreshMoneyState(context.Battle);
+
         if (context.Resolution.Value.Winner == Combatant.Player)
             currentWager = InflateWager(context.Round.BaseWager);
+    }
+
+    private void RefreshMoneyState(BattleState battle)
+    {
+        if (battle.OpponentMoney <= startingMoney * 0.2f)
+        {
+            PixelCrushers.DialogueSystem.DialogueLua.SetVariable("OverrideToLowAffinity", true);
+            PixelCrushers.DialogueSystem.DialogueLua.SetVariable("OverrideToMidAffinity", false);
+        }
+        else if (battle.OpponentMoney <= startingMoney * 0.4f)
+        {
+            PixelCrushers.DialogueSystem.DialogueLua.SetVariable("OverrideToLowAffinity", false);
+            PixelCrushers.DialogueSystem.DialogueLua.SetVariable("OverrideToMidAffinity", true);
+        }
+        else
+        {
+            PixelCrushers.DialogueSystem.DialogueLua.SetVariable("OverrideToLowAffinity", false);
+            PixelCrushers.DialogueSystem.DialogueLua.SetVariable("OverrideToMidAffinity", false);
+        }
+    }
+
+    private void UpdateStreaks(RoundResolution resolution)
+    {
+        //if (resolution.Winner == Combatant.Opponent)
+        if (resolution.OpponentMoneyLost < resolution.PlayerMoneyLost)
+        {
+            winStreak++;
+            lossStreak = 0;
+            int affinity = PixelCrushers.DialogueSystem.DialogueLua.GetVariable("Devil2Affinity").asInt;
+            PixelCrushers.DialogueSystem.DialogueLua.SetVariable("Devil2Affinity", affinity + 5);
+        }
+        //else if (resolution.Winner == Combatant.Player)
+        else if (resolution.PlayerMoneyLost < resolution.OpponentMoneyLost)
+        {
+            lossStreak++;
+            winStreak = 0;
+            int affinity = PixelCrushers.DialogueSystem.DialogueLua.GetVariable("Devil2Affinity").asInt;
+            PixelCrushers.DialogueSystem.DialogueLua.SetVariable("Devil2Affinity", affinity - 5);
+        }
+        else
+        {
+            winStreak = 0;
+            lossStreak = 0;
+        }
     }
 
     public int GetRoundWager(BattleState battle, int baseWager)
@@ -450,7 +509,17 @@ public class Devil2Strategy : BasicDevilStrategy, IDevilRoundWagerModifier, IDev
 
     public override string GetDialogueId()
     {
-        return null;
+        if (winStreak >= 2 && winStreak <= 4 && !winStreakDialogueShown[winStreak - 1])
+        {
+            winStreakDialogueShown[winStreak - 1] = true;
+            return $"devil2_WinStreak{winStreak}_Dialogue";
+        }
+        else if (lossStreak >= 2 && lossStreak <= 4 && !lossStreakDialogueShown[lossStreak - 1])
+        {
+            lossStreakDialogueShown[lossStreak - 1] = true;
+            return $"devil2_LossStreak{lossStreak}_Dialogue";
+        }
+        return null; // No dialogue to show
     }
 }
 
