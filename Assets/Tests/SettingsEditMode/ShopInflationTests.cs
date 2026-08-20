@@ -1,3 +1,4 @@
+#if UNITY_EDITOR && UNITY_INCLUDE_TESTS
 using System;
 using System.Linq;
 using System.Reflection;
@@ -131,3 +132,4 @@ public sealed class ShopInflationTests
         return property.GetValue(target);
     }
 }
+#endif

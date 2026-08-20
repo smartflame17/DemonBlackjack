@@ -1,3 +1,4 @@
+#if UNITY_EDITOR && UNITY_INCLUDE_TESTS
 using System;
 using System.Collections;
 using System.Collections.Generic;
@@ -461,3 +462,4 @@ public sealed class BattlePersistenceTests
             Invoke(battle, "Dispose");
     }
 }
+#endif

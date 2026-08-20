@@ -1,3 +1,4 @@
+#if UNITY_EDITOR && UNITY_INCLUDE_TESTS
 using System;
 using System.Collections;
 using System.Linq;
@@ -344,3 +345,4 @@ public sealed class BurstDenyAndStockFeatureTests
         return null;
     }
 }
+#endif

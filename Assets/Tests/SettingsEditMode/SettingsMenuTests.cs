@@ -1,3 +1,4 @@
+#if UNITY_EDITOR && UNITY_INCLUDE_TESTS
 using System;
 using System.Collections;
 using System.Collections.Generic;
@@ -314,3 +315,4 @@ public sealed class SettingsMenuTests
         return null;
     }
 }
+#endif

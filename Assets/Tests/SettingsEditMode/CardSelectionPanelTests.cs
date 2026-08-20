@@ -1,3 +1,4 @@
+#if UNITY_EDITOR && UNITY_INCLUDE_TESTS
 using System;
 using System.Collections.Generic;
 using System.Linq;
@@ -393,3 +394,4 @@ public sealed class CardSelectionPanelTests
         Assert.That(exception.InnerException, Is.TypeOf<T>());
     }
 }
+#endif

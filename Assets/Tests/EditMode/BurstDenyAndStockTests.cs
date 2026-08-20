@@ -1,3 +1,4 @@
+#if UNITY_EDITOR && UNITY_INCLUDE_TESTS
 using NUnit.Framework;
 using TMPro;
 using UnityEngine;
@@ -229,3 +230,4 @@ public sealed class BurstDenyAndStockTests
         return null;
     }
 }
+#endif
