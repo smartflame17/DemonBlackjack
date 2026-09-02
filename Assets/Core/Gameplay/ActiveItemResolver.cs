@@ -12,6 +12,9 @@ public static class ActiveItemResolver
     public const string DrawTwoDiamonds = "draw_two_diamonds";
     public const string DrawTwoClubs = "draw_two_clubs";
     public const string DrawTwoSpades = "draw_two_spades";
+    public const string BurstDeny = "burst_deny";
+    public const string StockBuy = "stock_buy";
+    public const string StockSell = "stock_sell";
 
     public static bool CanApply(string itemId, BattleState battle)
     {
@@ -25,6 +28,9 @@ public static class ActiveItemResolver
             DoubleWager => battle.CanDoubleCurrentRoundWager(),
             LeverageTriple => battle.CanTripleCurrentRoundWager(),
             BurstThresholdPlusThree => battle.CanIncreasePlayerBurstThreshold(GameplayConstants.ActiveItemValue.BurstThresholdPlusThreeItemIncrease),
+            BurstDeny => battle.CanSuppressPlayerBurstPenalty(),
+            StockBuy => battle.PlayerMoney > 0,
+            StockSell => battle.RunState.HasActiveItem(StockSell),
             ReturnPlayerFieldCardToHand => battle.CanTargetPlayerPlayedCard(),
             _ => false
         } || TryGetSuitDraw(itemId, out Suit suit) && battle.CanDrawPlayerCards(suit);
@@ -42,6 +48,7 @@ public static class ActiveItemResolver
             DoubleWager => battle.DoubleCurrentRoundWager(),
             LeverageTriple => battle.TripleCurrentRoundWager(),
             BurstThresholdPlusThree => battle.IncreasePlayerBurstThreshold(GameplayConstants.ActiveItemValue.BurstThresholdPlusThreeItemIncrease),
+            BurstDeny => battle.SuppressPlayerBurstPenalty(),
             ReturnPlayerFieldCardToHand => false,
             _ => false
         } || TryGetSuitDraw(itemId, out Suit suit) && battle.DrawCardsToPlayerHand(suit, GameplayConstants.ActiveItemValue.DrawTwoItemDrawCount) > 0;
@@ -50,6 +57,24 @@ public static class ActiveItemResolver
     public static bool RequiresCardSelection(string itemId)
     {
         return itemId == RejectLastHit || itemId == ReturnPlayerFieldCardToHand;
+    }
+
+    public static bool RequiresMoneyInput(string itemId)
+    {
+        return itemId == StockBuy;
+    }
+
+    public static bool CanApply(ActiveItemRuntimeState item, BattleState battle)
+    {
+        if (item == null || battle == null)
+            return false;
+
+        if (string.Equals(item.ItemId, StockSell, System.StringComparison.OrdinalIgnoreCase))
+            return item.IsStockHolding && battle.CurrentRound != null;
+
+        return item.IsStockHolding
+            ? battle.CurrentRound != null
+            : CanApply(item.ItemId, battle);
     }
 
     public static bool TryApplySelection(string itemId, BattleState battle, IReadOnlyList<int> selectedIndices)

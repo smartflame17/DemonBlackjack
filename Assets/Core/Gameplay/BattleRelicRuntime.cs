@@ -21,6 +21,15 @@ public abstract class BattleRelicRuntime : IDisposable
     protected BattleConfig Config => Battle.Config;
     public virtual int OpponentBlackjackBonus => 0;
 
+    public virtual RelicRuntimeStateData CapturePersistenceState()
+    {
+        return new RelicRuntimeStateData { relicId = RelicId };
+    }
+
+    public virtual void RestorePersistenceState(RelicRuntimeStateData data)
+    {
+    }
+
     public virtual Card TransformPlayerPlayedCard(Card card)
     {
         return PreviewPlayerPlayedCard(card);
@@ -142,6 +151,16 @@ public sealed class AddJqkRelicRuntime : BattleRelicRuntime
 
     public override int OpponentBlackjackBonus => _bonus;
 
+    public override RelicRuntimeStateData CapturePersistenceState()
+    {
+        return new RelicRuntimeStateData { relicId = RelicId, counter = _bonus };
+    }
+
+    public override void RestorePersistenceState(RelicRuntimeStateData data)
+    {
+        _bonus = Math.Max(0, data?.counter ?? 0);
+    }
+
     private void OnRoundStarted(RoundStartedEvent eventData)
     {
         ResetRoundState();
@@ -181,6 +200,16 @@ public sealed class BurstExtendRelicRuntime : BattleRelicRuntime
         Subscribe<PlayerHitUsedEvent>(OnPlayerHitUsed);
     }
 
+    public override RelicRuntimeStateData CapturePersistenceState()
+    {
+        return new RelicRuntimeStateData { relicId = RelicId, counter = _hitCount };
+    }
+
+    public override void RestorePersistenceState(RelicRuntimeStateData data)
+    {
+        _hitCount = Math.Clamp(data?.counter ?? 0, 0, Math.Max(0, HitTarget - 1));
+    }
+
     private void OnPlayerHitUsed(PlayerHitUsedEvent eventData)
     {
         _hitCount++;
@@ -216,6 +245,24 @@ public sealed class SuitOverrideRelicRuntime : BattleRelicRuntime
     {
         Subscribe<RoundStartedEvent>(OnRoundStarted);
         Subscribe<RoundEndedEvent>(OnRoundEnded);
+    }
+
+    public override RelicRuntimeStateData CapturePersistenceState()
+    {
+        return new RelicRuntimeStateData
+        {
+            relicId = RelicId,
+            hasAnchor = _hasAnchor,
+            anchorRank = _anchorRank,
+            anchorSuit = _anchorSuit
+        };
+    }
+
+    public override void RestorePersistenceState(RelicRuntimeStateData data)
+    {
+        _hasAnchor = data?.hasAnchor ?? false;
+        _anchorRank = data?.anchorRank ?? default;
+        _anchorSuit = data?.anchorSuit ?? default;
     }
 
     public override Card TransformPlayerPlayedCard(Card card)

@@ -67,7 +67,7 @@ public static class MoneyResolver
         int wager)
     {
         int playerBurstAmount = CalculateBurstTransferAmount(round.PlayerScore, round.PlayerBurstThreshold);
-        if (playerBurstAmount > 0)// && !round.PlayerBurstPenaltyResolved)
+        if (playerBurstAmount > 0 && !round.PlayerBurstPenaltySuppressed)// && !round.PlayerBurstPenaltyResolved)
         {
             int lost = TransferPlayerToOpponent(battle, playerBurstAmount);
             round.RecordMoneyLost(Combatant.Player, lost);

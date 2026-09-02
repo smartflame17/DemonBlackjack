@@ -66,6 +66,7 @@ public sealed class RoundState
     public int Pot => PlayerStake + OpponentStake;
     public bool PlayerBurstPenaltyResolved { get; private set; }
     public bool OpponentBurstPenaltyResolved { get; private set; }
+    public bool PlayerBurstPenaltySuppressed { get; private set; }
     public int OpponentMoneyLost { get; private set; }
     public int PlayerMoneyLost { get; private set; }
     public int PlayerPokerEarnings { get; private set; }
@@ -549,6 +550,15 @@ public sealed class RoundState
             OpponentBurstPenaltyResolved = true;
     }
 
+    public bool SuppressPlayerBurstPenalty()
+    {
+        if (PlayerBurstPenaltySuppressed)
+            return false;
+
+        PlayerBurstPenaltySuppressed = true;
+        return true;
+    }
+
     public void RecordMoneyLost(Combatant combatant, int amount)
     {
         int finalAmount = Math.Max(0, amount);
@@ -667,6 +677,137 @@ public sealed class RoundState
         _revealedFutureCards.Clear();
         _pendingEffectIds.Clear();
         _scoringModifiers.Clear();
+    }
+
+    public RoundStateData ToData()
+    {
+        var data = new RoundStateData
+        {
+            roundNumber = RoundNumber,
+            playerBurstThreshold = PlayerBurstThreshold,
+            opponentBurstThreshold = OpponentBurstThreshold,
+            baseWager = BaseWager,
+            wagerMultiplier = WagerMultiplier,
+            playerStake = PlayerStake,
+            opponentStake = OpponentStake,
+            playerActsFirst = PlayerActsFirst,
+            wagerCommitted = WagerCommitted,
+            playerBurstPenaltyResolved = PlayerBurstPenaltyResolved,
+            opponentBurstPenaltyResolved = OpponentBurstPenaltyResolved,
+            playerBurstPenaltySuppressed = PlayerBurstPenaltySuppressed,
+            opponentMoneyLost = OpponentMoneyLost,
+            playerMoneyLost = PlayerMoneyLost,
+            playerPokerEarnings = PlayerPokerEarnings,
+            playerStood = PlayerStood,
+            opponentStood = OpponentStood,
+            playerPlayedThisTurn = PlayerPlayedThisTurn,
+            opponentPlayedThisTurn = OpponentPlayedThisTurn,
+            maxPlayedPileCardCount = _maxPlayedPileCardCount,
+            playerScore = ScoreResultData.FromScoreResult(PlayerScore),
+            opponentScore = ScoreResultData.FromScoreResult(OpponentScore)
+        };
+
+        AddCards(data.playerHand, _playerHand);
+        AddCards(data.playerPlayedCards, _playerPlayedCards);
+        AddCards(data.opponentHand, _opponentHand);
+        AddCards(data.opponentVisibleCards, _opponentVisibleCards);
+        AddCards(data.opponentOriginalVisibleCards, _opponentOriginalVisibleCards);
+        data.opponentVisibleCardOwners.AddRange(_opponentVisibleCardOwners);
+        AddCards(data.sharedVisibleCards, _sharedVisibleCards);
+        AddCards(data.lockedCards, _lockedCards);
+        AddCards(data.revealedFutureCards, _revealedFutureCards);
+        data.pendingEffectIds.AddRange(_pendingEffectIds);
+        for (int i = 0; i < _scoringModifiers.Count; i++)
+            data.scoringModifiers.Add(ModifierData.FromModifier(_scoringModifiers[i]));
+        data.achievedPlayerPokerHandRanks.AddRange(_achievedPlayerPokerHandRanks);
+        return data;
+    }
+
+    public static RoundState FromData(RoundStateData data)
+    {
+        if (data == null
+            || data.roundNumber <= 0
+            || data.playerScore == null
+            || data.opponentScore == null
+            || data.opponentVisibleCards == null
+            || data.opponentOriginalVisibleCards == null
+            || data.opponentVisibleCardOwners == null
+            || data.opponentVisibleCards.Count != data.opponentOriginalVisibleCards.Count
+            || data.opponentVisibleCards.Count != data.opponentVisibleCardOwners.Count)
+        {
+            return null;
+        }
+
+        var state = new RoundState(
+            data.roundNumber,
+            Math.Max(1, data.playerBurstThreshold),
+            Math.Max(1, data.opponentBurstThreshold),
+            Math.Max(0, data.baseWager),
+            data.playerActsFirst,
+            data.maxPlayedPileCardCount);
+
+        state.WagerMultiplier = Math.Max(1, data.wagerMultiplier);
+        state.PlayerStake = Math.Max(0, data.playerStake);
+        state.OpponentStake = Math.Max(0, data.opponentStake);
+        state.WagerCommitted = data.wagerCommitted;
+        state.PlayerBurstPenaltyResolved = data.playerBurstPenaltyResolved;
+        state.OpponentBurstPenaltyResolved = data.opponentBurstPenaltyResolved;
+        state.PlayerBurstPenaltySuppressed = data.playerBurstPenaltySuppressed;
+        state.OpponentMoneyLost = Math.Max(0, data.opponentMoneyLost);
+        state.PlayerMoneyLost = Math.Max(0, data.playerMoneyLost);
+        state.PlayerPokerEarnings = Math.Max(0, data.playerPokerEarnings);
+        state.PlayerStood = data.playerStood;
+        state.OpponentStood = data.opponentStood;
+        state.PlayerPlayedThisTurn = data.playerPlayedThisTurn;
+        state.OpponentPlayedThisTurn = data.opponentPlayedThisTurn;
+        state.PlayerScore = data.playerScore.ToScoreResult();
+        state.OpponentScore = data.opponentScore.ToScoreResult();
+
+        AddCards(state._playerHand, data.playerHand);
+        AddCards(state._playerPlayedCards, data.playerPlayedCards);
+        AddCards(state._opponentHand, data.opponentHand);
+        AddCards(state._opponentVisibleCards, data.opponentVisibleCards);
+        AddCards(state._opponentOriginalVisibleCards, data.opponentOriginalVisibleCards);
+        state._opponentVisibleCardOwners.AddRange(data.opponentVisibleCardOwners);
+        if (state._opponentVisibleCards.Count != state._opponentOriginalVisibleCards.Count
+            || state._opponentVisibleCards.Count != state._opponentVisibleCardOwners.Count)
+        {
+            return null;
+        }
+        AddCards(state._sharedVisibleCards, data.sharedVisibleCards);
+        AddCards(state._lockedCards, data.lockedCards);
+        AddCards(state._revealedFutureCards, data.revealedFutureCards);
+        if (data.pendingEffectIds != null)
+            state._pendingEffectIds.AddRange(data.pendingEffectIds);
+        if (data.scoringModifiers != null)
+        {
+            for (int i = 0; i < data.scoringModifiers.Count; i++)
+            {
+                if (data.scoringModifiers[i] != null)
+                    state._scoringModifiers.Add(data.scoringModifiers[i].ToModifier());
+            }
+        }
+        if (data.achievedPlayerPokerHandRanks != null)
+            state._achievedPlayerPokerHandRanks.UnionWith(data.achievedPlayerPokerHandRanks);
+        return state;
+    }
+
+    private static void AddCards(List<CardData> target, IReadOnlyList<Card> source)
+    {
+        for (int i = 0; i < source.Count; i++)
+            target.Add(CardData.FromCard(source[i]));
+    }
+
+    private static void AddCards(List<Card> target, List<CardData> source)
+    {
+        if (source == null)
+            return;
+
+        for (int i = 0; i < source.Count; i++)
+        {
+            if (source[i] != null)
+                target.Add(source[i].ToCard());
+        }
     }
 
     private void AddOpponentVisibleCard(Card card, Combatant owner)

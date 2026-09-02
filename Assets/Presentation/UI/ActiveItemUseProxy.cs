@@ -6,11 +6,14 @@ public sealed class ActiveItemUseProxy : MonoBehaviour
 {
     [SerializeField] private BattleController battleController;
     [SerializeField] private CardSelectionPanel cardSelectionPanel;
+    [SerializeField] private MoneyInputPanel moneyInputPanel;
 
-    private BattleState _selectionBattle;
-    private CardSelectionPanel _selectionPanel;
+    private BattleState _pendingBattle;
+    private CardSelectionPanel _activeCardPanel;
+    private MoneyInputPanel _activeMoneyPanel;
 
-    public bool HasPendingSelection => _selectionBattle != null;
+    public bool HasPendingSelection => _activeCardPanel != null;
+    public bool HasPendingUse => _pendingBattle != null;
 
     private void Awake()
     {
@@ -19,20 +22,20 @@ public sealed class ActiveItemUseProxy : MonoBehaviour
 
     private void Update()
     {
-        if (_selectionBattle == null)
+        if (_pendingBattle == null)
             return;
 
         if (battleController == null
-            || !ReferenceEquals(battleController.BattleState, _selectionBattle)
-            || !_selectionBattle.HasPendingActiveItemSelection)
+            || !ReferenceEquals(battleController.BattleState, _pendingBattle)
+            || !_pendingBattle.HasPendingActiveItemUse)
         {
-            CancelSelection();
+            CancelPendingUse();
         }
     }
 
     private void OnDisable()
     {
-        CancelSelection();
+        CancelPendingUse();
     }
 
     public void Initialize(BattleController controller)
@@ -44,62 +47,105 @@ public sealed class ActiveItemUseProxy : MonoBehaviour
     public bool TryUseActiveItem(string itemId)
     {
         ResolveReferences();
-        if (battleController == null || _selectionBattle != null)
+        int slotIndex = battleController?.BattleState?.RunState.FindActiveItemSlotIndex(itemId) ?? -1;
+        return TryUseActiveItemAtSlot(slotIndex);
+    }
+
+    public bool TryUseActiveItemAtSlot(int slotIndex)
+    {
+        ResolveReferences();
+        if (battleController == null || _pendingBattle != null)
             return false;
 
-        if (ActiveItemResolver.RequiresCardSelection(itemId)
-            && (cardSelectionPanel == null || cardSelectionPanel.IsOpen))
+        ActiveItemUseStartResult result = battleController.TryBeginActiveItemUseAtSlot(
+            slotIndex,
+            out ActiveItemUseRequest request);
+        if (result == ActiveItemUseStartResult.Applied)
+            return true;
+        if (result != ActiveItemUseStartResult.SelectionRequired
+            && result != ActiveItemUseStartResult.MoneyInputRequired)
         {
             return false;
         }
 
-        ActiveItemUseStartResult result = battleController.TryBeginActiveItemUse(itemId, out ActiveItemSelectionRequest request);
-        if (result == ActiveItemUseStartResult.Applied)
-            return true;
-        if (result != ActiveItemUseStartResult.SelectionRequired)
-            return false;
-
         BattleState battle = battleController.BattleState;
-        if (battle == null || cardSelectionPanel == null)
+        if (battle == null || !CanPresent(request))
         {
             battle?.CancelPendingActiveItemUse();
             return false;
         }
 
-        _selectionBattle = battle;
-        _selectionPanel = cardSelectionPanel;
-        _selectionPanel.SelectionCancelled += OnPanelSelectionCancelled;
-        _selectionBattle.ActiveItemSelectionCancelled += OnBattleSelectionCancelled;
-        _selectionBattle.EventBus.Subscribe<RoundEndedEvent>(OnRoundEnded);
-
+        AttachPendingBattle(battle);
         try
         {
-            _selectionPanel.Show(request.Cards, OnCardsChosen, request.SelectionCount);
+            if (request.InputKind == ActiveItemUseInputKind.CardSelection)
+            {
+                _activeCardPanel = cardSelectionPanel;
+                _activeCardPanel.SelectionCancelled += OnPanelCancelled;
+                _activeCardPanel.Show(
+                    request.CardSelection.Cards,
+                    OnCardsChosen,
+                    request.CardSelection.SelectionCount);
+            }
+            else
+            {
+                _activeMoneyPanel = moneyInputPanel;
+                _activeMoneyPanel.Show(request.MaximumAmount, OnMoneyConfirmed, OnPanelCancelled);
+            }
             return true;
         }
         catch (Exception exception)
         {
             Debug.LogException(exception, this);
-            CancelSelection();
+            CancelPendingUse();
             return false;
         }
     }
 
     public void CancelSelection()
     {
-        BattleState battle = _selectionBattle;
-        CardSelectionPanel panel = _selectionPanel;
-        DetachSelection();
+        CancelPendingUse();
+    }
+
+    public void CancelPendingUse()
+    {
+        BattleState battle = _pendingBattle;
+        CardSelectionPanel cardPanel = _activeCardPanel;
+        MoneyInputPanel moneyPanel = _activeMoneyPanel;
+        DetachPendingUse();
 
         battle?.CancelPendingActiveItemUse();
-        if (panel != null && panel.IsOpen)
-            panel.Cancel();
+        if (cardPanel != null && cardPanel.IsOpen)
+            cardPanel.Cancel();
+        if (moneyPanel != null && moneyPanel.IsOpen)
+            moneyPanel.Cancel();
+    }
+
+    private bool CanPresent(ActiveItemUseRequest request)
+    {
+        return request.InputKind switch
+        {
+            ActiveItemUseInputKind.CardSelection => cardSelectionPanel != null
+                && !cardSelectionPanel.IsOpen
+                && (moneyInputPanel == null || !moneyInputPanel.IsOpen),
+            ActiveItemUseInputKind.MoneyInput => moneyInputPanel != null
+                && !moneyInputPanel.IsOpen
+                && (cardSelectionPanel == null || !cardSelectionPanel.IsOpen),
+            _ => false
+        };
+    }
+
+    private void AttachPendingBattle(BattleState battle)
+    {
+        _pendingBattle = battle;
+        _pendingBattle.ActiveItemUseCancelled += OnBattleUseCancelled;
+        _pendingBattle.EventBus.Subscribe<RoundEndedEvent>(OnRoundEnded);
     }
 
     private void OnCardsChosen(IReadOnlyList<int> selectedIndices)
     {
-        BattleState battle = _selectionBattle;
-        DetachSelection();
+        BattleState battle = _pendingBattle;
+        DetachPendingUse();
 
         bool completed = battleController != null
             && ReferenceEquals(battleController.BattleState, battle)
@@ -108,43 +154,60 @@ public sealed class ActiveItemUseProxy : MonoBehaviour
             battle?.CancelPendingActiveItemUse();
     }
 
-    private void OnPanelSelectionCancelled()
+    private void OnMoneyConfirmed(int amount)
     {
-        BattleState battle = _selectionBattle;
-        DetachSelection();
+        BattleState battle = _pendingBattle;
+        DetachPendingUse();
+
+        bool completed = battleController != null
+            && ReferenceEquals(battleController.BattleState, battle)
+            && battleController.TryCompletePendingActiveItemMoneyUse(amount);
+        if (!completed)
+            battle?.CancelPendingActiveItemUse();
+    }
+
+    private void OnPanelCancelled()
+    {
+        BattleState battle = _pendingBattle;
+        DetachPendingUse();
         battle?.CancelPendingActiveItemUse();
     }
 
-    private void OnBattleSelectionCancelled()
+    private void OnBattleUseCancelled()
     {
-        CardSelectionPanel panel = _selectionPanel;
-        DetachSelection();
-        if (panel != null && panel.IsOpen)
-            panel.Cancel();
+        CardSelectionPanel cardPanel = _activeCardPanel;
+        MoneyInputPanel moneyPanel = _activeMoneyPanel;
+        DetachPendingUse();
+        if (cardPanel != null && cardPanel.IsOpen)
+            cardPanel.Cancel();
+        if (moneyPanel != null && moneyPanel.IsOpen)
+            moneyPanel.Cancel();
     }
 
     private void OnRoundEnded(RoundEndedEvent eventData)
     {
-        CancelSelection();
+        CancelPendingUse();
     }
 
-    private void DetachSelection()
+    private void DetachPendingUse()
     {
-        if (_selectionPanel != null)
-            _selectionPanel.SelectionCancelled -= OnPanelSelectionCancelled;
-        if (_selectionBattle != null)
+        if (_activeCardPanel != null)
+            _activeCardPanel.SelectionCancelled -= OnPanelCancelled;
+        if (_pendingBattle != null)
         {
-            _selectionBattle.ActiveItemSelectionCancelled -= OnBattleSelectionCancelled;
-            _selectionBattle.EventBus.Unsubscribe<RoundEndedEvent>(OnRoundEnded);
+            _pendingBattle.ActiveItemUseCancelled -= OnBattleUseCancelled;
+            _pendingBattle.EventBus.Unsubscribe<RoundEndedEvent>(OnRoundEnded);
         }
 
-        _selectionPanel = null;
-        _selectionBattle = null;
+        _activeCardPanel = null;
+        _activeMoneyPanel = null;
+        _pendingBattle = null;
     }
 
     private void ResolveReferences()
     {
         battleController ??= FindFirstObjectByType<BattleController>();
         cardSelectionPanel ??= GetComponentInChildren<CardSelectionPanel>(true);
+        moneyInputPanel ??= GetComponentInChildren<MoneyInputPanel>(true);
     }
 }

@@ -186,12 +186,12 @@ MonoBehaviour:
   - devilId: devil1_widearms
     sprite: {fileID: -8419792903860666056, guid: fdc014e9913d8dd49a8afc3407a833f6, type: 3}
   - devilId: devil2_default
-    sprite: {fileID: 580316479411144667, guid: 014c6a38faff078439163a0e74bdf334, type: 3}
+    sprite: {fileID: -589338163919037845, guid: 014c6a38faff078439163a0e74bdf334, type: 3}
   - devilId: devil2_eyeclosed
     sprite: {fileID: -904090978863980773, guid: 014c6a38faff078439163a0e74bdf334, type: 3}
-  - devilId: devil2_handonhip
-    sprite: {fileID: -589338163919037845, guid: 014c6a38faff078439163a0e74bdf334, type: 3}
-  - devilId: devil2_sideeye
+  - devilId: devil2_handonear
+    sprite: {fileID: 580316479411144667, guid: 014c6a38faff078439163a0e74bdf334, type: 3}
+  - devilId: devil2_sweat
     sprite: {fileID: -1104434482324947157, guid: 014c6a38faff078439163a0e74bdf334, type: 3}
   - devilId: devil2_smug
     sprite: {fileID: 5376934044355377436, guid: 014c6a38faff078439163a0e74bdf334, type: 3}
@@ -220,15 +220,15 @@ MonoBehaviour:
   defaultCardUpgradeSprite: {fileID: -7059865415987956715, guid: 4eb2227a6c2001847a7e4bcdd5db3b4b, type: 3}
   activeItemSprites:
   - id: hit_to_played
-    sprite: {fileID: -7354322548008651868, guid: a54ac66d40fd685499142a18eb7ad070, type: 3}
+    sprite: {fileID: 8417777343649816274, guid: df5a9272d12de034ca8d2c5d625cb17f, type: 3}
   - id: draw_three
-    sprite: {fileID: -3818982761539513507, guid: 522db6da5adb984429068ff606b1eb6e, type: 3}
+    sprite: {fileID: 94180142657087635, guid: df5a9272d12de034ca8d2c5d625cb17f, type: 3}
   - id: leverage_triple
-    sprite: {fileID: 6127503961247118764, guid: dbba752c10e044b4bb700645f6991921, type: 3}
+    sprite: {fileID: -7196959914699323039, guid: df5a9272d12de034ca8d2c5d625cb17f, type: 3}
   - id: burst_threshold_plus_three
-    sprite: {fileID: -5246776963383115981, guid: 613a3c04145c1ed4a935fd3b206336ca, type: 3}
+    sprite: {fileID: 8275301199108793199, guid: df5a9272d12de034ca8d2c5d625cb17f, type: 3}
   - id: return_player_field_card_to_hand
-    sprite: {fileID: 9150261964144613116, guid: 01b46cf092c31e84cab9c1f681efd7c8, type: 3}
+    sprite: {fileID: 4538784896223311371, guid: df5a9272d12de034ca8d2c5d625cb17f, type: 3}
   - id: draw_two_hearts
     sprite: {fileID: -8792375471566243214, guid: e275241e0756f304694d623767ba0dfa, type: 3}
   - id: draw_two_clubs

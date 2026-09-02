@@ -94,6 +94,9 @@ public sealed class ShopSystemTests
         Assert.That(item, Is.TypeOf<ActiveItemDefinition>());
         Assert.That(catalog.TryGetDefinition(ActiveItemResolver.LeverageTriple.ToUpperInvariant(), out ShopContentDefinition leverage), Is.True);
         Assert.That(leverage, Is.TypeOf<ActiveItemDefinition>());
+        Assert.That(catalog.TryGetDefinition(ActiveItemResolver.BurstDeny, out _), Is.True);
+        Assert.That(catalog.TryGetDefinition(ActiveItemResolver.StockBuy, out _), Is.True);
+        Assert.That(catalog.TryGetDefinition(ActiveItemResolver.StockSell, out _), Is.False);
         Assert.That(catalog.TryGetDefinition(RelicRuleResolver.BurstTwentyTwo.ToUpperInvariant(), out ShopContentDefinition relic), Is.True);
         Assert.That(relic, Is.TypeOf<RelicDefinition>());
         Assert.That(catalog.TryGetDefinition(CardModifierResolver.RankToHearts.ToUpperInvariant(), out ShopContentDefinition upgrade), Is.True);

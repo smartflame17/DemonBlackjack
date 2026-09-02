@@ -1,3 +1,4 @@
+#if UNITY_EDITOR && UNITY_INCLUDE_TESTS
 using System;
 using System.Collections.Generic;
 using System.Linq;
@@ -17,6 +18,7 @@ public sealed class CardSelectionPanelTests
     private Type rankType;
     private Type activeItemUseProxyType;
     private Type itemUseMenuType;
+    private Type moneyInputPanelType;
     private MethodInfo showMethod;
 
     [SetUp]
@@ -33,6 +35,7 @@ public sealed class CardSelectionPanelTests
         rankType = RequireRuntimeType("Rank");
         activeItemUseProxyType = RequireRuntimeType("ActiveItemUseProxy");
         itemUseMenuType = RequireRuntimeType("ItemUseMenu");
+        moneyInputPanelType = RequireRuntimeType("MoneyInputPanel");
         showMethod = panelType.GetMethod("Show", BindingFlags.Instance | BindingFlags.Public);
         Assert.That(showMethod, Is.Not.Null);
     }
@@ -225,6 +228,14 @@ public sealed class CardSelectionPanelTests
         Assert.That(proxy, Is.Not.Null);
         Assert.That(GetPrivateField<Component>(proxy, "cardSelectionPanel"), Is.SameAs(panel));
 
+        Transform moneyPanelTransform = FindChildRecursive(prefab.transform, "MoneyInputPanel");
+        Assert.That(moneyPanelTransform, Is.Not.Null);
+        Assert.That(moneyPanelTransform.parent, Is.EqualTo(prefab.transform));
+        Assert.That(moneyPanelTransform.gameObject.activeSelf, Is.False);
+        Component moneyPanel = moneyPanelTransform.GetComponent(moneyInputPanelType);
+        Assert.That(moneyPanel, Is.Not.Null);
+        Assert.That(GetPrivateField<Component>(proxy, "moneyInputPanel"), Is.SameAs(moneyPanel));
+
         Component itemUseMenu = prefab.GetComponentInChildren(itemUseMenuType, true);
         Assert.That(itemUseMenu, Is.Not.Null);
         Assert.That(GetPrivateField<Component>(itemUseMenu, "activeItemUseProxy"), Is.SameAs(proxy));
@@ -383,3 +394,4 @@ public sealed class CardSelectionPanelTests
         Assert.That(exception.InnerException, Is.TypeOf<T>());
     }
 }
+#endif

@@ -10,7 +10,9 @@ public class MainMenu : MonoBehaviour
     [SerializeField] private CanvasGroup mainMenuCanvasGroup;
     [SerializeField] private Image mainMenuBackground;
     [SerializeField] private Button newGameButton;
-    [SerializeField] private Button loadGameButton;
+    [SerializeField] private Button continueGameButton;
+    [SerializeField] private Button settingMenuButton;
+    [SerializeField] private SettingMenuController settingMenuController;
     [SerializeField] private Button quitGameButton;
 
     [Header("New Game Settings")]
@@ -30,10 +32,28 @@ public class MainMenu : MonoBehaviour
     private void Awake()
     {
         newGameButton.onClick.AddListener(OpenNewGameMenu);
-        loadGameButton.onClick.AddListener(LoadGame);
+        if (continueGameButton != null)
+            continueGameButton.onClick.AddListener(ContinueGame);
+        if (settingMenuButton != null)
+            settingMenuButton.onClick.AddListener(ShowSettingMenu);
         quitGameButton.onClick.AddListener(QuitGame);
         startGameButton.onClick.AddListener(StartNewGame);
         returnButton.onClick.AddListener(ReturnToMainMenu);
+    }
+
+    private void Start()
+    {
+        RefreshContinueButton();
+    }
+
+    private void OnDestroy()
+    {
+        newGameButton?.onClick.RemoveListener(OpenNewGameMenu);
+        continueGameButton?.onClick.RemoveListener(ContinueGame);
+        settingMenuButton?.onClick.RemoveListener(ShowSettingMenu);
+        quitGameButton?.onClick.RemoveListener(QuitGame);
+        startGameButton?.onClick.RemoveListener(StartNewGame);
+        returnButton?.onClick.RemoveListener(ReturnToMainMenu);
     }
 
     private void OpenNewGameMenu()
@@ -81,10 +101,31 @@ public class MainMenu : MonoBehaviour
             PersistenceManager.Instance.LoadScene("MainScene");
         }
     }
-    private void LoadGame()
+    private void ContinueGame()
     {
-        PersistenceManager.Instance.LoadGame();
-        PersistenceManager.Instance.LoadScene("MainScene");
+        if (PersistenceManager.Instance != null && PersistenceManager.Instance.TryLoadMostRecentGame())
+        {
+            PersistenceManager.Instance.LoadScene("MainScene");
+            return;
+        }
+
+        RefreshContinueButton();
+    }
+
+    private void ShowSettingMenu()
+    {
+        if (settingMenuController != null)
+            settingMenuController.gameObject.SetActive(true);
+    }
+
+    private void RefreshContinueButton()
+    {
+        if (continueGameButton == null)
+            return;
+
+        continueGameButton.gameObject.SetActive(true);
+        continueGameButton.interactable = PersistenceManager.Instance != null
+            && PersistenceManager.Instance.HasAnyValidSave();
     }
     private void QuitGame()
     {

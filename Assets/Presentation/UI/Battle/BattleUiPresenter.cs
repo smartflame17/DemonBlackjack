@@ -93,6 +93,7 @@ public sealed class BattleUiPresenter : MonoBehaviour
     private PlayerHandHitDragHandler _playerHandHitDragHandler;
     private Coroutine _roundStartRoutine;
     private Coroutine _turnHandoffRoutine;
+    private Coroutine _restoredLayoutRebuildRoutine;
     private BattleState _scheduledRoundBattle;
     private BattleState _scheduledTurnBattle;
     private RoundState _scheduledTurnRound;
@@ -110,6 +111,7 @@ public sealed class BattleUiPresenter : MonoBehaviour
                 && battle != null
                 && battle.Phase == BattlePhase.PlayerPhase
                 && !battleController.IsWaitingForVisuals
+                && !battle.HasPendingActiveItemUse
                 && !_turnHandoffPending
                 && battle.CurrentRound != null;
         }
@@ -174,6 +176,7 @@ public sealed class BattleUiPresenter : MonoBehaviour
     {
         CancelPendingRoundStart();
         CancelPendingTurnHandoff();
+        CancelRestoredLayoutRebuild();
         HidePlayerChoiceMoneyPreview();
         SetActive(roundStartPanel, false);
         ClearGeneratedBattleCards();
@@ -223,7 +226,15 @@ public sealed class BattleUiPresenter : MonoBehaviour
 
         BattleState battle = battleController != null ? battleController.BattleState : null;
         RoundState round = battle?.CurrentRound;
+        bool restoredPostRound = IsRestoredPostRound(battle);
         RefreshDevilAbilityTooltip(battle);
+
+        if (restoredPostRound)
+        {
+            KillCardTweens();
+            RememberRenderedCards(round);
+        }
+
         CaptureHandSnapshots();
 
         if (battle == null)
@@ -251,10 +262,11 @@ public sealed class BattleUiPresenter : MonoBehaviour
         RenderCards(_playerCards, playerHandRoot, round?.PlayerHand.Count ?? 0, round?.PlayerHand, true, CanSelectCards(battle), false);
         RenderCards(_opponentCards, opponentHandRoot, round?.OpponentHand.Count ?? 0, round?.OpponentHand, false, false, true);
         RenderPlayPile(round, _suppressRoundPilesUntilNextRound && battle.Phase == BattlePhase.Cleanup);
-        AnimateCardChanges(round, animationContext);
+        if (!restoredPostRound)
+            AnimateCardChanges(round, animationContext);
 
         bool suppressBlockingPanels = battleController != null && battleController.InputGate != null;
-        bool roundFinished = battle.Phase == BattlePhase.Cleanup;
+        bool roundFinished = battle.Phase == BattlePhase.Cleanup || battle.Phase == BattlePhase.PostRound;
         bool battleFinished = battle.Phase == BattlePhase.BattleEnd && !suppressBlockingPanels;
         SetPanels(shouldStartRound && !suppressBlockingPanels, roundFinished, battleFinished);
 
@@ -269,6 +281,9 @@ public sealed class BattleUiPresenter : MonoBehaviour
             && !battleController.IsWaitingForVisuals
             && !_turnHandoffPending);
         RememberRenderedCards(round);
+
+        if (restoredPostRound)
+            ScheduleRestoredLayoutRebuild();
     }
 
     public void ClearGeneratedBattleCards()
@@ -468,8 +483,17 @@ public sealed class BattleUiPresenter : MonoBehaviour
     {
         CancelPendingTurnHandoff();
         _suppressRoundPilesUntilNextRound = false;
-        ScheduleRoundStart(battleController?.BattleState);
+        BattleState battle = battleController?.BattleState;
+        ScheduleRoundStart(battle);
         Refresh();
+    }
+
+    private bool IsRestoredPostRound(BattleState battle)
+    {
+        return battle != null
+            && battle.Phase == BattlePhase.PostRound
+            && battleController != null
+            && battleController.IsWaitingForVisuals;
     }
 
     private void OnBattleEnded(BattleEndedEvent eventData)
@@ -530,7 +554,7 @@ public sealed class BattleUiPresenter : MonoBehaviour
             && ReferenceEquals(battleController.BattleState, battle)
             && battle != null
             && ReferenceEquals(battle.CurrentRound, round)
-            && battle.HasPendingActiveItemSelection;
+            && battle.HasPendingActiveItemUse;
     }
 
     private bool ExecuteTurnHandoff(TurnHandoffAction action)
@@ -1224,6 +1248,39 @@ public sealed class BattleUiPresenter : MonoBehaviour
         }
 
         LayoutRebuilder.ForceRebuildLayoutImmediate(root);
+    }
+
+    private void ScheduleRestoredLayoutRebuild()
+    {
+        CancelRestoredLayoutRebuild();
+        if (isActiveAndEnabled)
+            _restoredLayoutRebuildRoutine = StartCoroutine(RebuildRestoredCardLayouts());
+    }
+
+    private IEnumerator RebuildRestoredCardLayouts()
+    {
+        // Restored cards are instantiated together during BattleStartedEvent. Waiting for
+        // Unity's next layout pass lets LayoutElements and the parent canvas settle first.
+        for (int i = 0; i < 2; i++)
+        {
+            yield return null;
+            Canvas.ForceUpdateCanvases();
+            RebuildCardLayoutGroups(playerHandRoot);
+            RebuildCardLayoutGroups(opponentHandRoot);
+            RebuildCardLayoutGroups(devilPlayPileRoot);
+            RebuildCardLayoutGroups(sharedPlayPileRoot);
+            RebuildCardLayoutGroups(playerPlayPileRoot);
+            Canvas.ForceUpdateCanvases();
+        }
+
+        _restoredLayoutRebuildRoutine = null;
+    }
+
+    private void CancelRestoredLayoutRebuild()
+    {
+        if (_restoredLayoutRebuildRoutine != null)
+            StopCoroutine(_restoredLayoutRebuildRoutine);
+        _restoredLayoutRebuildRoutine = null;
     }
 
     private static void SetText(TMP_Text text, string value)

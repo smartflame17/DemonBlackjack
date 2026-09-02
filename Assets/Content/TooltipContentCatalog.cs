@@ -44,6 +44,15 @@ public sealed class TooltipContentCatalog : ScriptableObject
         for (int i = 0; i < shopCatalog.CardUpgrades.Count; i++)
             tooltipCatalog.definitions.Add(shopCatalog.CardUpgrades[i]);
 
+        ActiveItemDefinition stockSell = CreateInstance<ActiveItemDefinition>();
+        stockSell.hideFlags = HideFlags.DontSave;
+        stockSell.Initialize(
+            ActiveItemResolver.StockSell,
+            "주식 매도",
+            "사용 시 현재 가치만큼 주식을 매도합니다.\n원금: {stock_original_amount}\n현재 가치: {stock_current_amount}",
+            0);
+        tooltipCatalog.definitions.Add(stockSell);
+
         for (int i = 1; i <= 4; i++)
         {
             DevilAbilityDefinition definition = CreateInstance<DevilAbilityDefinition>();

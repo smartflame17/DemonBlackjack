@@ -5,7 +5,7 @@ public sealed class Deck
 {
     private readonly List<Card> _drawPile;
     private readonly List<Card> _discardPile;
-    private readonly Random _random;
+    private readonly ReplayableRandom _random;
 
     public Deck(IEnumerable<Card> cards, int seed, bool shuffle = true, bool cardsAreDrawOrder = false)
     {
@@ -14,11 +14,18 @@ public sealed class Deck
 
         _drawPile = new List<Card>(cards);
         _discardPile = new List<Card>();
-        _random = new Random(seed);
+        _random = new ReplayableRandom(seed);
         if (cardsAreDrawOrder)
             _drawPile.Reverse();
         if (shuffle)
             ShuffleDrawPile();
+    }
+
+    private Deck(IEnumerable<Card> drawPile, IEnumerable<Card> discardPile, RandomStateData randomState, int fallbackSeed)
+    {
+        _drawPile = drawPile != null ? new List<Card>(drawPile) : new List<Card>();
+        _discardPile = discardPile != null ? new List<Card>(discardPile) : new List<Card>();
+        _random = ReplayableRandom.FromData(randomState, fallbackSeed);
     }
 
     public IReadOnlyList<Card> DrawPile => _drawPile;
@@ -43,7 +50,7 @@ public sealed class Deck
         return true;
     }
 
-    public bool TryDrawWhere(Predicate<Card> predicate, Random random, out Card card)
+    public bool TryDrawWhere(Predicate<Card> predicate, ReplayableRandom random, out Card card)
     {
         if (predicate == null)
         {
@@ -64,7 +71,7 @@ public sealed class Deck
             return false;
         }
 
-        random ??= new Random(0);
+        random ??= new ReplayableRandom(0);
         int drawIndex = matchingIndices[random.Next(matchingIndices.Count)];
         card = _drawPile[drawIndex];
         _drawPile.RemoveAt(drawIndex);
@@ -116,6 +123,47 @@ public sealed class Deck
             int swapIndex = _random.Next(i + 1);
             (_drawPile[i], _drawPile[swapIndex]) = (_drawPile[swapIndex], _drawPile[i]);
         }
+    }
+
+    public DeckData ToData()
+    {
+        var data = new DeckData { randomState = _random.ToData() };
+        AddCards(data.drawPile, _drawPile);
+        AddCards(data.discardPile, _discardPile);
+        return data;
+    }
+
+    public static Deck FromData(DeckData data, int fallbackSeed)
+    {
+        if (data == null)
+            return null;
+
+        return new Deck(
+            ConvertCards(data.drawPile),
+            ConvertCards(data.discardPile),
+            data.randomState,
+            fallbackSeed);
+    }
+
+    private static void AddCards(List<CardData> target, IReadOnlyList<Card> source)
+    {
+        for (int i = 0; i < source.Count; i++)
+            target.Add(CardData.FromCard(source[i]));
+    }
+
+    private static List<Card> ConvertCards(List<CardData> source)
+    {
+        var cards = new List<Card>();
+        if (source == null)
+            return cards;
+
+        for (int i = 0; i < source.Count; i++)
+        {
+            if (source[i] != null)
+                cards.Add(source[i].ToCard());
+        }
+
+        return cards;
     }
 
     private static void TransformCards(List<Card> cards, Func<Card, Card> transform)

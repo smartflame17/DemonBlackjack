@@ -25,6 +25,7 @@ public sealed class ActiveItemUiController : MonoBehaviour
         EventBus.Subscribe<ActiveItemAddedEvent>(OnActiveItemAdded);
         EventBus.Subscribe<ActiveItemRemovedEvent>(OnActiveItemRemoved);
         EventBus.Subscribe<ActiveItemCapacityChangedEvent>(OnActiveItemCapacityChanged);
+        EventBus.Subscribe<ActiveItemSlotChangedEvent>(OnActiveItemSlotChanged);
         EventBus.Subscribe<RunPhaseChangedEvent>(OnRunPhaseChanged);
         Refresh();
     }
@@ -34,6 +35,7 @@ public sealed class ActiveItemUiController : MonoBehaviour
         EventBus.Unsubscribe<ActiveItemAddedEvent>(OnActiveItemAdded);
         EventBus.Unsubscribe<ActiveItemRemovedEvent>(OnActiveItemRemoved);
         EventBus.Unsubscribe<ActiveItemCapacityChangedEvent>(OnActiveItemCapacityChanged);
+        EventBus.Unsubscribe<ActiveItemSlotChangedEvent>(OnActiveItemSlotChanged);
         EventBus.Unsubscribe<RunPhaseChangedEvent>(OnRunPhaseChanged);
         RemoveSlotListeners();
     }
@@ -53,22 +55,23 @@ public sealed class ActiveItemUiController : MonoBehaviour
             bool slotVisible = i < capacity;
             if (!slotVisible)
             {
-                BindSlot(slot, null);
+                BindSlot(slot, i, null);
                 slot.Root.gameObject.SetActive(false);
                 continue;
             }
 
             slot.Root.gameObject.SetActive(true);
             string itemId = run != null && i < run.ActiveItemIds.Count ? run.ActiveItemIds[i] : null;
-            BindSlot(slot, itemId);
+            BindSlot(slot, i, itemId);
         }
 
         itemUseMenu?.RefreshAvailability();
     }
 
-    private void BindSlot(SlotBinding slot, string itemId)
+    private void BindSlot(SlotBinding slot, int slotIndex, string itemId)
     {
         slot.Button.onClick.RemoveListener(slot.ClickHandler);
+        slot.SlotIndex = slotIndex;
         slot.ItemId = string.IsNullOrWhiteSpace(itemId) ? null : itemId;
 
         bool occupied = slot.ItemId != null;
@@ -77,7 +80,10 @@ public sealed class ActiveItemUiController : MonoBehaviour
         slot.Image.color = occupied ? Color.white : Color.clear;
 
         if (occupied)
-            slot.TooltipTrigger.Bind(slot.ItemId);
+            slot.TooltipTrigger.Bind(
+                slot.ItemId,
+                null,
+                description => FormatDescription(slot.SlotIndex, slot.ItemId, description));
         else
             slot.TooltipTrigger.Clear();
 
@@ -143,7 +149,20 @@ public sealed class ActiveItemUiController : MonoBehaviour
     private void OnSlotClicked(SlotBinding slot)
     {
         if (!string.IsNullOrWhiteSpace(slot.ItemId))
-            itemUseMenu?.Toggle(slot.ItemId, slot.Root);
+            itemUseMenu?.Toggle(slot.SlotIndex, slot.ItemId, slot.Root);
+    }
+
+    private string FormatDescription(int slotIndex, string itemId, string description)
+    {
+        RunState run = runManager != null ? runManager.RunState : null;
+        if (run == null
+            || !run.TryGetActiveItemAt(slotIndex, out ActiveItemRuntimeState item)
+            || !string.Equals(item.ItemId, itemId, System.StringComparison.OrdinalIgnoreCase))
+        {
+            return description;
+        }
+
+        return ActiveItemTooltipFormatter.Format(description, item);
     }
 
     private void RemoveSlotListeners()
@@ -177,6 +196,7 @@ public sealed class ActiveItemUiController : MonoBehaviour
     private void OnActiveItemAdded(ActiveItemAddedEvent eventData) => Refresh();
     private void OnActiveItemRemoved(ActiveItemRemovedEvent eventData) => Refresh();
     private void OnActiveItemCapacityChanged(ActiveItemCapacityChangedEvent eventData) => Refresh();
+    private void OnActiveItemSlotChanged(ActiveItemSlotChangedEvent eventData) => Refresh();
     private void OnRunPhaseChanged(RunPhaseChangedEvent eventData) => Refresh();
 
     private sealed class SlotBinding
@@ -196,6 +216,7 @@ public sealed class ActiveItemUiController : MonoBehaviour
         public TMP_Text Label { get; }
         public TooltipTrigger TooltipTrigger { get; }
         public UnityAction ClickHandler { get; set; }
+        public int SlotIndex { get; set; }
         public string ItemId { get; set; }
     }
 }

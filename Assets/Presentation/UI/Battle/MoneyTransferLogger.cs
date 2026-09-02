@@ -76,13 +76,16 @@ public class MoneyTransferLogger : MonoBehaviour
 
     void OnEnable()
     {
+        global::EventBus.Subscribe<BattleStartedEvent>(OnBattleStarted);
         global::EventBus.Subscribe<MoneyTransferReasonEvent>(OnMoneyTransfer);
         global::EventBus.Subscribe<ShopClosedEvent>(OnShopClosed);
         BindBattleBus();
+        ApplyRestoredRoundPresentation();
     }
 
     void OnDisable()
     {
+        global::EventBus.Unsubscribe<BattleStartedEvent>(OnBattleStarted);
         global::EventBus.Unsubscribe<MoneyTransferReasonEvent>(OnMoneyTransfer);
         global::EventBus.Unsubscribe<ShopClosedEvent>(OnShopClosed);
         UnbindBattleBus();
@@ -119,25 +122,56 @@ public class MoneyTransferLogger : MonoBehaviour
         ResetTexts();
     }
 
+    private void OnBattleStarted(BattleStartedEvent eventData)
+    {
+        BindBattleBus();
+        if (!ApplyRestoredRoundPresentation())
+            TweenToDefaultPosition();
+    }
+
     private void OnRoundEnded(RoundEndedEvent eventData)
     {
-        // Move the logger panel to the round end position
-        if (roundEndPanelPosition != null && loggerPanel != null)
-        {
-            loggerPanel.transform.As<RectTransform>().DOAnchorPos(roundEndPanelPosition.anchoredPosition, 0.5f).SetEase(Ease.InOutQuad);
-            loggerPanel.transform.As<RectTransform>().DOScale(Vector3.one * 1.5f, 0.25f).SetEase(Ease.InOutQuad);
-        }
+        TweenToRoundEndPosition();
     }
 
     private void OnShopClosed(ShopClosedEvent @event)
     {
         ResetTexts();
-        // Move the logger panel to the default position
-        if (defaultPanelPosition != null && loggerPanel != null)
-        {
-            loggerPanel.transform.As<RectTransform>().DOAnchorPos(defaultPanelPosition.anchoredPosition, 0.5f).SetEase(Ease.InOutQuad);
-            loggerPanel.transform.As<RectTransform>().DOScale(Vector3.one, 0.25f).SetEase(Ease.InOutQuad);
-        }
+        TweenToDefaultPosition();
+    }
+
+    private bool ApplyRestoredRoundPresentation()
+    {
+        BattleState battle = battleController != null ? battleController.BattleState : null;
+        if (battle == null
+            || battle.Phase != BattlePhase.PostRound
+            || !battleController.IsWaitingForVisuals)
+            return false;
+
+        TweenToRoundEndPosition();
+        return true;
+    }
+
+    private void TweenToRoundEndPosition()
+    {
+        if (roundEndPanelPosition == null || loggerPanel == null)
+            return;
+
+        RectTransform loggerRect = loggerPanel.transform.As<RectTransform>();
+        loggerRect.DOKill();
+        loggerRect.DOAnchorPos(roundEndPanelPosition.anchoredPosition, 0.5f).SetEase(Ease.InOutQuad);
+        loggerRect.DOScale(Vector3.one * 1.5f, 0.25f).SetEase(Ease.InOutQuad);
+    }
+
+    private void TweenToDefaultPosition()
+    {
+        if (defaultPanelPosition == null || loggerPanel == null)
+            return;
+
+        RectTransform loggerRect = loggerPanel.transform.As<RectTransform>();
+        loggerRect.DOKill();
+        loggerRect.DOAnchorPos(defaultPanelPosition.anchoredPosition, 0.5f).SetEase(Ease.InOutQuad);
+        loggerRect.DOScale(Vector3.one, 0.25f).SetEase(Ease.InOutQuad);
     }
 
     private void OnMoneyTransfer(MoneyTransferReasonEvent eventData)

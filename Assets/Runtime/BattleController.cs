@@ -1,4 +1,5 @@
 using System.Collections.Generic;
+using System;
 using UnityEngine;
 
 public class BattleController : MonoBehaviour
@@ -7,6 +8,7 @@ public class BattleController : MonoBehaviour
     public CommandQueue CommandQueue => BattleState?.CommandQueue;
     public bool HasActiveBattle => BattleState != null && !BattleState.IsBattleOver;
     public bool HasPendingActiveItemSelection => BattleState != null && BattleState.HasPendingActiveItemSelection;
+    public bool HasPendingActiveItemUse => BattleState != null && BattleState.HasPendingActiveItemUse;
     public bool IsWaitingForVisuals { get; private set; }
     public IBattleInputGate InputGate { get; set; }
 
@@ -16,6 +18,28 @@ public class BattleController : MonoBehaviour
 
         BattleState = new BattleState(runState, config);
         BattleState.Initialize();
+    }
+
+    public bool RestoreBattle(RunState runState, BattleStateData data)
+    {
+        CleanupBattle();
+
+        BattleState restoredBattle;
+        try
+        {
+            restoredBattle = BattleState.FromData(runState, data);
+        }
+        catch (Exception exception)
+        {
+            Debug.LogWarning($"Failed to restore battle checkpoint: {exception.Message}");
+            return false;
+        }
+        if (restoredBattle == null)
+            return false;
+
+        BattleState = restoredBattle;
+        IsWaitingForVisuals = true;
+        return true;
     }
 
     public bool StartNextRound(int wager)
@@ -86,6 +110,14 @@ public class BattleController : MonoBehaviour
             && BattleState.TryUseActiveItem(itemId);
     }
 
+    public bool TryUseActiveItemAtSlot(int slotIndex)
+    {
+        if (!CanUseActiveItemAtSlot(slotIndex))
+            return false;
+
+        return BattleState.TryUseActiveItemAtSlot(slotIndex);
+    }
+
     public ActiveItemUseStartResult TryBeginActiveItemUse(
         string itemId,
         out ActiveItemSelectionRequest selectionRequest)
@@ -101,9 +133,30 @@ public class BattleController : MonoBehaviour
         return BattleState.TryBeginActiveItemUse(itemId, out selectionRequest);
     }
 
+    public ActiveItemUseStartResult TryBeginActiveItemUseAtSlot(
+        int slotIndex,
+        out ActiveItemUseRequest request)
+    {
+        request = default;
+        if (IsWaitingForVisuals
+            || BattleState == null
+            || !BattleState.RunState.TryGetActiveItemAt(slotIndex, out ActiveItemRuntimeState item)
+            || InputGate != null && !InputGate.CanUseActiveItem(BattleState, item.ItemId))
+        {
+            return ActiveItemUseStartResult.Rejected;
+        }
+
+        return BattleState.TryBeginActiveItemUseAtSlot(slotIndex, out request);
+    }
+
     public bool TryCompletePendingActiveItemUse(IReadOnlyList<int> selectedIndices)
     {
         return BattleState != null && BattleState.TryCompletePendingActiveItemUse(selectedIndices);
+    }
+
+    public bool TryCompletePendingActiveItemMoneyUse(int amount)
+    {
+        return BattleState != null && BattleState.TryCompletePendingActiveItemMoneyUse(amount);
     }
 
     public bool CancelPendingActiveItemUse()
@@ -117,6 +170,19 @@ public class BattleController : MonoBehaviour
             && BattleState != null
             && (InputGate == null || InputGate.CanUseActiveItem(BattleState, itemId))
             && BattleState.CanUseActiveItem(itemId);
+    }
+
+    public bool CanUseActiveItemAtSlot(int slotIndex)
+    {
+        if (IsWaitingForVisuals
+            || BattleState == null
+            || !BattleState.RunState.TryGetActiveItemAt(slotIndex, out ActiveItemRuntimeState item))
+        {
+            return false;
+        }
+
+        return (InputGate == null || InputGate.CanUseActiveItem(BattleState, item.ItemId))
+            && BattleState.CanUseActiveItemAtSlot(slotIndex);
     }
 
     public RoundResolution EndPlayerPhase()
@@ -155,7 +221,13 @@ public class BattleController : MonoBehaviour
         BattleState activeBattle = BattleState;
         IsWaitingForVisuals = false;
 
-        if (activeBattle.Phase == BattlePhase.BattleEnd)
+        if (activeBattle.Phase == BattlePhase.PostRound)
+        {
+            activeBattle.CleanupRound();
+            if (activeBattle.Phase == BattlePhase.BattleEnd)
+                EventBus.Publish(new BattleEndedEvent(activeBattle.GetBattleResult()));
+        }
+        else if (activeBattle.Phase == BattlePhase.BattleEnd)
         {
             EventBus.Publish(new BattleEndedEvent(activeBattle.GetBattleResult()));
         }

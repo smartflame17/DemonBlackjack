@@ -16,6 +16,7 @@ public sealed class BattleEffectRuntime : IDisposable
     {
         _battle = battle ?? throw new ArgumentNullException(nameof(battle));
         _battle.EventBus.Subscribe<CardPlayedEvent>(OnCardPlayed);
+        _battle.EventBus.Subscribe<RoundStartedEvent>(OnRoundStarted);
     }
 
     public void Dispose()
@@ -24,7 +25,25 @@ public sealed class BattleEffectRuntime : IDisposable
             return;
 
         _battle.EventBus.Unsubscribe<CardPlayedEvent>(OnCardPlayed);
+        _battle.EventBus.Unsubscribe<RoundStartedEvent>(OnRoundStarted);
         _disposed = true;
+    }
+
+    private void OnRoundStarted(RoundStartedEvent eventData)
+    {
+        RunState run = _battle.RunState;
+        for (int slotIndex = 0; slotIndex < run.ActiveItemStates.Count; slotIndex++)
+        {
+            ActiveItemRuntimeState item = run.ActiveItemStates[slotIndex];
+            if (item == null || !item.IsStockHolding)
+                continue;
+
+            int changeStep = _battle.NextRandomInclusive(
+                StockValueResolver.MinimumChangeStep,
+                StockValueResolver.MaximumChangeStep);
+            int nextPricePercent = StockValueResolver.ApplyChangeStep(item.StockPricePercent, changeStep);
+            run.TrySetStockPricePercentAt(slotIndex, nextPricePercent);
+        }
     }
 
     private void OnCardPlayed(CardPlayedEvent eventData)
